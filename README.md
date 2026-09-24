@@ -1,8 +1,14 @@
 # Forever Track
 
-> A collection of independent addons for **WoW Forever**.
+A collection of independent addons for **WoW Forever**.
 
 > 一系列為 **WoW Forever** 開發的獨立插件。
+
+<br>
+
+*This project is developed with significant assistance from **Google Gemini**.
+
+> *本專案在開發過程中大量使用 **Google Gemini** 協助。
 
 <br>
 
@@ -292,11 +298,6 @@ Screenshots and feature demonstrations will be added as development progresses.
 ---
 
 ## Development Notes **開發說明**
-
-
-This project is developed with significant assistance from **Google Gemini**.
-
-> 本專案在開發過程中大量使用 **Google Gemini** 協助。
 
 AI assistance has been used for:
 
