@@ -1,0 +1,56 @@
+## Interface: 16001
+## Title: t2_TrackNPC
+## Notes: Manages and tracks custom NPC locations.
+## Author: ZealZol
+## Version: 0.1
+## SavedVariables: T2_NPC_DATA
+
+
+db_map/Arathi Highlands-general.lua
+db_map/Azshara-general.lua
+db_map/Badlands-general.lua
+db_map/Blasted Lands-general.lua
+db_map/Burning Steppes-general.lua
+db_map/Dalaran-general.lua
+db_map/Darkshore-general.lua
+db_map/Darnassus-general.lua
+db_map/Deadwind Pass-general.lua
+db_map/Desolace-general.lua
+db_map/Dun Morogh-general.lua
+db_map/Durotar-general.lua
+db_map/Eastern Plaguelands-general.lua
+db_map/Elwynn Forest-general.lua
+db_map/Felwood-general.lua
+db_map/Feralas-general.lua
+db_map/Hillsbrad Foothills-general.lua
+db_map/Ironforge-general.lua
+db_map/Loch Modan-general.lua
+db_map/Moonglade-general.lua
+db_map/Mount Hyjal-general.lua
+db_map/Mulgore-general.lua
+db_map/Orgrimmar-general.lua
+db_map/Redridge Mountains-general.lua
+db_map/Riverglades-general.lua
+db_map/Searing Gorge-general.lua
+db_map/Silithus-general.lua
+db_map/Silverpine Forest-general.lua
+db_map/Stonetalon Mountains-general.lua
+db_map/Stormwind City-general.lua
+db_map/Stranglethorn Vale-general.lua
+db_map/Swamp of Sorrows-general.lua
+db_map/Tanaris-general.lua
+db_map/Teldrassil-general.lua
+db_map/The Barrens-general.lua
+db_map/The Hinterlands-general.lua
+db_map/Thousand Needles-general.lua
+db_map/Thunder Bluff-general.lua
+db_map/Tirisfal Glades-general.lua
+db_map/Undercity-general.lua
+db_map/Un'Goro Crater-general.lua
+db_map/Western Plaguelands-general.lua
+db_map/Westfall-general.lua
+db_map/Wetlands-general.lua
+db_map/Winterspring-general.lua
+db_map/Zephras Isle-general.lua
+
+t2_TrackNPC.lua
