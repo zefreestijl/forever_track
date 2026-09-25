@@ -18,7 +18,7 @@ T1_ZoneDB = {
     [1426] = { name = "dun-morogh", x = 0.752, y = 0.507, comment = "丹莫洛", w = 0.123, h = 0.11 },
     [1427] = { name = "searing-gorge", x = 0.768, y = 0.556, comment = "灼熱峽谷", w = 0.077, h = 0.063 },
     [1428] = { name = "burning-steppes", x = 0.794, y = 0.609, comment = "燃燒平原", w = 0.122, h = 0.087 },
-    [1429] = { name = "elwynn-forest", x = 0.741, y = 0.647, comment = "艾爾文森林", w = 0.095, h = 0.127 },
+    [1429] = { name = "elwynn-forest", x = 0.743, y = 0.648, comment = "艾爾文森林", w = 0.105, h = 0.097 },
     [1430] = { name = "deadwind-pass", x = 0.795, y = 0.710, comment = "逆風小徑", w = 0.072, h = 0.065 },
     [1431] = { name = "duskwood", x = 0.751, y = 0.703, comment = "暮色森林", w = 0.078, h = 0.072 },
     [1432] = { name = "loch-modan", x = 0.835, y = 0.503, comment = "洛克莫丹", w = 0.087, h = 0.075 },

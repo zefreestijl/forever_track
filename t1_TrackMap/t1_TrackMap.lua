@@ -1,10 +1,9 @@
-
 -- ==========================================
 -- 1. Create the Main Frame
 -- ==========================================
 -- Using Blizzard's built-in template for the authentic UI look
 local f = CreateFrame("Frame", "t1_TrackMap", UIParent, "BasicFrameTemplateWithInset")
-f:SetSize(916, 640) 
+f:SetSize(916, 640)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 
 -- Resizing Bounds (Mathematically synced to 1.5 inner ratio)
@@ -40,7 +39,7 @@ f.mapCanvas:SetClipsChildren(true)
 -- Inner container that gets zoomed and panned
 f.mapContent = CreateFrame("Frame", nil, f.mapCanvas)
 f.mapContent:SetPoint("TOPLEFT", f.mapCanvas, "TOPLEFT", 0, 0)
-f.mapContent:SetSize(900, 600) 
+f.mapContent:SetSize(900, 600)
 
 -- ==========================================
 -- 3. Buttons & Grips
@@ -64,8 +63,8 @@ collapseBtn:SetScript("OnClick", function()
         isCollapsed = false
     else
         -- Save the current height so we restore correctly after resizing
-        f.expandedHeight = f:GetHeight() 
-        
+        f.expandedHeight = f:GetHeight()
+
         -- Collapse down to just the header bar and hide backgrounds
         f:SetHeight(32)
         if f.Bg then f.Bg:Hide() end
@@ -651,6 +650,7 @@ function f:UpdateMapTransform()
     local MY_CUSTOM_WORLD_MAP_ID = 947
 
     if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+        -- 1. Create the frames exactly once
         if not f.cityFlags then
             f.cityFlags = {}
             for key, data in pairs(cityDataByZone) do
@@ -666,17 +666,41 @@ function f:UpdateMapTransform()
                 end
                 tex:SetTexCoord(10 / 64, 54 / 64, 10 / 64, 54 / 64)
 
-                f.cityFlags[key] = { frame = flagFrame, x = data.x or 0, y = data.y or 0 }
+                -- NEW: Save the 'tex' reference so we can recolor it dynamically!
+                f.cityFlags[key] = { frame = flagFrame, tex = tex, x = data.x or 0, y = data.y or 0 }
             end
         end
 
+        -- 2. Determine if the player is currently inside a capital city
+        local playerMap = C_Map.GetBestMapForUnit("player")
+        local playerInCityID = nil
+        for key, data in pairs(cityDataByZone) do
+            if data.id == playerMap then
+                playerInCityID = playerMap
+                break
+            end
+        end
+
+    
+        -- 3. Render and Counter-Scale
         for key, flagObj in pairs(f.cityFlags) do
             flagObj.frame:Show()
+            
+            -- NEW: Fade out other cities to 0.5 opacity instead of making them ominous and gray!
+            if playerInCityID and cityDataByZone[key].id ~= playerInCityID then
+                flagObj.tex:SetDesaturated(false) 
+                flagObj.tex:SetVertexColor(1, 1, 1, 0.5) -- Keep true color, just drop opacity to 30%
+            else
+                flagObj.tex:SetDesaturated(false)
+                flagObj.tex:SetVertexColor(1, 1, 1, 1) -- Full color and opacity
+            end
+
             local baseSize = 24
             flagObj.frame:SetSize(baseSize / self.zoomLevel, baseSize / self.zoomLevel)
             flagObj.frame:ClearAllPoints()
             flagObj.frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", flagObj.x * contentW, -flagObj.y * contentH)
         end
+
     else
         if f.cityFlags then
             for key, flagObj in pairs(f.cityFlags) do
@@ -781,47 +805,54 @@ f.playerArrow:SetDrawLayer("OVERLAY", 7)
 f.playerArrowTracker = CreateFrame("Frame", nil, f.mapCanvas)
 f.playerArrowTracker:SetScript("OnUpdate", function()
     local MY_CUSTOM_WORLD_MAP_ID = 947
+    local hasValidData = false
+    local pX, pY = 0, 0
 
-    if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-        local hasValidData = false
-        local pX, pY = 0, 0
+    local currentZoneID = C_Map.GetBestMapForUnit("player")
 
-        local currentZoneID = C_Map.GetBestMapForUnit("player")
-        if currentZoneID then
-            local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
-            if pos and pos.x and pos.y and T1_ZoneDB and T1_ZoneDB[currentZoneID] then
-                local localX, localY = pos.x, pos.y
-                local zoneData = T1_ZoneDB[currentZoneID]
-
-                if zoneData.x and zoneData.y and zoneData.w and zoneData.h then
-                    pX = zoneData.x + ((localX - 0.5) * zoneData.w)
-                    pY = zoneData.y + ((localY - 0.5) * zoneData.h)
-                    hasValidData = true
+    if currentZoneID then
+        local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
+        if pos and pos.x and pos.y then
+            -- SCENARIO 1: We are looking at the Global World Map
+            if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+                if T1_ZoneDB and T1_ZoneDB[currentZoneID] then
+                    local zoneData = T1_ZoneDB[currentZoneID]
+                    if zoneData.x and zoneData.y and zoneData.w and zoneData.h then
+                        pX = zoneData.x + ((pos.x - 0.5) * zoneData.w)
+                        pY = zoneData.y + ((pos.y - 0.5) * zoneData.h)
+                        hasValidData = true
+                    end
                 end
+
+                -- SCENARIO 2: We are looking at the local map of the zone we are currently standing in!
+            elseif f.currentMapID == currentZoneID then
+                pX = pos.x
+                pY = pos.y
+                hasValidData = true
             end
         end
+    end
 
-        if hasValidData then
-            f.playerArrow:Show()
-            local baseSize = 32
-            f.playerArrow:SetSize(baseSize / f.zoomLevel, baseSize / f.zoomLevel)
+    if hasValidData then
+        f.playerArrow:Show()
+        local baseSize = 32
+        f.playerArrow:SetSize(baseSize / f.zoomLevel, baseSize / f.zoomLevel)
 
-            local facing = GetPlayerFacing()
-            if facing then f.playerArrow:SetRotation(facing) end
+        local facing = GetPlayerFacing()
+        if facing then f.playerArrow:SetRotation(facing) end
 
-            f.playerArrow.pX = pX
-            f.playerArrow.pY = pY
+        f.playerArrow.pX = pX
+        f.playerArrow.pY = pY
 
-            local pixelX = pX * f.mapContent:GetWidth()
-            local pixelY = -pY * f.mapContent:GetHeight()
-            f.playerArrow:SetPoint("CENTER", f.mapContent, "TOPLEFT", pixelX, pixelY)
-        else
-            f.playerArrow:Hide()
-            f.playerArrow.pX = nil
-            f.playerArrow.pY = nil
-        end
+        local contentW = f.mapContent:GetWidth()
+        local contentH = f.mapContent:GetHeight()
+        local pixelX = pX * contentW
+        local pixelY = -pY * contentH
+        f.playerArrow:SetPoint("CENTER", f.mapContent, "TOPLEFT", pixelX, pixelY)
     else
         f.playerArrow:Hide()
+        f.playerArrow.pX = nil
+        f.playerArrow.pY = nil
     end
 end)
 
@@ -1218,10 +1249,14 @@ function f:ZoomFitPlayerAndPin() -- ============================================
                 -- 1. Story & Money Block
                 local textBlock1 = ""
                 local description, objectiveText = GetQuestLogQuestText()
-                if objectiveText and objectiveText ~= "" then textBlock1 = textBlock1 ..
-                    "|cFFFFFF00Preface:|r\n" .. objectiveText .. "\n\n" end
-                if description and description ~= "" then textBlock1 = textBlock1 ..
-                    "|cFFFFFF00Story:|r\n" .. description .. "\n\n" end
+                if objectiveText and objectiveText ~= "" then
+                    textBlock1 = textBlock1 ..
+                        "|cFFFFFF00Preface:|r\n" .. objectiveText .. "\n\n"
+                end
+                if description and description ~= "" then
+                    textBlock1 = textBlock1 ..
+                        "|cFFFFFF00Story:|r\n" .. description .. "\n\n"
+                end
 
                 local xp = 0
                 if type(GetQuestLogRewardXP) == "function" then
@@ -1343,7 +1378,7 @@ function f:ZoomFitPlayerAndPin() -- ============================================
 
                 -- 5. Location Block (Map ID & Coords)
                 local questMapID = type(QuestUtils_GetQuestMapID) == "function" and
-                QuestUtils_GetQuestMapID(questInfo.questID) or nil
+                    QuestUtils_GetQuestMapID(questInfo.questID) or nil
 
                 local mapText = questMapID and tostring(questMapID) or "|cFF808080Unknown|r"
                 local locText = "|cFFFFFF00Location:|r\nMap ID: " .. mapText
@@ -1674,33 +1709,27 @@ _G.func_T1_SetPin = function(mapID, localX, localY, r, g, b)
     _G.func_T1_AddPin(mapID, localX, localY, r, g, b)
 end
 
--- Usage 2: Adds a pin to the map WITHOUT clearing old ones
+
+-- The engine that actually does the math and adds the pin
 _G.func_T1_AddPin = function(mapID, localX, localY, r, g, b)
-    -- SMART NORMALIZE: Convert 0-100 coordinates into 0.0-1.0 math coordinates!
     if localX and localX > 1 then localX = localX / 100 end
     if localY and localY > 1 then localY = localY / 100 end
 
-    -- ==========================================
-    -- DEBUG LOGGING: Test the Global Math!
-    -- ==========================================
-    if T1_ZoneDB and T1_ZoneDB[mapID] then
-        local zData = T1_ZoneDB[mapID]
-        if zData.x and zData.w and zData.y and zData.h then
-            local globalX = zData.x + ((localX - 0.5) * zData.w)
-            local globalY = zData.y + ((localY - 0.5) * zData.h)
+    -- NEW: City-Only Debug Logging
+    local capitalCities = {
+        [1453] = true,
+        [1454] = true,
+        [1455] = true,
+        [1456] = true,
+        [1457] = true,
+        [1458] = true
+    }
 
-            -- CHANGED: Multiply localX and localY by 100 just for the print readout!
-            print(string.format("|cff00ff00T1_TrackMap DEBUG:|r MapID: %s | Local: (%.1f, %.1f) -> Global: (%.4f, %.4f)",
-                tostring(mapID), localX * 100, localY * 100, globalX, globalY))
-        end
-    else
-        print(string.format(
-            "|cFFFF0000T1_TrackMap ERROR:|r MapID %s is NOT in T1_ZoneDB! The map cannot translate this pin.",
-            tostring(mapID)))
+    if capitalCities[mapID] then
+        print(string.format("|cff00ff00T1_TrackMap DEBUG:|r City Pin - MapID: %s | Local: (%.1f, %.1f)",
+            tostring(mapID), localX * 100, localY * 100))
     end
-    -- ==========================================
 
-    -- Default to a bright cyan rhombus if no RGB color is provided
     table.insert(f.customPins, {
         mapID = mapID,
         x = localX,
@@ -1710,7 +1739,10 @@ _G.func_T1_AddPin = function(mapID, localX, localY, r, g, b)
         b = b or 1
     })
 
-    -- NEW: Instead of just updating the transform, trigger the auto-zoom framing!
+    if f:IsShown() and f.UpdateMapTransform then
+        f:UpdateMapTransform()
+    end
+
     if f:IsShown() and f.ZoomFitPlayerAndPin then
         f:ZoomFitPlayerAndPin()
     end
@@ -1733,21 +1765,40 @@ end
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
 
+
 -- ==========================================
--- GLOBAL EXPOSED TOGGLE API
+-- GLOBAL EXPOSED TOGGLE API (Smart Default)
 -- ==========================================
 _G.func_ToggleT1Window = function(mapID)
-    -- If a specific mapID is passed from another addon, load it!
+    -- If a specific mapID is passed from another addon (like T2), load it!
     if mapID and type(mapID) == "number" then
         f:LoadMap(mapID)
         if f.UpdateMapTransform then f:UpdateMapTransform() end
-        if f.RefreshPOIs then f:RefreshPOIs() end
         f:Show()
     else
         -- Otherwise, just act as a standard toggle
         if f:IsShown() then
             f:Hide()
         else
+            -- Check where the player is currently standing
+            local playerMap = C_Map.GetBestMapForUnit("player")
+            local capitalCities = {
+                [1453] = true,
+                [1454] = true,
+                [1455] = true,
+                [1456] = true,
+                [1457] = true,
+                [1458] = true
+            }
+
+            -- If standing in a capital city, default to the city map. Otherwise, World Map!
+            local defaultMap = 947
+            if playerMap and capitalCities[playerMap] then
+                defaultMap = playerMap
+            end
+
+            f:LoadMap(defaultMap)
+            if f.UpdateMapTransform then f:UpdateMapTransform() end
             f:Show()
         end
     end
@@ -1774,14 +1825,25 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     SaveBindings(bindSet)
 end)
 
+-- Update OnShow to use the same smart location logic on first load
 f:SetScript("OnShow", function(self)
-    if not self.currentMapLoaded then
-        local MY_CUSTOM_WORLD_MAP_ID = 947
-        self:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
-        self.currentMapLoaded = true
+    if not self.currentMapID then
+        local playerMap = C_Map.GetBestMapForUnit("player")
+        local capitalCities = {
+            [1453] = true,
+            [1454] = true,
+            [1455] = true,
+            [1456] = true,
+            [1457] = true,
+            [1458] = true
+        }
+        local defaultMap = (playerMap and capitalCities[playerMap]) and playerMap or 947
+        self:LoadMap(defaultMap)
     end
     if self.UpdateMapTransform then self:UpdateMapTransform() end
 end)
+
+
 
 print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")
 
