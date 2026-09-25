@@ -249,60 +249,15 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
         -- ==========================================
         -- RIGHT CLICK: Open T2 Window with MapID
         -- ==========================================
-
         if button == "RightButton" then
             local targetMapID = nil
 
             if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-                -- Always use the standard zone ID we just saved in OnUpdate!
                 targetMapID = self.hoveredMapID
             else
-                -- If we are already zoomed into a specific city map, use its ID directly
                 targetMapID = f.currentMapID
             end
 
-            -- DEBUG PRINT: Let's see exactly what T1 is sending!
-            print(string.format("|cff00ff00T1_TrackMap DEBUG:|r Right-Clicked! Target MapID: %s | Hovered Zone: %s",
-                tostring(targetMapID), tostring(self.hoveredZone)))
-
-            -- Pass the targetMapID to your T2 API
-            if _G.func_ToggleT2Window then
-                _G.func_ToggleT2Window(targetMapID)
-            else
-                print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
-            end
-            local targetMapID = nil
-
-            if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-                -- Always use the standard zone ID we just saved in OnUpdate!
-                targetMapID = self.hoveredMapID
-            else
-                -- If we are already zoomed into a specific city map, use its ID directly
-                targetMapID = f.currentMapID
-            end
-
-            -- Pass the targetMapID to your T2 API
-            if _G.func_ToggleT2Window then
-                _G.func_ToggleT2Window(targetMapID)
-            else
-                print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
-            end
-            local targetMapID = nil
-
-            if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-                -- If we are hovering a zone that has a capital city, prefer the city's ID
-                if self.hoveredZone and cityDataByZone[self.hoveredZone] then
-                    targetMapID = cityDataByZone[self.hoveredZone].id
-                else
-                    -- Otherwise, use the standard zone ID we just saved in OnUpdate
-                    targetMapID = self.hoveredMapID
-                end
-            else
-                -- If we are already looking at a specific city map, use its ID directly
-                targetMapID = f.currentMapID
-            end
-
-            -- Pass the targetMapID to your T2 API
             if _G.func_ToggleT2Window then
                 _G.func_ToggleT2Window(targetMapID)
             else
@@ -310,59 +265,61 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
             end
 
             -- ==========================================
-            -- WORLD MAP SPECIFIC CLICKS (Left / Middle)
+            -- MIDDLE CLICK: Zoom Fit (Works on ALL Maps)
             -- ==========================================
-        elseif f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-            if button == "LeftButton" then
-                -- 1. Calculate the exact percentage coordinates of the mouse click
-                local rawX, rawY = GetCursorPosition()
-                local mapScale = f.mapContent:GetEffectiveScale()
-                local left = f.mapContent:GetLeft()
-                local top = f.mapContent:GetTop()
+        elseif button == "MiddleButton" then
+            local canvasW, canvasH = self:GetSize()
+            local contentW, contentH = f.mapContent:GetSize()
 
-                if left and top then
-                    local pctX = ((rawX / mapScale) - left) / f.mapContent:GetWidth()
-                    local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
+            if canvasW and canvasH and contentW and contentH then
+                local fitScale = math.min(canvasW / contentW, canvasH / contentH)
 
-                    -- 2. Check if the click is physically close to a city flag (approx 3% radius)
-                    local CLICK_RADIUS_SQ = 0.001
+                if fitScale < 1 then fitScale = 1 end
+                if fitScale > 10 then fitScale = 10 end
 
-                    for _, data in pairs(cityDataByZone) do
-                        if data.x and data.y then
-                            local dx = data.x - pctX
-                            local dy = data.y - pctY
+                f.zoomLevel = fitScale
 
-                            -- If the click distance is within the flag's hit-box, open the city!
-                            if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
-                                f.zoomLevel = 1
-                                f.mapOffsetX = 0
-                                f.mapOffsetY = 0
-                                f:LoadMap(data.id)
-                                if f.UpdateMapTransform then f:UpdateMapTransform() end
-                                break
-                            end
+                local visualOffsetX = (canvasW - (contentW * f.zoomLevel)) / 2
+                local visualOffsetY = -(canvasH - (contentH * f.zoomLevel)) / 2
+
+                f.mapOffsetX = visualOffsetX / f.zoomLevel
+                f.mapOffsetY = visualOffsetY / f.zoomLevel
+            end
+            if f.UpdateMapTransform then f:UpdateMapTransform() end
+
+            -- ==========================================
+            -- LEFT CLICK: Specific to World Map Flags
+            -- ==========================================
+        elseif button == "LeftButton" and f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+            -- 1. Calculate the exact percentage coordinates of the mouse click
+            local rawX, rawY = GetCursorPosition()
+            local mapScale = f.mapContent:GetEffectiveScale()
+            local left = f.mapContent:GetLeft()
+            local top = f.mapContent:GetTop()
+
+            if left and top then
+                local pctX = ((rawX / mapScale) - left) / f.mapContent:GetWidth()
+                local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
+
+                -- 2. Check if the click is physically close to a city flag
+                local CLICK_RADIUS_SQ = 0.001
+
+                for _, data in pairs(cityDataByZone) do
+                    if data.x and data.y then
+                        local dx = data.x - pctX
+                        local dy = data.y - pctY
+
+                        -- If the click distance is within the flag's hit-box, open the city!
+                        if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
+                            f.zoomLevel = 1
+                            f.mapOffsetX = 0
+                            f.mapOffsetY = 0
+                            f:LoadMap(data.id)
+                            if f.UpdateMapTransform then f:UpdateMapTransform() end
+                            break
                         end
                     end
                 end
-            elseif button == "MiddleButton" then
-                local canvasW, canvasH = self:GetSize()
-                local contentW, contentH = f.mapContent:GetSize()
-
-                if canvasW and canvasH and contentW and contentH then
-                    local fitScale = math.min(canvasW / contentW, canvasH / contentH)
-
-                    if fitScale < 1 then fitScale = 1 end
-                    if fitScale > 10 then fitScale = 10 end
-
-                    f.zoomLevel = fitScale
-
-                    local visualOffsetX = (canvasW - (contentW * f.zoomLevel)) / 2
-                    local visualOffsetY = -(canvasH - (contentH * f.zoomLevel)) / 2
-
-                    f.mapOffsetX = visualOffsetX / f.zoomLevel
-                    f.mapOffsetY = visualOffsetY / f.zoomLevel
-                end
-                if f.UpdateMapTransform then f:UpdateMapTransform() end
             end
         end
     end

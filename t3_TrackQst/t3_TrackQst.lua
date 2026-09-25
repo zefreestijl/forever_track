@@ -132,7 +132,7 @@ collapseBtn:SetScript("OnClick", function()
         btnUntrackAll:Show()
         collapseBtn:SetText("_")
         isCollapsed = false
-        if _G.UpdateQuestList then _G.UpdateQuestList() end
+        if _G.func_UpdateQuestList then _G.func_UpdateQuestList() end
     else
         f:SetHeight(32)
         if f.Bg then f.Bg:Hide() end
@@ -177,12 +177,12 @@ btnExpandAll:SetScript("OnClick", function()
             expandedQuests[q.questID] = true
         end
     end
-    if _G.UpdateQuestList then _G.UpdateQuestList() end
+    if _G.func_UpdateQuestList then _G.func_UpdateQuestList() end
 end)
 
 btnCollapseAll:SetScript("OnClick", function()
     wipe(expandedQuests)
-    if _G.UpdateQuestList then _G.UpdateQuestList() end
+    if _G.func_UpdateQuestList then _G.func_UpdateQuestList() end
 end)
 
 btnUntrackAll:SetScript("OnClick", function()
@@ -206,7 +206,7 @@ btnUntrackAll:SetScript("OnClick", function()
             end
         end
     end
-    if _G.UpdateQuestList then _G.UpdateQuestList() end
+    if _G.func_UpdateQuestList then _G.func_UpdateQuestList() end
 end)
 
 local function GetOrCreateLine(index)
@@ -288,7 +288,7 @@ local function GetDifficultyColorHex(questLevel)
     end
 end
 
-function _G.UpdateQuestList()
+function _G.func_UpdateQuestList()
     if not f:IsShown() or isCollapsed then return end
 
     for _, line in ipairs(questLines) do line:Hide() end
@@ -347,7 +347,7 @@ function _G.UpdateQuestList()
             end
         end
         
-        tab:SetScript("OnClick", function() activeFilter = filterName; _G.UpdateQuestList() end)
+        tab:SetScript("OnClick", function() activeFilter = filterName; _G.func_UpdateQuestList() end)
         tab:Show()
     end
     
@@ -414,7 +414,7 @@ function _G.UpdateQuestList()
             else
                 expandedQuests[questInfo.questID] = not expandedQuests[questInfo.questID]
             end
-            _G.UpdateQuestList()
+            _G.func_UpdateQuestList()
         end)
 
         local qHeight = qBtn.text:GetStringHeight()
@@ -686,11 +686,11 @@ end
 -- =========================================================================
 -- 6. Events & Keybinds
 -- =========================================================================
-f:SetScript("OnShow", _G.UpdateQuestList)
+f:SetScript("OnShow", _G.func_UpdateQuestList)
 f:RegisterEvent("QUEST_LOG_UPDATE")
 f:RegisterEvent("SUPER_TRACKING_CHANGED")
 f:RegisterEvent("PLAYER_LEVEL_UP")
-f:SetScript("OnEvent", function(self, event) _G.UpdateQuestList() end)
+f:SetScript("OnEvent", function(self, event) _G.func_UpdateQuestList() end)
 
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
