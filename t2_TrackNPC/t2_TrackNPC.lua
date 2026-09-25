@@ -27,7 +27,7 @@ end)
 
 f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
-f.title:SetText("t2_TrackNPC Manager")
+f.title:SetText("t2_TrackNPC")
 
 -- State Variables
 local activeRegion = nil  -- LEVEL 1: e.g. "Eastern Kingdoms <Alliance>"

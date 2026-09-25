@@ -3,7 +3,7 @@
 -- =========================================================================
 local locale = GetLocale()
 local L = {
-    TITLE = "t3_TrackQst - Rewards & Choices",
+    TITLE = "t3_TrackQst",
     TAB_ALL = "All",
     TAB_TRACKED = "Tracked",
     TAB_UNTRACKED = "Untracked",
@@ -26,7 +26,7 @@ local L = {
 }
 
 if locale == "zhTW" then
-    L.TITLE = "t3_TrackQst - 任務追蹤與獎勵"
+    L.TITLE = "t3_TrackQst"
     L.TAB_ALL = "全部"
     L.TAB_TRACKED = "已追蹤"
     L.TAB_UNTRACKED = "未追蹤"
@@ -49,7 +49,7 @@ if locale == "zhTW" then
 end
 
 -- =========================================================================
--- 1. Main Frame Setup
+-- 1. Main Frame Setup & Resizing
 -- =========================================================================
 local f = CreateFrame("Frame", "t3_TrackQst", UIParent, "BasicFrameTemplateWithInset")
 f:SetSize(320, 500)
@@ -60,6 +60,15 @@ f:RegisterForDrag("LeftButton")
 f:SetScript("OnDragStart", f.StartMoving)
 f:SetScript("OnDragStop", f.StopMovingOrSizing)
 
+-- Enable resizing and lock the width to 320
+f:SetResizable(true)
+if f.SetResizeBounds then
+    f:SetResizeBounds(320, 200, 320, 1200)
+else
+    f:SetMinResize(320, 200)
+    f:SetMaxResize(320, 1200)
+end
+
 f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
 f.title:SetText(L.TITLE)
@@ -69,6 +78,30 @@ collapseBtn:SetSize(24, 22)
 collapseBtn:SetPoint("RIGHT", f.CloseButton, "LEFT", -2, 0)
 collapseBtn:SetText("_")
 local isCollapsed = false
+
+-- Keep track of user's custom height
+local expandedHeight = 500
+
+-- Create the Resize Grip at the bottom right
+local resizeBtn = CreateFrame("Button", nil, f)
+resizeBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -4, 4)
+resizeBtn:SetSize(16, 16)
+resizeBtn:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+resizeBtn:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+resizeBtn:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+
+resizeBtn:SetScript("OnMouseDown", function(self, button)
+    if button == "LeftButton" then
+        f:StartSizing("BOTTOM") -- Forces vertical resizing only
+    end
+end)
+resizeBtn:SetScript("OnMouseUp", function(self, button)
+    f:StopMovingOrSizing()
+    expandedHeight = f:GetHeight() -- Save the new height when the user drops the grip
+end)
+
+-- Forward declaration of the update function
+local UpdateQuestList 
 
 -- =========================================================================
 -- 2. Bottom Action Buttons
@@ -121,29 +154,31 @@ end)
 
 local tabButtons = {}
 
--- Forward declaration of UpdateQuestList so collapseBtn can call it
-local UpdateQuestList
-
 collapseBtn:SetScript("OnClick", function()
     if isCollapsed then
-        f:SetHeight(500)
+        f:SetHeight(expandedHeight) -- Restore to the custom dragged height
+        f:SetResizable(true)
         if f.Bg then f.Bg:Show() end
         if f.InsetBg then f.InsetBg:Show() end
         scrollFrame:Show()
         btnExpandAll:Show()
         btnCollapseAll:Show()
         btnUntrackAll:Show()
+        resizeBtn:Show()
         collapseBtn:SetText("_")
         isCollapsed = false
         UpdateQuestList()
     else
+        expandedHeight = f:GetHeight() -- Remember the height before shrinking
         f:SetHeight(32)
+        f:SetResizable(false) -- Prevent resizing while collapsed
         if f.Bg then f.Bg:Hide() end
         if f.InsetBg then f.InsetBg:Hide() end
         scrollFrame:Hide()
         btnExpandAll:Hide()
         btnCollapseAll:Hide()
         btnUntrackAll:Hide()
+        resizeBtn:Hide()
         for _, tab in ipairs(tabButtons) do tab:Hide() end
         collapseBtn:SetText("+")
         isCollapsed = true
@@ -288,7 +323,7 @@ local function GetDifficultyColorHex(questLevel)
 end
 
 -- =========================================================================
--- 5. Main Update Function (Fully Defined Before Event Registration)
+-- 5. Main Update Function
 -- =========================================================================
 UpdateQuestList = function()
     if not f:IsShown() or isCollapsed then return end
@@ -700,7 +735,7 @@ UpdateQuestList = function()
 end
 
 -- =========================================================================
--- 6. Events & Keybinds (Registered After Functions Are Fully Defined)
+-- 6. Events & Keybinds
 -- =========================================================================
 f:SetScript("OnShow", UpdateQuestList)
 f:RegisterEvent("QUEST_LOG_UPDATE")
