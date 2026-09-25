@@ -413,11 +413,11 @@ f.mapCanvas:SetScript("OnUpdate", function(self)
                 self.hoveredMapID = (closestID ~= "???") and tonumber(closestID) or nil
 
 
-               local colorCode = "|cffffffff"
+                local colorCode = "|cffffffff"
                 if cityDataByZone[closestZone] then
                     if cityDataByZone[closestZone].status == "Alliance" then
                         -- Changed to a darker, deeper blue to match the Horde red's intensity
-                        colorCode = "|cff0044cc" 
+                        colorCode = "|cff0044cc"
                     elseif cityDataByZone[closestZone].status == "Horde" then
                         colorCode = "|cffff2020"
                     end
@@ -833,6 +833,108 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
         f.playerArrow.pY = nil
     end
 end)
+
+
+-- ==========================================
+-- Live Death Tracker (Corpse & Graveyard)
+-- ==========================================
+f.corpseFrame = CreateFrame("Frame", nil, f.mapContent)
+f.corpseFrame:SetFrameLevel(f.mapContent:GetFrameLevel() + 55)
+
+f.corpseTex = f.corpseFrame:CreateTexture(nil, "OVERLAY")
+f.corpseTex:SetAllPoints()
+f.corpseTex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
+
+f.gyFrame = CreateFrame("Frame", nil, f.mapContent)
+f.gyFrame:SetFrameLevel(f.mapContent:GetFrameLevel() + 54)
+
+f.gyTex = f.gyFrame:CreateTexture(nil, "OVERLAY")
+f.gyTex:SetAllPoints()
+-- Using a standard Resurrection icon for the graveyard, cleanly trimmed
+f.gyTex:SetTexture("Interface\\Icons\\Spell_Holy_Resurrection")
+f.gyTex:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+
+f.deathTracker = CreateFrame("Frame", nil, f.mapCanvas)
+f.deathTracker:SetScript("OnUpdate", function()
+    local hasCorpse, hasGY = false, false
+    local cX, cY = 0, 0
+    local gX, gY = 0, 0
+
+    -- Only calculate if the player is dead or a ghost
+    if UnitIsDeadOrGhost("player") then
+        local currentZoneID = C_Map.GetBestMapForUnit("player")
+
+        if currentZoneID and C_DeathInfo then
+            -- Grab BOTH standard corpse and graveyard release coordinates
+            local corpsePos = C_DeathInfo.GetCorpseMapPosition and C_DeathInfo.GetCorpseMapPosition(currentZoneID)
+            local gyPos = C_DeathInfo.GetDeathReleasePosition and C_DeathInfo.GetDeathReleasePosition(currentZoneID)
+
+            local MY_CUSTOM_WORLD_MAP_ID = 947
+
+            -- Math for Corpse
+            if corpsePos and corpsePos.x and corpsePos.y then
+                if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+                    if T1_ZoneDB and T1_ZoneDB[currentZoneID] then
+                        local zData = T1_ZoneDB[currentZoneID]
+                        if zData.x and zData.w and zData.y and zData.h then
+                            cX = zData.x + ((corpsePos.x - 0.5) * zData.w)
+                            cY = zData.y + ((corpsePos.y - 0.5) * zData.h)
+                            hasCorpse = true
+                        end
+                    end
+                elseif f.currentMapID == currentZoneID then
+                    cX = corpsePos.x
+                    cY = corpsePos.y
+                    hasCorpse = true
+                end
+            end
+
+            -- Math for Graveyard
+            if gyPos and gyPos.x and gyPos.y then
+                if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+                    if T1_ZoneDB and T1_ZoneDB[currentZoneID] then
+                        local zData = T1_ZoneDB[currentZoneID]
+                        if zData.x and zData.w and zData.y and zData.h then
+                            gX = zData.x + ((gyPos.x - 0.5) * zData.w)
+                            gY = zData.y + ((gyPos.y - 0.5) * zData.h)
+                            hasGY = true
+                        end
+                    end
+                elseif f.currentMapID == currentZoneID then
+                    gX = gyPos.x
+                    gY = gyPos.y
+                    hasGY = true
+                end
+            end
+        end
+    end
+
+    local contentW = f.mapContent:GetWidth()
+    local contentH = f.mapContent:GetHeight()
+
+    -- Render the Corpse Skull
+    if hasCorpse then
+        f.corpseFrame:Show()
+        local corpseSize = 12
+        f.corpseFrame:SetSize(corpseSize / f.zoomLevel, corpseSize / f.zoomLevel)
+        f.corpseFrame:ClearAllPoints()
+        f.corpseFrame:SetPoint("CENTER", f.mapContent, "TOPLEFT", cX * contentW, -cY * contentH)
+    else
+        f.corpseFrame:Hide()
+    end
+
+    -- Render the Graveyard Icon
+    if hasGY then
+        f.gyFrame:Show()
+        local gySize = 12 -- Applied your requested 12px base size!
+        f.gyFrame:SetSize(gySize / f.zoomLevel, gySize / f.zoomLevel)
+        f.gyFrame:ClearAllPoints()
+        f.gyFrame:SetPoint("CENTER", f.mapContent, "TOPLEFT", gX * contentW, -gY * contentH)
+    else
+        f.gyFrame:Hide()
+    end
+end)
+
 
 -- ==========================================
 -- Auto-Frame: Zoom Fit Player and Pin
@@ -1824,6 +1926,3 @@ end)
 
 
 print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")
-
-
-
