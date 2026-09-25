@@ -1,7 +1,7 @@
 -- t2_TrackNPC.lua --
 local addonName = ...
 
-local f = CreateFrame("Frame", "T2_TrackNPCPanel", UIParent, "BasicFrameTemplateWithInset")
+local f = CreateFrame("Frame", "T2_TrackNPC", UIParent, "BasicFrameTemplateWithInset")
 f:SetSize(500, 480)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetMovable(true)
@@ -27,7 +27,7 @@ end)
 
 f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
-f.title:SetText("t2_TrackNPC Manager")
+f.title:SetText("t2_TrackNPC")
 
 -- State Variables
 local activeRegion = nil     -- LEVEL 1: e.g. "Eastern Kingdoms <Alliance>"
