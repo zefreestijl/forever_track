@@ -185,7 +185,7 @@ end)
 -- =========================================================================
 -- 4. Dynamic Tabs Logic & Helpers
 -- =========================================================================
-local activeFilter = L.TAB_ALL
+local activeFilter = L.TAB_RECENT
 local questLines = {}
 local expandedQuests = {}
 
