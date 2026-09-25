@@ -545,16 +545,16 @@ UpdateQuestList = function()
         qBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
         qBtn.text:SetWidth(scrollFrame:GetWidth() - 25)
         qBtn.text:SetFontObject("GameFontHighlight")
-
+        
         local hexDiff = GetDifficultyColorHex(questInfo.level)
         local expandSymbol = expandedQuests[questInfo.questID] and "[-] " or "[+] "
         local levelText = questInfo.level > 0 and ("[" .. questInfo.level .. "] ") or ""
-
+        
         local isReady = IsQuestReadySafe(questInfo, logIndex)
         local status = isReady and " |cFF00FF00" .. L.READY .. "|r" or ""
-
+        
         qBtn.text:SetText(hexDiff .. expandSymbol .. levelText .. questInfo.title .. "|r" .. status)
-
+        
         qBtn:SetScript("OnEnter", function(self) self.text:SetAlpha(0.7) end)
         qBtn:SetScript("OnLeave", function(self) self.text:SetAlpha(1.0) end)
         qBtn:SetScript("OnClick", function(self, button)
@@ -565,19 +565,13 @@ UpdateQuestList = function()
                 elseif type(IsQuestWatched) == "function" then
                     isCurrentlyTracked = IsQuestWatched(logIndex)
                 end
-
+                
                 if isCurrentlyTracked then
-                    if type(C_QuestLog.RemoveQuestWatch) == "function" then
-                        pcall(C_QuestLog.RemoveQuestWatch, questInfo.questID)
-                    elseif type(RemoveQuestWatch) == "function" then
-                        pcall(RemoveQuestWatch, logIndex)
-                    end
+                    if type(C_QuestLog.RemoveQuestWatch) == "function" then pcall(C_QuestLog.RemoveQuestWatch, questInfo.questID)
+                    elseif type(RemoveQuestWatch) == "function" then pcall(RemoveQuestWatch, logIndex) end
                 else
-                    if type(C_QuestLog.AddQuestWatch) == "function" then
-                        pcall(C_QuestLog.AddQuestWatch, questInfo.questID)
-                    elseif type(AddQuestWatch) == "function" then
-                        pcall(AddQuestWatch, logIndex)
-                    end
+                    if type(C_QuestLog.AddQuestWatch) == "function" then pcall(C_QuestLog.AddQuestWatch, questInfo.questID)
+                    elseif type(AddQuestWatch) == "function" then pcall(AddQuestWatch, logIndex) end
                 end
             else
                 expandedQuests[questInfo.questID] = not expandedQuests[questInfo.questID]
@@ -588,41 +582,69 @@ UpdateQuestList = function()
         local qHeight = qBtn.text:GetStringHeight()
         qBtn:SetSize(scrollFrame:GetWidth() - 25, qHeight + 4)
         qBtn:Show()
-        yOffset = yOffset - (qHeight + 6)
+        yOffset = yOffset - (qHeight + 4)
         lineIndex = lineIndex + 1
 
-        if expandedQuests[questInfo.questID] then
-            if C_QuestLog and type(C_QuestLog.SetSelectedQuest) == "function" then
-                pcall(C_QuestLog.SetSelectedQuest, questInfo.questID)
-            elseif type(SelectQuestLogEntry) == "function" then
-                pcall(SelectQuestLogEntry, logIndex)
-            end
+        -- =================================================================
+        -- LIVE PROGRESS (Always visible, directly below the quest title)
+        -- =================================================================
+        local objLines = ""
 
+        -- 1. Modern API check
+        if type(C_QuestLog.GetQuestObjectives) == "function" then
+            local objectives = C_QuestLog.GetQuestObjectives(questInfo.questID)
+            if objectives and #objectives > 0 then
+                for _, obj in ipairs(objectives) do
+                    local objColor = obj.finished and "|cFF808080" or "|cFFFFFFFF"
+                    objLines = objLines .. objColor .. "• " .. (obj.text or "") .. "|r\n"
+                end
+            end
+        end
+
+        -- 2. Classic / WotLK fallback check if modern API returned empty
+        if objLines == "" and type(GetNumQuestLeaderBoards) == "function" and type(GetQuestLogLeaderBoard) == "function" then
+            local numObjs = GetNumQuestLeaderBoards(logIndex)
+            if numObjs and numObjs > 0 then
+                for objIndex = 1, numObjs do
+                    local desc, _, finished = GetQuestLogLeaderBoard(objIndex, logIndex)
+                    if desc and desc ~= "" then
+                        local objColor = finished and "|cFF808080" or "|cFFFFFFFF"
+                        objLines = objLines .. objColor .. "• " .. desc .. "|r\n"
+                    end
+                end
+            end
+        end
+
+        if objLines ~= "" then
+            FlushText(objLines, 32)
+        end
+
+        -- =================================================================
+        -- EXPANDABLE DETAILS (Story, Rewards, Items, Location)
+        -- =================================================================
+        if expandedQuests[questInfo.questID] then
+            if C_QuestLog and type(C_QuestLog.SetSelectedQuest) == "function" then pcall(C_QuestLog.SetSelectedQuest, questInfo.questID)
+            elseif type(SelectQuestLogEntry) == "function" then pcall(SelectQuestLogEntry, logIndex) end
+            
             local textBlock1 = ""
             local description, objectiveText = GetQuestLogQuestText()
-            if objectiveText and objectiveText ~= "" then
-                textBlock1 = textBlock1 ..
-                    "|cFFFFFF00" .. L.PREFACE .. "|r\n" .. objectiveText .. "\n\n"
-            end
-            if description and description ~= "" then
-                textBlock1 = textBlock1 ..
-                    "|cFFFFFF00" .. L.STORY .. "|r\n" .. description .. "\n\n"
-            end
-
+            if objectiveText and objectiveText ~= "" then textBlock1 = textBlock1 .. "|cFFFFFF00" .. L.PREFACE .. "|r\n" .. objectiveText .. "\n\n" end
+            if description and description ~= "" then textBlock1 = textBlock1 .. "|cFFFFFF00" .. L.STORY .. "|r\n" .. description .. "\n\n" end
+            
             local xp = 0
             if type(GetQuestLogRewardXP) == "function" then
                 local s, v = pcall(GetQuestLogRewardXP, questInfo.questID)
                 if not s or not v then s, v = pcall(GetQuestLogRewardXP) end
                 if s and v then xp = v end
             end
-
+            
             local money = 0
             if type(GetQuestLogRewardMoney) == "function" then
                 local s, v = pcall(GetQuestLogRewardMoney, questInfo.questID)
                 if not s or not v then s, v = pcall(GetQuestLogRewardMoney) end
                 if s and v then money = v end
             end
-
+            
             if xp > 0 or money > 0 then
                 textBlock1 = textBlock1 .. "|cFFFFFF00" .. L.REWARDS .. "|r\n"
                 if xp > 0 then textBlock1 = textBlock1 .. xp .. " XP\n" end
@@ -636,7 +658,7 @@ UpdateQuestList = function()
                 if not s or not v then s, v = pcall(GetNumQuestLogRewards) end
                 if s and v then numRewards = v end
             end
-
+            
             if numRewards > 0 then
                 FlushText("|cFFFFFF00" .. L.ITEMS .. "|r", 35)
                 for r = 1, numRewards do
@@ -644,15 +666,15 @@ UpdateQuestList = function()
                     if not s or not itemName then s, itemName, _, count = pcall(GetQuestLogRewardInfo, r) end
                     if itemName then
                         local link = GetItemLinkSafe("reward", r, questInfo.questID)
-                        count = (count and count > 1) and (count .. "x ") or ""
-
+                        count = (count and count > 1) and (count.."x ") or ""
+                        
                         local iBtn = GetOrCreateLine(lineIndex)
                         iBtn:ClearAllPoints()
                         iBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 45, yOffset)
                         iBtn.text:SetWidth(scrollFrame:GetWidth() - 55)
                         iBtn.text:SetFontObject("GameFontHighlightSmall")
                         iBtn.text:SetText("- " .. count .. (link or itemName))
-
+                        
                         iBtn.bg:Show()
                         iBtn:SetScript("OnEnter", function(self)
                             self.bg:SetColorTexture(0.7, 0.7, 0.7, 0.4)
@@ -662,9 +684,9 @@ UpdateQuestList = function()
                         end)
                         iBtn:SetScript("OnLeave", function(self)
                             self.bg:SetColorTexture(0.5, 0.5, 0.5, 0.25)
-                            GameTooltip:Hide()
+                            GameTooltip:Hide() 
                         end)
-
+                        
                         local h = iBtn.text:GetStringHeight()
                         iBtn:SetSize(scrollFrame:GetWidth() - 55, h + 4)
                         iBtn:Show()
@@ -674,14 +696,14 @@ UpdateQuestList = function()
                 end
                 yOffset = yOffset - 4
             end
-
+            
             local numChoices = 0
             if type(GetNumQuestLogChoices) == "function" then
                 local s, v = pcall(GetNumQuestLogChoices, questInfo.questID)
                 if not s or not v then s, v = pcall(GetNumQuestLogChoices) end
                 if s and v then numChoices = v end
             end
-
+            
             if numChoices > 0 then
                 FlushText("|cFFFFFF00" .. L.CHOOSE .. "|r", 35)
                 for c = 1, numChoices do
@@ -689,15 +711,15 @@ UpdateQuestList = function()
                     if not s or not itemName then s, itemName, _, count = pcall(GetQuestLogChoiceInfo, c) end
                     if itemName then
                         local link = GetItemLinkSafe("choice", c, questInfo.questID)
-                        count = (count and count > 1) and (count .. "x ") or ""
-
+                        count = (count and count > 1) and (count.."x ") or ""
+                        
                         local cBtn = GetOrCreateLine(lineIndex)
                         cBtn:ClearAllPoints()
                         cBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 45, yOffset)
                         cBtn.text:SetWidth(scrollFrame:GetWidth() - 55)
                         cBtn.text:SetFontObject("GameFontHighlightSmall")
                         cBtn.text:SetText("- " .. count .. (link or itemName))
-
+                        
                         cBtn.bg:Show()
                         cBtn:SetScript("OnEnter", function(self)
                             self.bg:SetColorTexture(0.7, 0.7, 0.7, 0.4)
@@ -707,9 +729,9 @@ UpdateQuestList = function()
                         end)
                         cBtn:SetScript("OnLeave", function(self)
                             self.bg:SetColorTexture(0.5, 0.5, 0.5, 0.25)
-                            GameTooltip:Hide()
+                            GameTooltip:Hide() 
                         end)
-
+                        
                         local h = cBtn.text:GetStringHeight()
                         cBtn:SetSize(scrollFrame:GetWidth() - 55, h + 4)
                         cBtn:Show()
@@ -720,22 +742,12 @@ UpdateQuestList = function()
                 yOffset = yOffset - 4
             end
 
-            local objectives = C_QuestLog.GetQuestObjectives(questInfo.questID)
-            if objectives and #objectives > 0 then
-                local objText = "|cFFFFFF00" .. L.PROGRESS .. "|r\n"
-                for _, obj in ipairs(objectives) do
-                    local objColor = obj.finished and "|cFF808080" or "|cFFFFFFFF"
-                    objText = objText .. objColor .. "• " .. (obj.text or "") .. "|r\n"
-                end
-                FlushText(objText, 35)
-            end
-
-            local questMapID = type(QuestUtils_GetQuestMapID) == "function" and
-                QuestUtils_GetQuestMapID(questInfo.questID) or nil
+            -- Location & Map coordinates
+            local questMapID = type(QuestUtils_GetQuestMapID) == "function" and QuestUtils_GetQuestMapID(questInfo.questID) or nil
             local mapText = questMapID and tostring(questMapID) or "|cFF808080" .. L.UNKNOWN .. "|r"
             local locText = "|cFFFFFF00" .. L.LOCATION .. "|r\n" .. L.MAP_ID .. mapText
             local foundCoords = false
-
+            
             if type(C_QuestLog.GetNextWaypoint) == "function" then
                 local wp = C_QuestLog.GetNextWaypoint(questInfo.questID)
                 if wp and wp.x and wp.y then
@@ -743,7 +755,7 @@ UpdateQuestList = function()
                     foundCoords = true
                 end
             end
-
+            
             if not foundCoords and type(C_QuestLog.GetQuestPOIs) == "function" and questMapID then
                 local pois = C_QuestLog.GetQuestPOIs(questInfo.questID)
                 if pois and #pois > 0 then
@@ -765,6 +777,7 @@ UpdateQuestList = function()
         end
         yOffset = yOffset - 4
     end
+
 
     local focusedQuestID = nil
     if C_SuperTrack and type(C_SuperTrack.GetSuperTrackedQuestID) == "function" then
