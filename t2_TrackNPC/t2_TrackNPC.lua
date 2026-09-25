@@ -583,8 +583,8 @@ RefreshTabs = function()
     if type(T2_NPC_DATA) ~= "table" or type(T2_NPC_DATA.entries) ~= "table" then return end
 
     local maxTabWidth = 350
-    local tabHeight = 24
-    local spacingY = 28
+    local tabHeight = 20
+    local spacingY = 23
     local spacingX = 4
     local xOffset = 12
     local yOffset = -12
@@ -867,7 +867,7 @@ inputBox:SetScript("OnEnterPressed", function(self)
 end)
 
 inputLabel = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-inputLabel:SetPoint("BOTTOMLEFT", inputBox, "TOPLEFT", 4, 2)
+inputLabel:SetPoint("BOTTOMLEFT", inputBox, "BOTTOMLEFT", 4, -5)
 inputLabel:SetText("Type comment and press Enter (or click Scan):")
 
 -- ==========================================
