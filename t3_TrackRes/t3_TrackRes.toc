@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: t3_TrackRes
+## Notes: Manages and tracks herbs and veins.
+## Author: ZealZol
+## Version: 0.1
+## SavedVariables: T3_RES_DATA
+
+t3_TrackRes.lua

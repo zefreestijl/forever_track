@@ -1,9 +1,9 @@
 ## Interface: 16001
 ## Title: t1_TrackMap
-## Notes: Manages and tracks custom NPC locations.
+## Notes: Manages and tracks seamless world map.
 ## Author: ZealZol
 ## Version: 0.1
-## SavedVariables: T2_NPC_DATA
+## SavedVariables: T1_MAP_DATA
 
 map_id.lua
 t1_TrackMap.lua
