@@ -2,7 +2,7 @@
 -- 1. Main Frame Setup
 -- =========================================================================
 local f = CreateFrame("Frame", "t3_TrackQst", UIParent, "BasicFrameTemplateWithInset")
-f:SetSize(320, 500)
+f:SetSize(270, 500)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetMovable(true)
 f:EnableMouse(true)
@@ -25,17 +25,17 @@ local isCollapsed = false
 -- =========================================================================
 local btnExpandAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 btnExpandAll:SetSize(90, 22)
-btnExpandAll:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 12, 8)
+btnExpandAll:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 5, 8)
 btnExpandAll:SetText("Expand All")
 
 local btnCollapseAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 btnCollapseAll:SetSize(90, 22)
-btnCollapseAll:SetPoint("LEFT", btnExpandAll, "RIGHT", 10, 0)
+btnCollapseAll:SetPoint("LEFT", btnExpandAll, "RIGHT", 2, 0)
 btnCollapseAll:SetText("Collapse All")
 
 local btnUntrackAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 btnUntrackAll:SetSize(90, 22)
-btnUntrackAll:SetPoint("LEFT", btnCollapseAll, "RIGHT", 10, 0)
+btnUntrackAll:SetPoint("LEFT", btnCollapseAll, "RIGHT", 2, 0)
 btnUntrackAll:SetText("Untrack All")
 
 -- =========================================================================

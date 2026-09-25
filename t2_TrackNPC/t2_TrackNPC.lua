@@ -2,7 +2,7 @@
 local addonName = ...
 
 local f = CreateFrame("Frame", "T2_TrackNPC", UIParent, "BasicFrameTemplateWithInset")
-f:SetSize(500, 480)
+f:SetSize(360, 480)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetMovable(true)
 f:EnableMouse(true)
@@ -10,10 +10,10 @@ f:RegisterForDrag("LeftButton")
 
 f:SetResizable(true)
 if f.SetResizeBounds then
-    f:SetResizeBounds(500, 250, 500, 1200)
+    f:SetResizeBounds(360, 250, 360, 1200)
 else
-    f:SetMinResize(500, 250)
-    f:SetMaxResize(500, 1200)
+    f:SetMinResize(360, 250)
+    f:SetMaxResize(360, 1200)
 end
 
 f:SetScript("OnDragStart", f.StartMoving)
@@ -30,8 +30,8 @@ f.title:SetPoint("TOP", f, "TOP", 0, -6)
 f.title:SetText("t2_TrackNPC Manager")
 
 -- State Variables
-local activeRegion = nil     -- LEVEL 1: e.g. "Eastern Kingdoms <Alliance>"
-local activeTabZone = nil    -- LEVEL 2: e.g. "Elwynn Forest"
+local activeRegion = nil  -- LEVEL 1: e.g. "Eastern Kingdoms <Alliance>"
+local activeTabZone = nil -- LEVEL 2: e.g. "Elwynn Forest"
 local isCollapsed = false
 local selectedItemIndex = nil
 local collapsedGroups = {}
@@ -87,9 +87,9 @@ local function ShowExportData()
         local zName = entry.mainLocation or "Unknown Zone"
         local rName = entry.region or "Unknown Region"
         local groupKey = tostring(mID) .. "_" .. zName .. "_" .. rName
-        
-        if not groupedData[groupKey] then 
-            groupedData[groupKey] = { mapID = mID, zoneName = zName, region = rName, items = {} } 
+
+        if not groupedData[groupKey] then
+            groupedData[groupKey] = { mapID = mID, zoneName = zName, region = rName, items = {} }
         end
         table.insert(groupedData[groupKey].items, entry)
     end
@@ -99,22 +99,22 @@ local function ShowExportData()
         if (not activeRegion or group.region == activeRegion) and (not activeTabZone or group.zoneName == activeTabZone) then
             local safeZoneName = string.gsub(group.zoneName, "%s+", "_")
             safeZoneName = string.upper(safeZoneName)
-            
+
             str = str .. "DB_" .. safeZoneName .. "_GENERAL = {\n"
             str = str .. string.format('  ["mapID"] = %s,\n', group.mapID)
             str = str .. string.format('  ["zoneName"] = "%s",\n', group.zoneName)
             str = str .. string.format('  ["region"] = "%s",\n', group.region)
             str = str .. "  [\"entries\"] = {\n"
-            
+
             for _, entry in ipairs(group.items) do
                 str = str .. "    {\n"
-                
+
                 if entry.category and entry.category ~= "general" and entry.category ~= "" then
                     str = str .. string.format('      ["category"] = "%s",\n', entry.category)
                 end
-                
+
                 str = str .. string.format('      ["name"] = "%s",\n', entry.name or "Unknown")
-                
+
                 if entry.id and entry.id ~= "" then
                     str = str .. string.format('      ["id"] = "%s",\n', entry.id)
                 end
@@ -124,14 +124,14 @@ local function ShowExportData()
                 if entry.comment and entry.comment ~= "" then
                     str = str .. string.format('      ["comment"] = "%s",\n', entry.comment)
                 end
-                
+
                 if entry.subLocation and entry.subLocation ~= group.zoneName and entry.subLocation ~= "" then
                     str = str .. string.format('      ["subLocation"] = "%s",\n', entry.subLocation)
                 end
-                
+
                 local xStr = entry.x and tostring(entry.x) or "0.0"
                 local yStr = entry.y and tostring(entry.y) or "0.0"
-                
+
                 str = str .. string.format('      ["x"] = %s,\n', xStr)
                 str = str .. string.format('      ["y"] = %s,\n', yStr)
                 str = str .. "    },\n"
@@ -154,7 +154,7 @@ CollapseWindow = function(collapse)
     local point, relativeTo, relativePoint, xOfs, yOfs = f:GetPoint(1)
     if not collapse then
         local targetHeight = (T2_NPC_DATA and T2_NPC_DATA.windowHeight) or 480
-        f:SetSize(500, targetHeight)
+        f:SetSize(360, targetHeight)
         if f.Bg then f.Bg:Show() end
         if f.InsetBg then f.InsetBg:Show() end
         if f.scrollArea then f.scrollArea:Show() end
@@ -162,8 +162,6 @@ CollapseWindow = function(collapse)
         if inputLabel then inputLabel:Show() end
         if f.scanBtn then f.scanBtn:Show() end
         if f.clearBtn then f.clearBtn:Show() end
-        if f.expandAllBtn then f.expandAllBtn:Show() end
-        if f.collapseAllBtn then f.collapseAllBtn:Show() end
         if f.exportBtn then f.exportBtn:Show() end
         if f.importBtn then f.importBtn:Show() end
         if f.tabContainer then f.tabContainer:Show() end
@@ -178,13 +176,11 @@ CollapseWindow = function(collapse)
         if inputLabel then inputLabel:Hide() end
         if f.scanBtn then f.scanBtn:Hide() end
         if f.clearBtn then f.clearBtn:Hide() end
-        if f.expandAllBtn then f.expandAllBtn:Hide() end
-        if f.collapseAllBtn then f.collapseAllBtn:Hide() end
         if f.exportBtn then f.exportBtn:Hide() end
         if f.importBtn then f.importBtn:Hide() end
         if f.tabContainer then f.tabContainer:Hide() end
         if resizeHandle then resizeHandle:Hide() end
-        f:SetSize(500, 32)
+        f:SetSize(360, 32)
         f.collapseBtn:SetText("+")
         isCollapsed = true
     end
@@ -228,69 +224,68 @@ scrollArea:SetScript("OnMouseWheel", function(self, delta)
     local scrollBar = _G[self:GetName() .. "ScrollBar"]
     if scrollBar then
         -- 3 items * roughly 30 pixels (26 height + 4 padding) = 90 pixels per scroll
-        local scrollStep = 90 
+        local scrollStep = 90
         local minVal, maxVal = scrollBar:GetMinMaxValues()
         local newVal = scrollBar:GetValue() - (delta * scrollStep)
-        
+
         -- Clamp to prevent going out of bounds
         if newVal < minVal then newVal = minVal end
         if newVal > maxVal then newVal = maxVal end
-        
+
         scrollBar:SetValue(newVal)
     end
 end)
 
 local content = CreateFrame("Frame", nil, scrollArea)
-content:SetSize(430, 1)
+content:SetSize(350, 1)
 scrollArea:SetScrollChild(content)
 content.rows = {}
 
 local tabContainer = CreateFrame("Frame", nil, f)
-tabContainer:SetSize(470, 28) 
+tabContainer:SetSize(330, 28)
 tabContainer:Show()
 f.tabContainer = tabContainer
 tabContainer.tabs = {}
 tabContainer.labels = {}
 
 -- ==========================================
--- Safe Import Function 
+-- Safe Import Function
 -- ==========================================
 local function ImportFromStaticDB()
     if type(T2_NPC_DATA) ~= "table" then T2_NPC_DATA = {} end
     T2_NPC_DATA.entries = {}
-    
+
     local foundAny = false
     local ignoredCount = 0
-    
+
     for globalName, globalData in pairs(_G) do
-        if type(globalName) == "string" and string.sub(globalName, 1, 3) == "DB_" 
-           and type(globalData) == "table" and type(globalData.entries) == "table" then
-            
+        if type(globalName) == "string" and string.sub(globalName, 1, 3) == "DB_"
+            and type(globalData) == "table" and type(globalData.entries) == "table" then
             local fileMapID = globalData.mapID
             local mapInfo = nil
-            
+
             if type(fileMapID) == "number" then
                 mapInfo = C_Map.GetMapInfo(fileMapID)
             end
-            
+
             if fileMapID and not mapInfo then
                 ignoredCount = ignoredCount + 1
             else
                 foundAny = true
                 local fileZoneName = globalData.zoneName
                 local fileRegion = globalData.region or "Unknown Region"
-                
+
                 if not fileZoneName or fileZoneName == "" then
                     fileZoneName = mapInfo and mapInfo.name or "Unknown Zone"
                 end
-                
+
                 for i, entry in ipairs(globalData.entries) do
                     local entryMapID = entry.mapID or fileMapID
                     local entryMapInfo = nil
                     if type(entryMapID) == "number" then
                         entryMapInfo = C_Map.GetMapInfo(entryMapID)
                     end
-                    
+
                     if entryMapID and not entryMapInfo then
                         -- Silently ignore
                     else
@@ -298,12 +293,12 @@ local function ImportFromStaticDB()
                         for k, v in pairs(entry) do
                             newEntry[k] = v
                         end
-                        
+
                         newEntry.mapID = entryMapID
                         newEntry.mainLocation = fileZoneName
                         newEntry.subLocation = entry.subLocation or fileZoneName
                         newEntry.region = entry.region or fileRegion
-                        
+
                         table.insert(T2_NPC_DATA.entries, newEntry)
                     end
                 end
@@ -316,7 +311,7 @@ local function ImportFromStaticDB()
         activeTabZone = nil
         selectedItemIndex = nil
         RefreshLogDisplay()
-        
+
         local msg = "|cFF00FF00Databases successfully imported from db_map files!|r"
         if ignoredCount > 0 then
             msg = msg .. string.format(" |cFFFFFF00(%d unsupported zone files ignored)|r", ignoredCount)
@@ -325,7 +320,8 @@ local function ImportFromStaticDB()
     elseif ignoredCount > 0 then
         print("|cFFFF0000t2_TrackNPC: No valid databases loaded. (Ignored unsupported zones).|r")
     else
-        print("|cFFFF0000Error: Could not find any global tables starting with DB_. Make sure they are listed in your .toc file.|r")
+        print(
+        "|cFFFF0000Error: Could not find any global tables starting with DB_. Make sure they are listed in your .toc file.|r")
     end
 end
 
@@ -374,7 +370,7 @@ RefreshLogDisplay = function()
         emptyLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -10)
         emptyLabel:SetText("(Log is currently empty. Hover/Target an NPC and scan!)")
         table.insert(content.rows, emptyLabel)
-        content:SetSize(430, 40)
+        content:SetSize(350, 40)
         return
     end
 
@@ -383,7 +379,7 @@ RefreshLogDisplay = function()
         emptyLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -10)
         emptyLabel:SetText("Please select a Region from the index above.")
         table.insert(content.rows, emptyLabel)
-        content:SetSize(430, 40)
+        content:SetSize(350, 40)
         return
     end
 
@@ -392,7 +388,7 @@ RefreshLogDisplay = function()
         emptyLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -10)
         emptyLabel:SetText("Please select a Zone from the tabs above.")
         table.insert(content.rows, emptyLabel)
-        content:SetSize(430, 40)
+        content:SetSize(350, 40)
         return
     end
 
@@ -409,7 +405,7 @@ RefreshLogDisplay = function()
         emptyLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -10)
         emptyLabel:SetText("(No entries found for this zone.)")
         table.insert(content.rows, emptyLabel)
-        content:SetSize(430, 40)
+        content:SetSize(350, 40)
         return
     end
 
@@ -427,7 +423,7 @@ RefreshLogDisplay = function()
         local isGroupCollapsed = collapsedGroups[subZoneName]
 
         local headerBtn = CreateFrame("Button", nil, content)
-        headerBtn:SetSize(430, 20)
+        headerBtn:SetSize(350, 20)
         headerBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 4, yOffset)
 
         local headerText = headerBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -451,7 +447,7 @@ RefreshLogDisplay = function()
             table.sort(items, function(a, b)
                 local aHasComment = (a.comment and a.comment ~= "")
                 local bHasComment = (b.comment and b.comment ~= "")
-                
+
                 if aHasComment and bHasComment then
                     if a.comment:lower() == b.comment:lower() then
                         return (a.name or "") < (b.name or "")
@@ -469,7 +465,7 @@ RefreshLogDisplay = function()
 
             for _, item in ipairs(items) do
                 local row = CreateFrame("Button", nil, content)
-                row:SetSize(430, rowHeight)
+                row:SetSize(350, rowHeight)
                 row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, yOffset)
 
                 row.bg = row:CreateTexture(nil, "BACKGROUND")
@@ -490,14 +486,14 @@ RefreshLogDisplay = function()
                 if item.description and item.description ~= "" then
                     displayString = displayString .. " <" .. item.description .. ">"
                 end
-                
+
                 if item.comment and item.comment ~= "" then
                     displayString = displayString .. " — " .. item.comment
-                    row.text:SetTextColor(1, 0.82, 0) 
+                    row.text:SetTextColor(1, 0.82, 0)
                 else
-                    row.text:SetTextColor(0.65, 0.65, 0.65) 
+                    row.text:SetTextColor(0.65, 0.65, 0.65)
                 end
-                
+
                 row.text:SetText(displayString)
 
                 row:SetScript("OnClick", function()
@@ -520,7 +516,8 @@ RefreshLogDisplay = function()
                             C_Map.OpenWorldMap(item.mapID)
                             print(string.format("Waypoint set and tracked for %s.", item.name))
                         else
-                            print(string.format("|cFFFF0000Error: Invalid Map ID '%s' for %s. Cannot open map.|r", item.mapID, item.name))
+                            print(string.format("|cFFFF0000Error: Invalid Map ID '%s' for %s. Cannot open map.|r",
+                                item.mapID, item.name))
                         end
                     else
                         print(string.format("|cFFFF0000Error: Map Pin failed. 'mapID' is missing for %s!|r", item.name))
@@ -548,7 +545,7 @@ RefreshLogDisplay = function()
         end
         yOffset = yOffset - 8
     end
-    content:SetSize(430, math.abs(yOffset) + 10)
+    content:SetSize(350, math.abs(yOffset) + 10)
 end
 
 RefreshTabs = function()
@@ -557,7 +554,7 @@ RefreshTabs = function()
         tab:SetParent(nil)
     end
     tabContainer.tabs = {}
-    
+
     for _, label in ipairs(tabContainer.labels) do
         label:Hide()
         label:SetParent(nil)
@@ -566,12 +563,12 @@ RefreshTabs = function()
 
     if type(T2_NPC_DATA) ~= "table" or type(T2_NPC_DATA.entries) ~= "table" then return end
 
-    local maxTabWidth = 450 
+    local maxTabWidth = 350
     local tabHeight = 24
-    local spacingY = 28 
+    local spacingY = 28
     local spacingX = 4
     local xOffset = 12
-    local yOffset = -12 
+    local yOffset = -12
 
     if not activeRegion then
         -- LEVEL 1: Vertical Index Menu
@@ -580,14 +577,16 @@ RefreshTabs = function()
             local r = item.region or "Unknown Region"
             local c = GetContinent(r)
             if not continents[c] then continents[c] = {} end
-            
+
             local found = false
             for _, v in ipairs(continents[c]) do
-                if v == r then found = true; break end
+                if v == r then
+                    found = true; break
+                end
             end
             if not found then table.insert(continents[c], r) end
         end
-        
+
         local contNames = {}
         for c in pairs(continents) do table.insert(contNames, c) end
         table.sort(contNames)
@@ -598,7 +597,7 @@ RefreshTabs = function()
             groupLabel:SetPoint("TOPLEFT", tabContainer, "TOPLEFT", 12, yOffset)
             groupLabel:SetTextColor(1, 0.82, 0)
             table.insert(tabContainer.labels, groupLabel)
-            
+
             yOffset = yOffset - 26
 
             table.sort(continents[cName])
@@ -608,18 +607,18 @@ RefreshTabs = function()
                 tabBtn:SetWidth(math.max(180, tabBtn:GetFontString():GetStringWidth() + 24))
                 tabBtn:SetHeight(tabHeight)
                 tabBtn:Show()
-                
+
                 tabBtn:SetPoint("TOPLEFT", tabContainer, "TOPLEFT", 24, yOffset)
                 tabBtn:SetScript("OnClick", function()
                     activeRegion = rName
                     activeTabZone = nil
                     RefreshLogDisplay()
                 end)
-                
+
                 table.insert(tabContainer.tabs, tabBtn)
                 yOffset = yOffset - spacingY
             end
-            
+
             if i < #contNames then
                 yOffset = yOffset - (spacingY * 1.5)
             end
@@ -628,16 +627,16 @@ RefreshTabs = function()
         -- LEVEL 2: Horizontal Wrap
         xOffset = 12
         yOffset = -4
-        
+
         local upBtn = CreateFrame("Button", nil, tabContainer, "UIPanelButtonTemplate")
         upBtn:SetText("<- Up To Regions")
         upBtn:SetWidth(math.max(65, upBtn:GetFontString():GetStringWidth() + 18))
         upBtn:SetHeight(tabHeight)
-        
+
         if upBtn.Left then upBtn.Left:SetVertexColor(0.55, 0.55, 0.55) end
         if upBtn.Middle then upBtn.Middle:SetVertexColor(0.55, 0.55, 0.55) end
         if upBtn.Right then upBtn.Right:SetVertexColor(0.55, 0.55, 0.55) end
-        
+
         upBtn:Show()
         upBtn:SetPoint("TOPLEFT", tabContainer, "TOPLEFT", xOffset, yOffset)
         upBtn:SetScript("OnClick", function()
@@ -667,29 +666,46 @@ RefreshTabs = function()
             tabBtn:SetWidth(math.max(65, tabBtn:GetFontString():GetStringWidth() + 18))
             tabBtn:SetHeight(tabHeight)
             tabBtn:Show()
-            
+
             if (xOffset + tabBtn:GetWidth()) > maxTabWidth then
                 xOffset = 12
                 yOffset = yOffset - spacingY
             end
-            
+
             tabBtn:SetPoint("TOPLEFT", tabContainer, "TOPLEFT", xOffset, yOffset)
 
-            if activeTabZone == zName then tabBtn:Disable() end
+            -- STYLING: Highlight active tab, gray out inactive tabs
+            if activeTabZone == zName then
+                -- Active: Keep button textures bright and text gold
+                if tabBtn.Left then tabBtn.Left:SetVertexColor(1, 1, 1) end
+                if tabBtn.Middle then tabBtn.Middle:SetVertexColor(1, 1, 1) end
+                if tabBtn.Right then tabBtn.Right:SetVertexColor(1, 1, 1) end
+                if tabBtn:GetFontString() then tabBtn:GetFontString():SetTextColor(1, 0.82, 0) end
+            else
+                -- Inactive: Gray out button textures and dim text
+                if tabBtn.Left then tabBtn.Left:SetVertexColor(0.4, 0.4, 0.4) end
+                if tabBtn.Middle then tabBtn.Middle:SetVertexColor(0.4, 0.4, 0.4) end
+                if tabBtn.Right then tabBtn.Right:SetVertexColor(0.4, 0.4, 0.4) end
+                if tabBtn:GetFontString() then tabBtn:GetFontString():SetTextColor(0.5, 0.5, 0.5) end
+            end
+
+            -- Update OnClick to ignore clicks on the already active tab
             tabBtn:SetScript("OnClick", function()
-                activeTabZone = zName
-                RefreshLogDisplay()
+                if activeTabZone ~= zName then
+                    activeTabZone = zName
+                    RefreshLogDisplay()
+                end
             end)
-            
+
             xOffset = xOffset + tabBtn:GetWidth() + spacingX
             table.insert(tabContainer.tabs, tabBtn)
         end
     end
-    
+
     tabContainer:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -32)
     local totalTabContainerHeight = math.abs(yOffset) + (activeRegion and tabHeight or 0) + 8
     tabContainer:SetSize(470, totalTabContainerHeight)
-    
+
     local scrollAreaTopAnchor = -32 - totalTabContainerHeight - 8
     scrollArea:SetPoint("TOPLEFT", f, "TOPLEFT", 12, scrollAreaTopAnchor)
 end
@@ -718,7 +734,7 @@ local function ProcessScanOrNote(customNote)
     end
 
     local targetName = unit and UnitName(unit)
-    
+
     local targetID = ""
     if unit then
         local guid = UnitGUID(unit)
@@ -739,7 +755,7 @@ local function ProcessScanOrNote(customNote)
         local mapInfo = C_Map.GetMapInfo(mapID)
         if mapInfo and mapInfo.name then mainLocation = mapInfo.name end
     end
-    
+
     local subLocation = GetSubZoneText()
     if not subLocation or subLocation == "" then subLocation = mainLocation end
 
@@ -859,39 +875,12 @@ clearBtn:SetScript("OnClick", function()
 end)
 f.clearBtn = clearBtn
 
-local expandAllBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-expandAllBtn:SetSize(75, 24)
-expandAllBtn:SetPoint("LEFT", clearBtn, "RIGHT", 4, 0)
-expandAllBtn:SetText("Expand All")
-expandAllBtn:SetScript("OnClick", function()
-    if type(T2_NPC_DATA) == "table" and type(T2_NPC_DATA.entries) == "table" then
-        for _, item in ipairs(T2_NPC_DATA.entries) do
-            local subZone = item.subLocation or "General Area"
-            collapsedGroups[subZone] = false
-        end
-        RefreshLogDisplay()
-    end
-end)
-f.expandAllBtn = expandAllBtn
-
-local collapseAllBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-collapseAllBtn:SetSize(80, 24)
-collapseAllBtn:SetPoint("LEFT", expandAllBtn, "RIGHT", 4, 0)
-collapseAllBtn:SetText("Collapse All")
-collapseAllBtn:SetScript("OnClick", function()
-    if type(T2_NPC_DATA) == "table" and type(T2_NPC_DATA.entries) == "table" then
-        for _, item in ipairs(T2_NPC_DATA.entries) do
-            local subZone = item.subLocation or "General Area"
-            collapsedGroups[subZone] = true
-        end
-        RefreshLogDisplay()
-    end
-end)
-f.collapseAllBtn = collapseAllBtn
+-- Removed expandAllBtn and collapseAllBtn blocks here
 
 local exportBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 exportBtn:SetSize(60, 24)
-exportBtn:SetPoint("LEFT", collapseAllBtn, "RIGHT", 4, 0)
+-- FIXED ANCHOR: Anchor to clearBtn instead of collapseAllBtn
+exportBtn:SetPoint("LEFT", clearBtn, "RIGHT", 4, 0)
 exportBtn:SetText("Export")
 exportBtn:SetScript("OnClick", ShowExportData)
 f.exportBtn = exportBtn
@@ -904,6 +893,7 @@ importBtn:SetScript("OnClick", function()
     ImportFromStaticDB()
 end)
 f.importBtn = importBtn
+
 
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
@@ -926,7 +916,7 @@ _G.func_ToggleT2Window = function(mapID)
                     break
                 end
             end
-            
+
             if not foundZone and mapName then
                 for _, entry in ipairs(T2_NPC_DATA.entries) do
                     local r = entry.region or "Unknown Region"
