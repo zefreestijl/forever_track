@@ -314,14 +314,35 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
             -- ==========================================
         elseif f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
             if button == "LeftButton" then
-                if self.hoveredZone and cityDataByZone[self.hoveredZone] then
-                    local cityID = cityDataByZone[self.hoveredZone].id
-                    f.zoomLevel = 1
-                    f.mapOffsetX = 0
-                    f.mapOffsetY = 0
-                    f:LoadMap(cityID)
-                    if f.UpdateMapTransform then f:UpdateMapTransform() end
-                    if f.RefreshPOIs then f:RefreshPOIs() end
+                -- 1. Calculate the exact percentage coordinates of the mouse click
+                local rawX, rawY = GetCursorPosition()
+                local mapScale = f.mapContent:GetEffectiveScale()
+                local left = f.mapContent:GetLeft()
+                local top = f.mapContent:GetTop()
+
+                if left and top then
+                    local pctX = ((rawX / mapScale) - left) / f.mapContent:GetWidth()
+                    local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
+
+                    -- 2. Check if the click is physically close to a city flag (approx 3% radius)
+                    local CLICK_RADIUS_SQ = 0.001
+
+                    for _, data in pairs(cityDataByZone) do
+                        if data.x and data.y then
+                            local dx = data.x - pctX
+                            local dy = data.y - pctY
+
+                            -- If the click distance is within the flag's hit-box, open the city!
+                            if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
+                                f.zoomLevel = 1
+                                f.mapOffsetX = 0
+                                f.mapOffsetY = 0
+                                f:LoadMap(data.id)
+                                if f.UpdateMapTransform then f:UpdateMapTransform() end
+                                break
+                            end
+                        end
+                    end
                 end
             elseif button == "MiddleButton" then
                 local canvasW, canvasH = self:GetSize()
@@ -681,14 +702,14 @@ function f:UpdateMapTransform()
             end
         end
 
-    
+
         -- 3. Render and Counter-Scale
         for key, flagObj in pairs(f.cityFlags) do
             flagObj.frame:Show()
-            
+
             -- NEW: Fade out other cities to 0.5 opacity instead of making them ominous and gray!
             if playerInCityID and cityDataByZone[key].id ~= playerInCityID then
-                flagObj.tex:SetDesaturated(false) 
+                flagObj.tex:SetDesaturated(false)
                 flagObj.tex:SetVertexColor(1, 1, 1, 0.5) -- Keep true color, just drop opacity to 30%
             else
                 flagObj.tex:SetDesaturated(false)
@@ -700,7 +721,6 @@ function f:UpdateMapTransform()
             flagObj.frame:ClearAllPoints()
             flagObj.frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", flagObj.x * contentW, -flagObj.y * contentH)
         end
-
     else
         if f.cityFlags then
             for key, flagObj in pairs(f.cityFlags) do

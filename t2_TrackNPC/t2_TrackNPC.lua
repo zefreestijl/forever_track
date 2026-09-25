@@ -931,8 +931,8 @@ local lastToggleTime = 0 -- Add this timer variable outside the function
 _G.func_ToggleT2Window = function(mapID)
     local currentTime = GetTime()
 
-    -- THE SHIELD: If this function is spammed within 0.2 seconds, ignore the spam!
-    if currentTime - lastToggleTime < 0.2 then
+    -- THE SHIELD: Prevent spam clicks
+    if currentTime - (lastToggleTime or 0) < 0.2 then
         return
     end
     lastToggleTime = currentTime
@@ -941,48 +941,28 @@ _G.func_ToggleT2Window = function(mapID)
     activeTabZone = nil
 
     if type(mapID) == "number" then
-        local mapInfo = C_Map.GetMapInfo(mapID)
-        local mapName = mapInfo and mapInfo.name or "Unknown Map"
-
-        local function IsSameName(n1, n2)
-            if not n1 or not n2 then return false end
-            return strtrim(tostring(n1)):lower() == strtrim(tostring(n2)):lower()
-        end
-
         if type(T2_NPC_DATA) == "table" and type(T2_NPC_DATA.entries) == "table" then
-            -- PASS 1: Strict Match
+            -- DIRECT MAP ID MATCH:
+            -- Skip string comparisons entirely. mapID is universal across all languages!
             for _, entry in ipairs(T2_NPC_DATA.entries) do
-                if entry.mapID == mapID and IsSameName(entry.mainLocation, mapName) then
+                if entry.mapID == mapID then
                     activeRegion = entry.region
                     activeTabZone = entry.mainLocation
                     break
                 end
             end
 
-            -- PASS 2: Name Only Match
-            if not activeRegion and mapName ~= "Unknown Map" then
-                for _, entry in ipairs(T2_NPC_DATA.entries) do
-                    if IsSameName(entry.mainLocation, mapName) then
-                        activeRegion = entry.region
-                        activeTabZone = entry.mainLocation
-                        break
-                    end
-                end
-            end
-
-            -- PASS 3: Map ID Match Fallback
+            -- FALLBACK: If no exact mapID match exists in entries,
+            -- check if it matches a region/continent name via API fallback
             if not activeRegion then
-                for _, entry in ipairs(T2_NPC_DATA.entries) do
-                    if entry.mapID == mapID then
-                        activeRegion = entry.region
-                        activeTabZone = mapName
-                        break
-                    end
-                end
-            end
+                local mapInfo = C_Map.GetMapInfo(mapID)
+                local mapName = mapInfo and mapInfo.name or ""
 
-            -- PASS 4: Continent / Region Fallback
-            if not activeRegion and mapName ~= "Unknown Map" then
+                local function IsSameName(n1, n2)
+                    if not n1 or not n2 then return false end
+                    return strtrim(tostring(n1)):lower() == strtrim(tostring(n2)):lower()
+                end
+
                 for _, entry in ipairs(T2_NPC_DATA.entries) do
                     local r = entry.region or "Unknown Region"
                     local c = GetContinent(r)
@@ -1005,7 +985,6 @@ _G.func_ToggleT2Window = function(mapID)
         f:Show()
     end
 end
-
 
 
 SLASH_T2_TRACK1 = "/t2"
