@@ -3,8 +3,9 @@
 -- =========================================================================
 local locale = GetLocale()
 local L = {
-    TITLE = "t3_TrackQst",
+    TITLE = "t3_TrackQst - Rewards & Choices",
     TAB_ALL = "All",
+    TAB_READY = "Ready",
     TAB_TRACKED = "Tracked",
     TAB_UNTRACKED = "Untracked",
     BTN_EXPAND = "Expand All",
@@ -26,8 +27,9 @@ local L = {
 }
 
 if locale == "zhTW" then
-    L.TITLE = "t3_TrackQst"
+    L.TITLE = "t3_TrackQst - 任務追蹤與獎勵"
     L.TAB_ALL = "全部"
+    L.TAB_READY = "可回報"
     L.TAB_TRACKED = "已追蹤"
     L.TAB_UNTRACKED = "未追蹤"
     L.BTN_EXPAND = "全部展開"
@@ -60,7 +62,6 @@ f:RegisterForDrag("LeftButton")
 f:SetScript("OnDragStart", f.StartMoving)
 f:SetScript("OnDragStop", f.StopMovingOrSizing)
 
--- Enable resizing and lock the width to 320
 f:SetResizable(true)
 if f.SetResizeBounds then
     f:SetResizeBounds(320, 200, 320, 1200)
@@ -78,11 +79,8 @@ collapseBtn:SetSize(24, 22)
 collapseBtn:SetPoint("RIGHT", f.CloseButton, "LEFT", -2, 0)
 collapseBtn:SetText("_")
 local isCollapsed = false
-
--- Keep track of user's custom height
 local expandedHeight = 500
 
--- Create the Resize Grip at the bottom right
 local resizeBtn = CreateFrame("Button", nil, f)
 resizeBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -4, 4)
 resizeBtn:SetSize(16, 16)
@@ -91,16 +89,13 @@ resizeBtn:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highl
 resizeBtn:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
 
 resizeBtn:SetScript("OnMouseDown", function(self, button)
-    if button == "LeftButton" then
-        f:StartSizing("BOTTOM") -- Forces vertical resizing only
-    end
+    if button == "LeftButton" then f:StartSizing("BOTTOM") end
 end)
 resizeBtn:SetScript("OnMouseUp", function(self, button)
     f:StopMovingOrSizing()
-    expandedHeight = f:GetHeight() -- Save the new height when the user drops the grip
+    expandedHeight = f:GetHeight()
 end)
 
--- Forward declaration of the update function
 local UpdateQuestList 
 
 -- =========================================================================
@@ -156,7 +151,7 @@ local tabButtons = {}
 
 collapseBtn:SetScript("OnClick", function()
     if isCollapsed then
-        f:SetHeight(expandedHeight) -- Restore to the custom dragged height
+        f:SetHeight(expandedHeight)
         f:SetResizable(true)
         if f.Bg then f.Bg:Show() end
         if f.InsetBg then f.InsetBg:Show() end
@@ -169,9 +164,9 @@ collapseBtn:SetScript("OnClick", function()
         isCollapsed = false
         UpdateQuestList()
     else
-        expandedHeight = f:GetHeight() -- Remember the height before shrinking
+        expandedHeight = f:GetHeight()
         f:SetHeight(32)
-        f:SetResizable(false) -- Prevent resizing while collapsed
+        f:SetResizable(false)
         if f.Bg then f.Bg:Hide() end
         if f.InsetBg then f.InsetBg:Hide() end
         scrollFrame:Hide()
@@ -207,9 +202,7 @@ btnExpandAll:SetScript("OnClick", function()
     local numEntries = C_QuestLog.GetNumQuestLogEntries()
     for i = 1, numEntries do
         local q = C_QuestLog.GetInfo(i)
-        if q and not q.isHidden and not q.isHeader then
-            expandedQuests[q.questID] = true
-        end
+        if q and not q.isHidden and not q.isHeader then expandedQuests[q.questID] = true end
     end
     UpdateQuestList()
 end)
@@ -256,7 +249,6 @@ local function GetOrCreateLine(index)
         btn.bg:SetAllPoints()
         btn.bg:SetColorTexture(0.5, 0.5, 0.5, 0.25)
         btn.bg:Hide()
-        
         table.insert(questLines, btn)
     end
     
@@ -266,7 +258,6 @@ local function GetOrCreateLine(index)
     btn:SetScript("OnLeave", nil)
     btn:SetScript("OnClick", nil)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    
     return btn
 end
 
@@ -297,29 +288,70 @@ local function GetDifficultyColorHex(questLevel)
     local playerLevel = UnitLevel("player") or 1
     local diff = questLevel - playerLevel
     
-    if diff >= 5 then 
-        return "|cFFFF1A1A"
-    elseif diff >= 3 then 
-        return "|cFFFF8040"
-    elseif diff >= -2 then 
-        return "|cFFFFFF00"
+    if diff >= 5 then return "|cFFFF1A1A"
+    elseif diff >= 3 then return "|cFFFF8040"
+    elseif diff >= -2 then return "|cFFFFFF00"
     else
         local grayLevel = 0
-        if playerLevel <= 5 then 
-            grayLevel = 0
-        elseif playerLevel <= 39 then 
-            grayLevel = playerLevel - 5 - math.floor(playerLevel / 10)
-        elseif playerLevel <= 59 then 
-            grayLevel = playerLevel - 1 - math.floor(playerLevel / 5)
-        else 
-            grayLevel = playerLevel - 9 
-        end
-        if questLevel <= grayLevel then
-            return "|cFF808080"
-        else
-            return "|cFF40C040"
+        if playerLevel <= 5 then grayLevel = 0
+        elseif playerLevel <= 39 then grayLevel = playerLevel - 5 - math.floor(playerLevel / 10)
+        elseif playerLevel <= 59 then grayLevel = playerLevel - 1 - math.floor(playerLevel / 5)
+        else grayLevel = playerLevel - 9 end
+        
+        if questLevel <= grayLevel then return "|cFF808080"
+        else return "|cFF40C040" end
+    end
+end
+
+-- =========================================================================
+-- AGGRESSIVE QUEST COMPLETION SCANNER
+-- =========================================================================
+local function IsQuestReadySafe(questInfo, logIndex)
+    -- 1. Direct Table Flag Check (Modern Client)
+    if questInfo.isComplete == true or questInfo.isComplete == 1 then return true end
+    
+    -- 2. Modern explicit API checks
+    if type(C_QuestLog.IsComplete) == "function" and C_QuestLog.IsComplete(questInfo.questID) then return true end
+    if type(IsQuestComplete) == "function" and IsQuestComplete(questInfo.questID) then return true end
+
+    -- 3. Live Objective Progress check (Modern)
+    if type(C_QuestLog.GetQuestObjectives) == "function" then
+        local objs = C_QuestLog.GetQuestObjectives(questInfo.questID)
+        if objs and #objs > 0 then
+            local allDone = true
+            for _, obj in ipairs(objs) do
+                if not obj.finished then
+                    allDone = false
+                    break
+                end
+            end
+            if allDone then return true end
         end
     end
+    
+    -- 4. Live Objective Progress check (Classic/TBC/WotLK)
+    if type(GetNumQuestLeaderBoards) == "function" and type(GetQuestLogLeaderBoard) == "function" then
+        local numObjs = GetNumQuestLeaderBoards(logIndex)
+        if numObjs and numObjs > 0 then
+            local allDone = true
+            for objIndex = 1, numObjs do
+                local _, _, finished = GetQuestLogLeaderBoard(objIndex, logIndex)
+                if not finished then
+                    allDone = false
+                    break
+                end
+            end
+            if allDone then return true end
+        end
+    end
+    
+    -- 5. Deep inspection of classic GetQuestLogTitle returns
+    if type(GetQuestLogTitle) == "function" then
+        local _, _, _, _, _, t6, t7 = GetQuestLogTitle(logIndex)
+        if t6 == 1 or t7 == 1 then return true end
+    end
+
+    return false
 end
 
 -- =========================================================================
@@ -330,18 +362,14 @@ UpdateQuestList = function()
 
     local oldSelectionIndex
     local oldSelectionID
-    if type(GetQuestLogSelection) == "function" then
-        oldSelectionIndex = GetQuestLogSelection()
-    end
-    if C_QuestLog and type(C_QuestLog.GetSelectedQuest) == "function" then
-        oldSelectionID = C_QuestLog.GetSelectedQuest()
-    end
+    if type(GetQuestLogSelection) == "function" then oldSelectionIndex = GetQuestLogSelection() end
+    if C_QuestLog and type(C_QuestLog.GetSelectedQuest) == "function" then oldSelectionID = C_QuestLog.GetSelectedQuest() end
 
     for _, line in ipairs(questLines) do line:Hide() end
     for _, tab in ipairs(tabButtons) do tab:Hide() end
 
     local numEntries = C_QuestLog.GetNumQuestLogEntries()
-    local filters = { [L.TAB_ALL] = true, [L.TAB_TRACKED] = true, [L.TAB_UNTRACKED] = true }
+    local filters = { [L.TAB_ALL] = true, [L.TAB_READY] = true, [L.TAB_TRACKED] = true, [L.TAB_UNTRACKED] = true }
     
     for i = 1, numEntries do
         local q = C_QuestLog.GetInfo(i)
@@ -351,7 +379,7 @@ UpdateQuestList = function()
     local sortedFilters = {}
     for k in pairs(filters) do table.insert(sortedFilters, k) end
     table.sort(sortedFilters, function(a, b)
-        local order = { [L.TAB_ALL] = 1, [L.TAB_TRACKED] = 2, [L.TAB_UNTRACKED] = 3 }
+        local order = { [L.TAB_ALL] = 1, [L.TAB_READY] = 2, [L.TAB_TRACKED] = 3, [L.TAB_UNTRACKED] = 4 }
         if order[a] and order[b] then return order[a] < order[b] end
         if order[a] then return true end
         if order[b] then return false end
@@ -429,7 +457,9 @@ UpdateQuestList = function()
         local hexDiff = GetDifficultyColorHex(questInfo.level)
         local expandSymbol = expandedQuests[questInfo.questID] and "[-] " or "[+] "
         local levelText = questInfo.level > 0 and ("[" .. questInfo.level .. "] ") or ""
-        local status = questInfo.isComplete and " |cFF00FF00" .. L.READY .. "|r" or ""
+        
+        local isReady = IsQuestReadySafe(questInfo, logIndex)
+        local status = isReady and " |cFF00FF00" .. L.READY .. "|r" or ""
         
         qBtn.text:SetText(hexDiff .. expandSymbol .. levelText .. questInfo.title .. "|r" .. status)
         
@@ -445,17 +475,11 @@ UpdateQuestList = function()
                 end
                 
                 if isCurrentlyTracked then
-                    if type(C_QuestLog.RemoveQuestWatch) == "function" then
-                        pcall(C_QuestLog.RemoveQuestWatch, questInfo.questID)
-                    elseif type(RemoveQuestWatch) == "function" then
-                        pcall(RemoveQuestWatch, logIndex)
-                    end
+                    if type(C_QuestLog.RemoveQuestWatch) == "function" then pcall(C_QuestLog.RemoveQuestWatch, questInfo.questID)
+                    elseif type(RemoveQuestWatch) == "function" then pcall(RemoveQuestWatch, logIndex) end
                 else
-                    if type(C_QuestLog.AddQuestWatch) == "function" then
-                        pcall(C_QuestLog.AddQuestWatch, questInfo.questID)
-                    elseif type(AddQuestWatch) == "function" then
-                        pcall(AddQuestWatch, logIndex)
-                    end
+                    if type(C_QuestLog.AddQuestWatch) == "function" then pcall(C_QuestLog.AddQuestWatch, questInfo.questID)
+                    elseif type(AddQuestWatch) == "function" then pcall(AddQuestWatch, logIndex) end
                 end
             else
                 expandedQuests[questInfo.questID] = not expandedQuests[questInfo.questID]
@@ -470,11 +494,8 @@ UpdateQuestList = function()
         lineIndex = lineIndex + 1
 
         if expandedQuests[questInfo.questID] then
-            if C_QuestLog and type(C_QuestLog.SetSelectedQuest) == "function" then
-                pcall(C_QuestLog.SetSelectedQuest, questInfo.questID)
-            elseif type(SelectQuestLogEntry) == "function" then
-                pcall(SelectQuestLogEntry, logIndex)
-            end
+            if C_QuestLog and type(C_QuestLog.SetSelectedQuest) == "function" then pcall(C_QuestLog.SetSelectedQuest, questInfo.questID)
+            elseif type(SelectQuestLogEntry) == "function" then pcall(SelectQuestLogEntry, logIndex) end
             
             local textBlock1 = ""
             local description, objectiveText = GetQuestLogQuestText()
@@ -631,10 +652,7 @@ UpdateQuestList = function()
                 end
             end
 
-            if not foundCoords then
-                locText = locText .. "\nCoords: |cFF808080" .. L.COORDS_NONE .. "|r"
-            end
-            
+            if not foundCoords then locText = locText .. "\nCoords: |cFF808080" .. L.COORDS_NONE .. "|r" end
             FlushText(locText .. "\n", 35)
         end
         yOffset = yOffset - 4
@@ -689,15 +707,14 @@ UpdateQuestList = function()
             else
                 if questInfo.questID ~= focusedQuestID then
                     local isTracked = false
-                    if type(C_QuestLog.GetQuestWatchType) == "function" then
-                        isTracked = (C_QuestLog.GetQuestWatchType(questInfo.questID) ~= nil)
-                    elseif type(IsQuestWatched) == "function" then
-                        isTracked = IsQuestWatched(i)
-                    end
+                    if type(C_QuestLog.GetQuestWatchType) == "function" then isTracked = (C_QuestLog.GetQuestWatchType(questInfo.questID) ~= nil)
+                    elseif type(IsQuestWatched) == "function" then isTracked = IsQuestWatched(i) end
                     
                     local isUntracked = not isTracked
+                    local isReady = IsQuestReadySafe(questInfo, i)
 
                     if activeFilter == L.TAB_ALL or 
+                       (activeFilter == L.TAB_READY and isReady) or
                        (activeFilter == L.TAB_TRACKED and isTracked) or 
                        (activeFilter == L.TAB_UNTRACKED and isUntracked) or 
                        (activeFilter == currentHeaderTitle) then
