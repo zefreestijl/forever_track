@@ -1,7 +1,7 @@
 -- t2_TrackNPC.lua --
 local addonName = ...
 
-local f = CreateFrame("Frame", "T2_TrackNPCPanel", UIParent, "BasicFrameTemplateWithInset")
+local f = CreateFrame("Frame", "T2_TrackNPC", UIParent, "BasicFrameTemplateWithInset")
 f:SetSize(500, 480)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetMovable(true)

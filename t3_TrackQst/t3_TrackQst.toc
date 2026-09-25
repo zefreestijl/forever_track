@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: t3_TrackQst
+## Notes: Tracks and review currently accepted quests.
+## Author: ZealZol
+## Version: 0.1
+## SavedVariables: T3_QST_DATA
+
+t3_TrackQst.lua

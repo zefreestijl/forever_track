@@ -17,6 +17,7 @@
     "Lua.diagnostics.globals": [
         "SlashCmdList",
         "UISpecialFrames",
-        "UiMapPoint"
+        "UiMapPoint",
+        "GetQuestDifficultyColor"
     ]
 }

@@ -1,6 +1,6 @@
 T1_ZoneDB = {
     [947] = { name = "azeroth", comment = "" },
-    [1411] = { name = "durotar", x = 0.324, y = 0.499, comment = "杜洛塔", w = 0.145, h = 0.135 },
+    [1411] = { name = "durotar", x = 0.324, y = 0.500, comment = "杜洛塔", w = 0.155, h = 0.125 },
     [1412] = { name = "mulgore", x = 0.211, y = 0.570, comment = "莫高雷", w = 0.175, h = 0.155 },
     [1413] = { name = "the-barrens", x = 0.255, y = 0.565, comment = "貧瘠之地", w = 0.276, h = 0.242 },
     [1414] = { name = "kalimdor", comment = "" },

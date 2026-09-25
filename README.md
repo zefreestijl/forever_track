@@ -48,7 +48,10 @@ World of Warcraft\
             ├── t0_TrackAI\
             ├── t1_TrackMap\
             ├── t2_TrackNPC\
-            └── t3_TrackRes\
+            ├── t3_TrackQst\
+            ├── t4_TrackRes\
+            └── t5_TrackDgn\
+            
 ```
 
 Example installation path:
@@ -207,15 +210,15 @@ The database can interact with the built-in map, with future plans to synchroniz
 ---
 
 <details>
-<summary>t3_TrackRes</summary>
+<summary>t3_TrackQst</summary>
 
 ### TrackRes
 
 **Status: Planned**
 
-`t3_TrackRes` is planned as a resource database similar to `t2_TrackNPC`.
+`t3_TrackQst` is planned as a resource database similar to `t2_TrackNPC`.
 
-> `t3_TrackRes` 預計製作成類似 `t2_TrackNPC` 的資源資料庫。
+> `t3_TrackQst` 預計製作成類似 `t2_TrackNPC` 的資源資料庫。
 
 It will focus on gathering resources such as:
 
@@ -250,7 +253,7 @@ The addons are designed to work independently while remaining interoperable.
 ```text
 t2_TrackNPC ──────┐
                   │
-t3_TrackRes ──────┼──> t1_TrackMap
+t3_TrackQst ──────┼──> t1_TrackMap
                   │
 t0_TrackAI ──────┘
 ```
@@ -338,13 +341,13 @@ However, the project is still manually developed, tested, reviewed, and modified
 * `t1_TrackMap` is working but still requires testing and tuning
 * `t2_TrackNPC` is working but still requires testing and tuning
 * `t0_TrackAI` planned
-* `t3_TrackRes` planned
+* `t3_TrackQst` planned
 
 > - 建立 Repository
 > - `t1_TrackMap` 已可運作，但仍需要測試與調整
 > - `t2_TrackNPC` 已可運作，但仍需要測試與調整
 > - `t0_TrackAI` 規劃中
-> - `t3_TrackRes` 規劃中
+> - `t3_TrackQst` 規劃中
 
 </details>
 

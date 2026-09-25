@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: t4_TrackRes
+## Notes: Tracks herbs and veins location.
+## Author: ZealZol
+## Version: 0.1
+## SavedVariables: T4_RES_DATA
+
+t4_TrackRes.lua
