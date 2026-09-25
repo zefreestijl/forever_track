@@ -1,4 +1,3 @@
-
 -- ==========================================
 -- 1. Create the Main Frame
 -- ==========================================
@@ -243,38 +242,55 @@ end)
 f.mapCanvas:SetScript("OnMouseUp", function(self, button)
     if button == "LeftButton" then self.isDragging = false end
 
-    local MY_CUSTOM_WORLD_MAP_ID = 947
-    if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-        if not self.startX or not self.startY then return end
+    if not self.startX or not self.startY then return end
 
-        local cX, cY = GetCursorPosition()
-        local scale = UIParent:GetEffectiveScale()
-        local dragDistance = (math.abs(cX - self.startX) + math.abs(cY - self.startY)) / scale
+    local cX, cY = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    local dragDistance = (math.abs(cX - self.startX) + math.abs(cY - self.startY)) / scale
 
-        if dragDistance < 25 then
+    if dragDistance < 25 then
+        local MY_CUSTOM_WORLD_MAP_ID = 947
+
+        -- ==========================================
+        -- RIGHT CLICK: Open T2 Window with MapID
+        -- ==========================================
+        if button == "RightButton" then
+            local targetMapID = nil
+
+            if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+                -- If we are hovering a zone that has a capital city, prefer the city's ID
+                if self.hoveredZone and cityDataByZone[self.hoveredZone] then
+                    targetMapID = cityDataByZone[self.hoveredZone].id
+                else
+                    -- Otherwise, use the standard zone ID we just saved in OnUpdate
+                    targetMapID = self.hoveredMapID
+                end
+            else
+                -- If we are already looking at a specific city map, use its ID directly
+                targetMapID = f.currentMapID
+            end
+
+            -- Pass the targetMapID to your T2 API
+            if _G.func_ToggleT2Window then
+                _G.func_ToggleT2Window(targetMapID)
+            else
+                print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
+            end
+
+            -- ==========================================
+            -- WORLD MAP SPECIFIC CLICKS (Left / Middle)
+            -- ==========================================
+        elseif f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
             if button == "LeftButton" then
                 if self.hoveredZone and cityDataByZone[self.hoveredZone] then
                     local cityID = cityDataByZone[self.hoveredZone].id
                     f.zoomLevel = 1
                     f.mapOffsetX = 0
                     f.mapOffsetY = 0
-
-                    -- CRITICAL FIX: Load the map FIRST, so the addon knows we are in a city!
                     f:LoadMap(cityID)
-
-                    -- THEN update the transform, which will instantly hide the flags
                     if f.UpdateMapTransform then f:UpdateMapTransform() end
                     if f.RefreshPOIs then f:RefreshPOIs() end
                 end
-            elseif button == "RightButton" then
-                if func_ToggleT2Window then
-                    func_ToggleT2Window()
-                else
-                    print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
-                end
-                -- ==========================================
-                -- MIDDLE CLICK "FIT TO WINDOW"
-                -- ==========================================
             elseif button == "MiddleButton" then
                 local canvasW, canvasH = self:GetSize()
                 local contentW, contentH = f.mapContent:GetSize()
@@ -380,6 +396,11 @@ f.mapCanvas:SetScript("OnUpdate", function(self)
                 end
 
                 self.hoveredZone = closestZone
+
+                -- ==========================================
+                -- NEW: Save the actual MapID of the hovered zone!
+                -- ==========================================
+                self.hoveredMapID = (closestID ~= "???") and tonumber(closestID) or nil
 
 
                 local colorCode = "|cffffffff"

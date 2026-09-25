@@ -1,7 +1,7 @@
 -- t2_TrackNPC.lua --
 local addonName = ...
 
-local f = CreateFrame("Frame", "T2_TrackNPC", UIParent, "BasicFrameTemplateWithInset")
+local f = CreateFrame("Frame", "T2_TrackNPCPanel", UIParent, "BasicFrameTemplateWithInset")
 f:SetSize(500, 480)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetMovable(true)
@@ -27,7 +27,7 @@ end)
 
 f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
-f.title:SetText("t2_TrackNPC")
+f.title:SetText("t2_TrackNPC Manager")
 
 -- State Variables
 local activeRegion = nil     -- LEVEL 1: e.g. "Eastern Kingdoms <Alliance>"
@@ -41,7 +41,6 @@ local inputBox, inputLabel, CollapseWindow
 
 -- ==========================================
 -- Utility: Extract Base Group from Region String
--- e.g. "Eastern Kingdoms <Alliance>" -> "Eastern Kingdoms"
 -- ==========================================
 local function GetContinent(regionName)
     if not regionName then return "Unknown Region" end
@@ -532,9 +531,6 @@ RefreshLogDisplay = function()
     content:SetSize(430, math.abs(yOffset) + 10)
 end
 
--- ==========================================
--- Updated Tabs Function (Vertical Index Page)
--- ==========================================
 RefreshTabs = function()
     for _, tab in ipairs(tabContainer.tabs) do
         tab:Hide()
@@ -555,7 +551,7 @@ RefreshTabs = function()
     local spacingY = 28 
     local spacingX = 4
     local xOffset = 12
-    local yOffset = -12 -- Start slightly lower for aesthetic padding
+    local yOffset = -12 
 
     if not activeRegion then
         -- LEVEL 1: Vertical Index Menu
@@ -577,25 +573,22 @@ RefreshTabs = function()
         table.sort(contNames)
 
         for i, cName in ipairs(contNames) do
-            -- Render Group Text Header
             local groupLabel = tabContainer:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
             groupLabel:SetText(cName .. ":")
             groupLabel:SetPoint("TOPLEFT", tabContainer, "TOPLEFT", 12, yOffset)
             groupLabel:SetTextColor(1, 0.82, 0)
             table.insert(tabContainer.labels, groupLabel)
             
-            yOffset = yOffset - 26 -- Line break for the first button
+            yOffset = yOffset - 26
 
-            -- Render matching Region buttons underneath, stacked vertically
             table.sort(continents[cName])
             for _, rName in ipairs(continents[cName]) do
                 local tabBtn = CreateFrame("Button", nil, tabContainer, "UIPanelButtonTemplate")
                 tabBtn:SetText(rName)
-                tabBtn:SetWidth(math.max(180, tabBtn:GetFontString():GetStringWidth() + 24)) -- Wider minimum for vertical lists
+                tabBtn:SetWidth(math.max(180, tabBtn:GetFontString():GetStringWidth() + 24))
                 tabBtn:SetHeight(tabHeight)
                 tabBtn:Show()
                 
-                -- Indented vertically (</n>)
                 tabBtn:SetPoint("TOPLEFT", tabContainer, "TOPLEFT", 24, yOffset)
                 tabBtn:SetScript("OnClick", function()
                     activeRegion = rName
@@ -607,13 +600,12 @@ RefreshTabs = function()
                 yOffset = yOffset - spacingY
             end
             
-            -- Add large gap before the next group (</n></n></n>)
             if i < #contNames then
                 yOffset = yOffset - (spacingY * 1.5)
             end
         end
     else
-        -- LEVEL 2: Horizontal Wrap (for specific Zone tabs inside a Region)
+        -- LEVEL 2: Horizontal Wrap
         xOffset = 12
         yOffset = -4
         
@@ -896,8 +888,47 @@ f.importBtn = importBtn
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
 
-function func_ToggleT2Window()
-    if f:IsShown() then
+-- ==========================================
+-- GLOBAL EXPOSED TOGGLE API
+-- ==========================================
+_G.func_ToggleT2Window = function(mapID)
+    activeRegion = nil
+    activeTabZone = nil
+
+    if type(mapID) == "number" then
+        local mapInfo = C_Map.GetMapInfo(mapID)
+        local mapName = mapInfo and mapInfo.name
+        local foundZone = false
+
+        if type(T2_NPC_DATA) == "table" and type(T2_NPC_DATA.entries) == "table" then
+            -- 1. Try to find a direct mapID match (Zone Level)
+            for _, entry in ipairs(T2_NPC_DATA.entries) do
+                if entry.mapID == mapID then
+                    activeRegion = entry.region
+                    activeTabZone = entry.mainLocation
+                    foundZone = true
+                    break
+                end
+            end
+            
+            -- 2. If no direct match, check if it matches a Region/Continent name (Region Level)
+            if not foundZone and mapName then
+                for _, entry in ipairs(T2_NPC_DATA.entries) do
+                    local r = entry.region or "Unknown Region"
+                    local c = GetContinent(r)
+                    if r == mapName or c == mapName then
+                        activeRegion = r
+                        activeTabZone = nil
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    RefreshLogDisplay()
+
+    if f:IsShown() and not mapID then
         f:Hide()
     else
         if isCollapsed then CollapseWindow(false) end
@@ -913,14 +944,14 @@ SlashCmdList["T2_TRACK"] = function(msg)
         if isCollapsed then CollapseWindow(false) end
         if not f:IsShown() then f:Show() end
     else
-        func_ToggleT2Window()
+        _G.func_ToggleT2Window()
     end
 end
 
 local toggleBtn = CreateFrame("Button", "T2_TrackNPC_KeybindButton", UIParent, "SecureActionButtonTemplate")
 toggleBtn:SetAttribute("type", "macro")
 toggleBtn:SetAttribute("macrotext", "/t2")
-toggleBtn:SetScript("OnClick", func_ToggleT2Window)
+toggleBtn:SetScript("OnClick", function() _G.func_ToggleT2Window() end)
 
 local bindInitializer = CreateFrame("Frame")
 bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
