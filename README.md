@@ -264,38 +264,6 @@ For example, NPC and resource data can eventually be displayed and explored thro
 
 <br>
 
----
----
-
-## Screenshots **畫面展示**
-
-
-Screenshots and feature demonstrations will be added as development progresses.
-
-> 隨著開發進度，將逐步加入畫面截圖與功能展示。
-
-<details>
-<summary>TrackMap</summary>
-
-*Screenshots will be added here.*
-
-> *此處將加入 TrackMap 的畫面截圖。*
-
-</details>
-
-<br>
-
-<details>
-
-<summary>TrackNPC</summary>
-
-*Screenshots will be added here.*
-
-> *此處將加入 TrackNPC 的畫面截圖。*
-
-</details>
-
-<br>
 
 ---
 ---

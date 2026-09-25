@@ -121,6 +121,9 @@ end)
 
 local tabButtons = {}
 
+-- Forward declaration of UpdateQuestList so collapseBtn can call it
+local UpdateQuestList
+
 collapseBtn:SetScript("OnClick", function()
     if isCollapsed then
         f:SetHeight(500)
@@ -132,7 +135,7 @@ collapseBtn:SetScript("OnClick", function()
         btnUntrackAll:Show()
         collapseBtn:SetText("_")
         isCollapsed = false
-        if _G.func_UpdateQuestList then _G.func_UpdateQuestList() end
+        UpdateQuestList()
     else
         f:SetHeight(32)
         if f.Bg then f.Bg:Hide() end
@@ -148,9 +151,11 @@ collapseBtn:SetScript("OnClick", function()
 end)
 
 -- =========================================================================
--- 4. Dynamic Tabs Logic
+-- 4. Dynamic Tabs Logic & Helpers
 -- =========================================================================
 local activeFilter = L.TAB_ALL
+local questLines = {}
+local expandedQuests = {} 
 
 local function GetOrCreateTab(index)
     local tab = tabButtons[index]
@@ -163,12 +168,6 @@ local function GetOrCreateTab(index)
     return tab
 end
 
--- =========================================================================
--- 5. Accordion Logic & Data Population
--- =========================================================================
-local questLines = {}
-local expandedQuests = {} 
-
 btnExpandAll:SetScript("OnClick", function()
     local numEntries = C_QuestLog.GetNumQuestLogEntries()
     for i = 1, numEntries do
@@ -177,12 +176,12 @@ btnExpandAll:SetScript("OnClick", function()
             expandedQuests[q.questID] = true
         end
     end
-    if _G.func_UpdateQuestList then _G.func_UpdateQuestList() end
+    UpdateQuestList()
 end)
 
 btnCollapseAll:SetScript("OnClick", function()
     wipe(expandedQuests)
-    if _G.func_UpdateQuestList then _G.func_UpdateQuestList() end
+    UpdateQuestList()
 end)
 
 btnUntrackAll:SetScript("OnClick", function()
@@ -206,7 +205,7 @@ btnUntrackAll:SetScript("OnClick", function()
             end
         end
     end
-    if _G.func_UpdateQuestList then _G.func_UpdateQuestList() end
+    UpdateQuestList()
 end)
 
 local function GetOrCreateLine(index)
@@ -288,8 +287,20 @@ local function GetDifficultyColorHex(questLevel)
     end
 end
 
-function _G.func_UpdateQuestList()
+-- =========================================================================
+-- 5. Main Update Function (Fully Defined Before Event Registration)
+-- =========================================================================
+UpdateQuestList = function()
     if not f:IsShown() or isCollapsed then return end
+
+    local oldSelectionIndex
+    local oldSelectionID
+    if type(GetQuestLogSelection) == "function" then
+        oldSelectionIndex = GetQuestLogSelection()
+    end
+    if C_QuestLog and type(C_QuestLog.GetSelectedQuest) == "function" then
+        oldSelectionID = C_QuestLog.GetSelectedQuest()
+    end
 
     for _, line in ipairs(questLines) do line:Hide() end
     for _, tab in ipairs(tabButtons) do tab:Hide() end
@@ -347,7 +358,7 @@ function _G.func_UpdateQuestList()
             end
         end
         
-        tab:SetScript("OnClick", function() activeFilter = filterName; _G.func_UpdateQuestList() end)
+        tab:SetScript("OnClick", function() activeFilter = filterName; UpdateQuestList() end)
         tab:Show()
     end
     
@@ -414,7 +425,7 @@ function _G.func_UpdateQuestList()
             else
                 expandedQuests[questInfo.questID] = not expandedQuests[questInfo.questID]
             end
-            _G.func_UpdateQuestList()
+            UpdateQuestList()
         end)
 
         local qHeight = qBtn.text:GetStringHeight()
@@ -424,7 +435,6 @@ function _G.func_UpdateQuestList()
         lineIndex = lineIndex + 1
 
         if expandedQuests[questInfo.questID] then
-            -- Safely select the quest log entry for older clients to avoid silent Lua crashes
             if C_QuestLog and type(C_QuestLog.SetSelectedQuest) == "function" then
                 pcall(C_QuestLog.SetSelectedQuest, questInfo.questID)
             elseif type(SelectQuestLogEntry) == "function" then
@@ -681,16 +691,22 @@ function _G.func_UpdateQuestList()
     end
 
     content:SetHeight(math.abs(yOffset) + 10)
+
+    if oldSelectionID and C_QuestLog and type(C_QuestLog.SetSelectedQuest) == "function" then
+        pcall(C_QuestLog.SetSelectedQuest, oldSelectionID)
+    elseif oldSelectionIndex and type(SelectQuestLogEntry) == "function" then
+        pcall(SelectQuestLogEntry, oldSelectionIndex)
+    end
 end
 
 -- =========================================================================
--- 6. Events & Keybinds
+-- 6. Events & Keybinds (Registered After Functions Are Fully Defined)
 -- =========================================================================
-f:SetScript("OnShow", _G.func_UpdateQuestList)
+f:SetScript("OnShow", UpdateQuestList)
 f:RegisterEvent("QUEST_LOG_UPDATE")
 f:RegisterEvent("SUPER_TRACKING_CHANGED")
 f:RegisterEvent("PLAYER_LEVEL_UP")
-f:SetScript("OnEvent", function(self, event) _G.func_UpdateQuestList() end)
+f:SetScript("OnEvent", function(self, event) UpdateQuestList() end)
 
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
@@ -702,15 +718,13 @@ end
 SLASH_T3_CMD1 = "/t3"
 SlashCmdList["T3_CMD"] = ToggleT3Window
 
-local toggleBtn = CreateFrame("Button", "T3_KeybindButton", UIParent, "SecureActionButtonTemplate")
-toggleBtn:SetAttribute("type", "macro")
-toggleBtn:SetAttribute("macrotext", "/t3")
+local toggleBtn = CreateFrame("Button", "T3_UniqueKeybindButton", UIParent)
 toggleBtn:SetScript("OnClick", ToggleT3Window)
 
 local bindInitializer = CreateFrame("Frame")
 bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
 bindInitializer:SetScript("OnEvent", function(self, event)
     self:UnregisterEvent(event)
-    SetBindingClick("CTRL-NUMPAD3", "T3_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD3", "T3_UniqueKeybindButton")
     SaveBindings(GetCurrentBindingSet())
 end)

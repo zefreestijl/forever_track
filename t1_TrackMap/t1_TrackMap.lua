@@ -413,10 +413,11 @@ f.mapCanvas:SetScript("OnUpdate", function(self)
                 self.hoveredMapID = (closestID ~= "???") and tonumber(closestID) or nil
 
 
-                local colorCode = "|cffffffff"
+               local colorCode = "|cffffffff"
                 if cityDataByZone[closestZone] then
                     if cityDataByZone[closestZone].status == "Alliance" then
-                        colorCode = "|cff0078ff"
+                        -- Changed to a darker, deeper blue to match the Horde red's intensity
+                        colorCode = "|cff0044cc" 
                     elseif cityDataByZone[closestZone].status == "Horde" then
                         colorCode = "|cffff2020"
                     end
