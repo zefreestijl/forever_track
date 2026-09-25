@@ -45,7 +45,7 @@ World of Warcraft\
 └── _classic_beta_\
     └── Interface\
         └── AddOns\
-            ├── t0_TrackMCP\
+            ├── t0_TrackAI\
             ├── t1_TrackMap\
             ├── t2_TrackNPC\
             └── t3_TrackRes\
@@ -83,7 +83,7 @@ After installation, the custom addon windows can be opened with slash commands o
 
 | Addon    | Slash Command | Keyboard Shortcut |
 | -------- | ------------- | ----------------- |
-| TrackMCP | `/t0`         | `Ctrl + Numpad 0` |
+| TrackAI | `/t0`         | `Ctrl + Numpad 0` |
 | TrackMap | `/t1`         | `Ctrl + Numpad 1` |
 | TrackNPC | `/t2`         | `Ctrl + Numpad 2` |
 | TrackRes | `/t3`         | `Ctrl + Numpad 3` |
@@ -97,15 +97,15 @@ After installation, the custom addon windows can be opened with slash commands o
 
 
 <details>
-<summary>t0_TrackMCP</summary>
+<summary>t0_TrackAI</summary>
 
-### TrackMCP
+### TrackAI
 
 **Status: Planned**
 
-`t0_TrackMCP` is planned as an MCP-based AI assistant for **WoW Forever**.
+`t0_TrackAI` is planned as an MCP-based AI assistant for **WoW Forever**.
 
-> `t0_TrackMCP` 預計製作成基於 MCP 的 **WoW Forever AI 助手**。
+> `t0_TrackAI` 預計製作成基於 MCP 的 **WoW Forever AI 助手**。
 
 The goal is to help players track:
 
@@ -252,12 +252,12 @@ t2_TrackNPC ──────┐
                   │
 t3_TrackRes ──────┼──> t1_TrackMap
                   │
-t0_TrackMCP ──────┘
+t0_TrackAI ──────┘
 ```
 
-For example, NPC and resource data can eventually be displayed and explored through `t1_TrackMap`, while `t0_TrackMCP` may use information from the other addons to provide context-aware assistance.
+For example, NPC and resource data can eventually be displayed and explored through `t1_TrackMap`, while `t0_TrackAI` may use information from the other addons to provide context-aware assistance.
 
-> 例如，NPC 與資源資料未來可以透過 `t1_TrackMap` 顯示與瀏覽，而 `t0_TrackMCP` 則可能使用其他插件提供的資料來提供更有上下文的協助。
+> 例如，NPC 與資源資料未來可以透過 `t1_TrackMap` 顯示與瀏覽，而 `t0_TrackAI` 則可能使用其他插件提供的資料來提供更有上下文的協助。
 
 <br>
 
@@ -337,13 +337,13 @@ However, the project is still manually developed, tested, reviewed, and modified
 * Repository created
 * `t1_TrackMap` is working but still requires testing and tuning
 * `t2_TrackNPC` is working but still requires testing and tuning
-* `t0_TrackMCP` planned
+* `t0_TrackAI` planned
 * `t3_TrackRes` planned
 
 > - 建立 Repository
 > - `t1_TrackMap` 已可運作，但仍需要測試與調整
 > - `t2_TrackNPC` 已可運作，但仍需要測試與調整
-> - `t0_TrackMCP` 規劃中
+> - `t0_TrackAI` 規劃中
 > - `t3_TrackRes` 規劃中
 
 </details>

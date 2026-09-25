@@ -1,9 +1,9 @@
 ## Interface: 16001
-## Title: t0_TrackMCP
+## Title: t0_TrackAI
 ## Notes: MCP agent assistant tool.
 ## Author: ZealZol
 ## Version: 0.1
-## SavedVariables: T0_MCP_DATA
+## SavedVariables: T0_AI_DATA
 
 
-t0_TrackMCP.lua
+t0_TrackAI.lua
