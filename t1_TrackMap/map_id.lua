@@ -20,7 +20,7 @@ T1_ZoneDB = {
     [1428] = { name = "burning-steppes", x = 0.794, y = 0.609, comment = "燃燒平原", w = 0.122, h = 0.087 },
     [1429] = { name = "elwynn-forest", x = 0.743, y = 0.648, comment = "艾爾文森林", w = 0.105, h = 0.097 },
     [1430] = { name = "deadwind-pass", x = 0.795, y = 0.710, comment = "逆風小徑", w = 0.072, h = 0.065 },
-    [1431] = { name = "duskwood", x = 0.752, y = 0.704, comment = "暮色森林", w = 0.088, h = 0.082 },
+    [1431] = { name = "duskwood", x = 0.752, y = 0.704, comment = "暮色森林", w = 0.092, h = 0.087 },
     [1432] = { name = "loch-modan", x = 0.836, y = 0.504, comment = "洛克莫丹", w = 0.085, h = 0.071 },
     [1433] = { name = "redridge-mountains", x = 0.817, y = 0.655, comment = "赤脊山", w = 0.061, h = 0.057 },
     [1434] = { name = "stranglethorn-vale", x = 0.765, y = 0.807, comment = "荊棘谷", w = 0.173, h = 0.165 },
