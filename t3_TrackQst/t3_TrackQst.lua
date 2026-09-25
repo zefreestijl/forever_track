@@ -24,19 +24,28 @@ local isCollapsed = false
 -- 2. Bottom Action Buttons (Expand/Collapse/Untrack All)
 -- =========================================================================
 local btnExpandAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-btnExpandAll:SetSize(90, 22)
-btnExpandAll:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 5, 8)
+btnExpandAll:SetSize(85, 22)
+btnExpandAll:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 3, 8)
 btnExpandAll:SetText("Expand All")
 
 local btnCollapseAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-btnCollapseAll:SetSize(90, 22)
-btnCollapseAll:SetPoint("LEFT", btnExpandAll, "RIGHT", 2, 0)
+btnCollapseAll:SetSize(85, 22)
+btnCollapseAll:SetPoint("LEFT", btnExpandAll, "RIGHT", 3, 0)
 btnCollapseAll:SetText("Collapse All")
 
 local btnUntrackAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-btnUntrackAll:SetSize(90, 22)
-btnUntrackAll:SetPoint("LEFT", btnCollapseAll, "RIGHT", 2, 0)
+btnUntrackAll:SetSize(85, 22)
+btnUntrackAll:SetPoint("LEFT", btnCollapseAll, "RIGHT", 3, 0)
 btnUntrackAll:SetText("Untrack All")
+
+-- Style Untrack All to look like an inactive tab (dimmed) to prevent accidental clicks
+local untrackText = btnUntrackAll:GetFontString()
+if untrackText then untrackText:SetTextColor(0.5, 0.5, 0.5) end
+for _, region in ipairs({btnUntrackAll:GetRegions()}) do
+    if region.IsObjectType and region:IsObjectType("Texture") then
+        region:SetVertexColor(0.4, 0.4, 0.4)
+    end
+end
 
 -- =========================================================================
 -- 3. ScrollFrame Setup & Custom Scrolling
