@@ -27,7 +27,7 @@ T1_ZoneDB = {
     [1435] = { name = "swamp-of-sorrows", x = 0.836, y = 0.699, comment = "悲傷沼澤", w = 0.086, h = 0.08 },
     [1436] = { name = "westfall", x = 0.700, y = 0.701, comment = "西部荒野", w = 0.106, h = 0.089 },
     [1437] = { name = "wetlands", x = 0.807, y = 0.429, comment = "濕地", w = 0.124, h = 0.112 },
-    [1438] = { name = "teldrassil", x = 0.148, y = 0.107, comment = "泰達希爾", w = 0.152, h = 0.14 },
+    [1438] = { name = "teldrassil", x = 0.153, y = 0.107, comment = "泰達希爾", w = 0.152, h = 0.14 },
     [1439] = { name = "darkshore", x = 0.199, y = 0.263, comment = "黑海岸", w = 0.188, h = 0.169 },
     [1440] = { name = "ashenvale", x = 0.226, y = 0.393, comment = "梣谷", w = 0.176, h = 0.15 },
     [1441] = { name = "thousand-needles", x = 0.262, y = 0.709, comment = "千針石林", w = 0.131, h = 0.116 },
