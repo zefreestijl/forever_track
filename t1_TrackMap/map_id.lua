@@ -26,7 +26,7 @@ T1_ZoneDB = {
     [1434] = { name = "stranglethorn-vale", x = 0.765, y = 0.807, comment = "荊棘谷", w = 0.173, h = 0.165 },
     [1435] = { name = "swamp-of-sorrows", x = 0.836, y = 0.699, comment = "悲傷沼澤", w = 0.086, h = 0.08 },
     [1436] = { name = "westfall", x = 0.699, y = 0.705, comment = "西部荒野", w = 0.105, h = 0.091 },
-    [1437] = { name = "wetlands", x = 0.807, y = 0.431, comment = "濕地", w = 0.133, h = 0.120 },
+    [1437] = { name = "wetlands", x = 0.807, y = 0.431, comment = "濕地", w = 0.115, h = 0.120 },
     [1438] = { name = "teldrassil", x = 0.153, y = 0.107, comment = "泰達希爾", w = 0.152, h = 0.14 },
     [1439] = { name = "darkshore", x = 0.199, y = 0.263, comment = "黑海岸", w = 0.188, h = 0.169 },
     [1440] = { name = "ashenvale", x = 0.226, y = 0.393, comment = "梣谷", w = 0.176, h = 0.15 },
