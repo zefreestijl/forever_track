@@ -1,7 +1,7 @@
 -- t2_TrackNPC.lua --
 local addonName = ...
 
-local f = CreateFrame("Frame", "T2_TrackNPC", UIParent, "BasicFrameTemplateWithInset")
+local f = CreateFrame("Frame", "T2_TrackNPCPanel", UIParent, "BasicFrameTemplateWithInset")
 f:SetSize(500, 480)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetMovable(true)
@@ -27,7 +27,7 @@ end)
 
 f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
-f.title:SetText("t2_TrackNPC")
+f.title:SetText("t2_TrackNPC Manager")
 
 -- State Variables
 local activeRegion = nil     -- LEVEL 1: e.g. "Eastern Kingdoms <Alliance>"
@@ -41,6 +41,7 @@ local inputBox, inputLabel, CollapseWindow
 
 -- ==========================================
 -- Utility: Extract Base Group from Region String
+-- e.g. "Eastern Kingdoms <Alliance>" -> "Eastern Kingdoms"
 -- ==========================================
 local function GetContinent(regionName)
     if not regionName then return "Unknown Region" end
@@ -219,6 +220,25 @@ end)
 local scrollArea = CreateFrame("ScrollFrame", "T2_TrackNPCScrollFrame", f, "UIPanelScrollFrameTemplate")
 scrollArea:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -32, 75)
 f.scrollArea = scrollArea
+
+-- ==========================================
+-- Custom 3-Item Mouse Wheel Scrolling Override
+-- ==========================================
+scrollArea:SetScript("OnMouseWheel", function(self, delta)
+    local scrollBar = _G[self:GetName() .. "ScrollBar"]
+    if scrollBar then
+        -- 3 items * roughly 30 pixels (26 height + 4 padding) = 90 pixels per scroll
+        local scrollStep = 90 
+        local minVal, maxVal = scrollBar:GetMinMaxValues()
+        local newVal = scrollBar:GetValue() - (delta * scrollStep)
+        
+        -- Clamp to prevent going out of bounds
+        if newVal < minVal then newVal = minVal end
+        if newVal > maxVal then newVal = maxVal end
+        
+        scrollBar:SetValue(newVal)
+    end
+end)
 
 local content = CreateFrame("Frame", nil, scrollArea)
 content:SetSize(430, 1)
@@ -678,6 +698,18 @@ local function ProcessScanOrNote(customNote)
     if type(T2_NPC_DATA) ~= "table" then T2_NPC_DATA = {} end
     if type(T2_NPC_DATA.entries) ~= "table" then T2_NPC_DATA.entries = {} end
 
+    if selectedItemIndex then
+        local itemToUpdate = T2_NPC_DATA.entries[selectedItemIndex]
+        if itemToUpdate then
+            itemToUpdate.comment = customNote or ""
+            print(string.format("Updated comment for %s.", itemToUpdate.name))
+        end
+        selectedItemIndex = nil
+        if inputLabel then inputLabel:SetText("Type comment and press Enter (or click Scan):") end
+        RefreshLogDisplay()
+        return
+    end
+
     local unit = nil
     if UnitExists("mouseover") and not UnitIsPlayer("mouseover") then
         unit = "mouseover"
@@ -694,18 +726,6 @@ local function ProcessScanOrNote(customNote)
             local _, _, _, _, _, npcID = strsplit("-", guid)
             targetID = npcID or ""
         end
-    end
-
-    if not targetName and selectedItemIndex then
-        local itemToUpdate = T2_NPC_DATA.entries[selectedItemIndex]
-        if itemToUpdate then
-            itemToUpdate.comment = customNote or ""
-            print(string.format("Updated comment for %s.", itemToUpdate.name))
-        end
-        selectedItemIndex = nil
-        if inputLabel then inputLabel:SetText("Type comment and press Enter (or click Scan):") end
-        RefreshLogDisplay()
-        return
     end
 
     if not targetName and (not customNote or customNote == "") then
@@ -888,9 +908,6 @@ f.importBtn = importBtn
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
 
--- ==========================================
--- GLOBAL EXPOSED TOGGLE API
--- ==========================================
 _G.func_ToggleT2Window = function(mapID)
     activeRegion = nil
     activeTabZone = nil
@@ -901,7 +918,6 @@ _G.func_ToggleT2Window = function(mapID)
         local foundZone = false
 
         if type(T2_NPC_DATA) == "table" and type(T2_NPC_DATA.entries) == "table" then
-            -- 1. Try to find a direct mapID match (Zone Level)
             for _, entry in ipairs(T2_NPC_DATA.entries) do
                 if entry.mapID == mapID then
                     activeRegion = entry.region
@@ -911,7 +927,6 @@ _G.func_ToggleT2Window = function(mapID)
                 end
             end
             
-            -- 2. If no direct match, check if it matches a Region/Continent name (Region Level)
             if not foundZone and mapName then
                 for _, entry in ipairs(T2_NPC_DATA.entries) do
                     local r = entry.region or "Unknown Region"
