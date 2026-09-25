@@ -321,7 +321,7 @@ local function ImportFromStaticDB()
         print("|cFFFF0000t2_TrackNPC: No valid databases loaded. (Ignored unsupported zones).|r")
     else
         print(
-        "|cFFFF0000Error: Could not find any global tables starting with DB_. Make sure they are listed in your .toc file.|r")
+            "|cFFFF0000Error: Could not find any global tables starting with DB_. Make sure they are listed in your .toc file.|r")
     end
 end
 
@@ -370,7 +370,7 @@ RefreshLogDisplay = function()
         emptyLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -10)
         emptyLabel:SetText("(Log is currently empty. Hover/Target an NPC and scan!)")
         table.insert(content.rows, emptyLabel)
-        content:SetSize(350, 40)
+        content:SetSize(330, 40)
         return
     end
 
@@ -379,7 +379,7 @@ RefreshLogDisplay = function()
         emptyLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -10)
         emptyLabel:SetText("Please select a Region from the index above.")
         table.insert(content.rows, emptyLabel)
-        content:SetSize(350, 40)
+        content:SetSize(300, 40)
         return
     end
 
@@ -388,7 +388,7 @@ RefreshLogDisplay = function()
         emptyLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -10)
         emptyLabel:SetText("Please select a Zone from the tabs above.")
         table.insert(content.rows, emptyLabel)
-        content:SetSize(350, 40)
+        content:SetSize(330, 40)
         return
     end
 
@@ -508,26 +508,45 @@ RefreshLogDisplay = function()
                     RefreshLogDisplay()
 
                     if type(item.mapID) == "number" and item.x and item.y then
-                        local mapInfo = C_Map.GetMapInfo(item.mapID)
-                        if mapInfo then
-                            local mapPoint = UiMapPoint.CreateFromCoordinates(item.mapID, item.x, item.y)
-                            C_Map.SetUserWaypoint(mapPoint)
-                            C_SuperTrack.SetSuperTrackedUserWaypoint(true)
-                            C_Map.OpenWorldMap(item.mapID)
-                            print(string.format("Waypoint set and tracked for %s.", item.name))
+                        -- 1. Use the new SetPin function to automatically wipe old pins and drop this new one
+                        if _G.func_T1_SetPin then
+                            _G.func_T1_SetPin(item.mapID, item.x, item.y, 0.2, 1, 0.2)
                         else
-                            print(string.format("|cFFFF0000Error: Invalid Map ID '%s' for %s. Cannot open map.|r",
-                                item.mapID, item.name))
+                            print("|cFFFF0000Error: func_T1_SetPin not found in T1 addon.|r")
+                        end
+
+                        -- 2. SMART WINDOW TOGGLE: Decide between City Map or Global Map!
+                        if _G.func_ToggleT1Window then
+                            -- Define the exceptional city map IDs
+                            local capitalCities = {
+                                [1453] = true, -- Stormwind
+                                [1454] = true, -- Orgrimmar
+                                [1455] = true, -- Ironforge
+                                [1456] = true, -- Thunder Bluff
+                                [1457] = true, -- Darnassus
+                                [1458] = true  -- Undercity
+                            }
+
+                            if capitalCities[item.mapID] then
+                                -- It is a capital city! Open the specific local map.
+                                _G.func_ToggleT1Window(item.mapID)
+                            else
+                                -- It is a standard zone! Open the Custom World Map.
+                                _G.func_ToggleT1Window(947)
+                            end
+                        else
+                            print("|cFFFF0000Error: T1 custom map window function not found.|r")
                         end
                     else
-                        print(string.format("|cFFFF0000Error: Map Pin failed. 'mapID' is missing for %s!|r", item.name))
+                        print(string.format("|cFFFF0000Error: Map Pin failed. 'mapID', 'x', or 'y' is missing for %s!|r",
+                            item.name))
                     end
                 end)
 
                 local delBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-                delBtn:SetSize(50, 20)
-                delBtn:SetPoint("RIGHT", row, "RIGHT", -4, 0)
-                delBtn:SetText("Delete")
+                delBtn:SetSize(17, 20)
+                delBtn:SetPoint("RIGHT", row, "RIGHT", -40, 0)
+                delBtn:SetText("X")
                 delBtn:SetScript("OnClick", function()
                     if selectedItemIndex == item.originalIndex then
                         selectedItemIndex = nil
@@ -704,7 +723,7 @@ RefreshTabs = function()
 
     tabContainer:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -32)
     local totalTabContainerHeight = math.abs(yOffset) + (activeRegion and tabHeight or 0) + 8
-    tabContainer:SetSize(470, totalTabContainerHeight)
+    tabContainer:SetSize(330, totalTabContainerHeight)
 
     local scrollAreaTopAnchor = -32 - totalTabContainerHeight - 8
     scrollArea:SetPoint("TOPLEFT", f, "TOPLEFT", 12, scrollAreaTopAnchor)
@@ -865,15 +884,22 @@ scanBtn:SetScript("OnClick", function()
 end)
 f.scanBtn = scanBtn
 
+
 local clearBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 clearBtn:SetSize(65, 24)
 clearBtn:SetPoint("LEFT", scanBtn, "RIGHT", 4, 0)
 clearBtn:SetText("Clear Pin")
 clearBtn:SetScript("OnClick", function()
-    C_Map.ClearUserWaypoint()
-    print("Map pin cleared.")
+    -- Clear the pins from your T1 addon
+    if _G.func_T1_ClearPins then
+        _G.func_T1_ClearPins()
+        print("Custom map pin cleared.")
+    else
+        print("|cFFFF0000Error: T1 pin clear function not found.|r")
+    end
 end)
 f.clearBtn = clearBtn
+
 
 -- Removed expandAllBtn and collapseAllBtn blocks here
 
@@ -898,30 +924,69 @@ f.importBtn = importBtn
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
 
+
+
+local lastToggleTime = 0 -- Add this timer variable outside the function
+
 _G.func_ToggleT2Window = function(mapID)
+    local currentTime = GetTime()
+
+    -- THE SHIELD: If this function is spammed within 0.2 seconds, ignore the spam!
+    if currentTime - lastToggleTime < 0.2 then
+        return
+    end
+    lastToggleTime = currentTime
+
     activeRegion = nil
     activeTabZone = nil
 
     if type(mapID) == "number" then
         local mapInfo = C_Map.GetMapInfo(mapID)
-        local mapName = mapInfo and mapInfo.name
-        local foundZone = false
+        local mapName = mapInfo and mapInfo.name or "Unknown Map"
+
+        local function IsSameName(n1, n2)
+            if not n1 or not n2 then return false end
+            return strtrim(tostring(n1)):lower() == strtrim(tostring(n2)):lower()
+        end
 
         if type(T2_NPC_DATA) == "table" and type(T2_NPC_DATA.entries) == "table" then
+            -- PASS 1: Strict Match
             for _, entry in ipairs(T2_NPC_DATA.entries) do
-                if entry.mapID == mapID then
+                if entry.mapID == mapID and IsSameName(entry.mainLocation, mapName) then
                     activeRegion = entry.region
                     activeTabZone = entry.mainLocation
-                    foundZone = true
                     break
                 end
             end
 
-            if not foundZone and mapName then
+            -- PASS 2: Name Only Match
+            if not activeRegion and mapName ~= "Unknown Map" then
+                for _, entry in ipairs(T2_NPC_DATA.entries) do
+                    if IsSameName(entry.mainLocation, mapName) then
+                        activeRegion = entry.region
+                        activeTabZone = entry.mainLocation
+                        break
+                    end
+                end
+            end
+
+            -- PASS 3: Map ID Match Fallback
+            if not activeRegion then
+                for _, entry in ipairs(T2_NPC_DATA.entries) do
+                    if entry.mapID == mapID then
+                        activeRegion = entry.region
+                        activeTabZone = mapName
+                        break
+                    end
+                end
+            end
+
+            -- PASS 4: Continent / Region Fallback
+            if not activeRegion and mapName ~= "Unknown Map" then
                 for _, entry in ipairs(T2_NPC_DATA.entries) do
                     local r = entry.region or "Unknown Region"
                     local c = GetContinent(r)
-                    if r == mapName or c == mapName then
+                    if IsSameName(r, mapName) or IsSameName(c, mapName) then
                         activeRegion = r
                         activeTabZone = nil
                         break
@@ -940,6 +1005,8 @@ _G.func_ToggleT2Window = function(mapID)
         f:Show()
     end
 end
+
+
 
 SLASH_T2_TRACK1 = "/t2"
 SlashCmdList["T2_TRACK"] = function(msg)

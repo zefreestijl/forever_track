@@ -251,10 +251,48 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
     if dragDistance < 25 then
         local MY_CUSTOM_WORLD_MAP_ID = 947
 
+
         -- ==========================================
         -- RIGHT CLICK: Open T2 Window with MapID
         -- ==========================================
+
         if button == "RightButton" then
+            local targetMapID = nil
+
+            if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+                -- Always use the standard zone ID we just saved in OnUpdate!
+                targetMapID = self.hoveredMapID
+            else
+                -- If we are already zoomed into a specific city map, use its ID directly
+                targetMapID = f.currentMapID
+            end
+
+            -- DEBUG PRINT: Let's see exactly what T1 is sending!
+            print(string.format("|cff00ff00T1_TrackMap DEBUG:|r Right-Clicked! Target MapID: %s | Hovered Zone: %s",
+                tostring(targetMapID), tostring(self.hoveredZone)))
+
+            -- Pass the targetMapID to your T2 API
+            if _G.func_ToggleT2Window then
+                _G.func_ToggleT2Window(targetMapID)
+            else
+                print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
+            end
+            local targetMapID = nil
+
+            if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+                -- Always use the standard zone ID we just saved in OnUpdate!
+                targetMapID = self.hoveredMapID
+            else
+                -- If we are already zoomed into a specific city map, use its ID directly
+                targetMapID = f.currentMapID
+            end
+
+            -- Pass the targetMapID to your T2 API
+            if _G.func_ToggleT2Window then
+                _G.func_ToggleT2Window(targetMapID)
+            else
+                print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
+            end
             local targetMapID = nil
 
             if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
@@ -559,7 +597,7 @@ function f:LoadMap(mapID)
 end
 
 -- ==========================================
--- Zoom & Pan Logic (and Flags)
+-- Zoom & Pan Logic (and Flags / Pins)
 -- ==========================================
 f.zoomLevel = 1
 f.mapOffsetX = 0
@@ -618,7 +656,6 @@ function f:UpdateMapTransform()
     local MY_CUSTOM_WORLD_MAP_ID = 947
 
     if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-        -- 1. Create the frames exactly once
         if not f.cityFlags then
             f.cityFlags = {}
             for key, data in pairs(cityDataByZone) do
@@ -638,13 +675,10 @@ function f:UpdateMapTransform()
             end
         end
 
-        -- 2. Render and Counter-Scale
         for key, flagObj in pairs(f.cityFlags) do
             flagObj.frame:Show()
-
             local baseSize = 24
             flagObj.frame:SetSize(baseSize / self.zoomLevel, baseSize / self.zoomLevel)
-
             flagObj.frame:ClearAllPoints()
             flagObj.frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", flagObj.x * contentW, -flagObj.y * contentH)
         end
@@ -653,6 +687,65 @@ function f:UpdateMapTransform()
             for key, flagObj in pairs(f.cityFlags) do
                 flagObj.frame:Hide()
             end
+        end
+    end
+
+    -- ==========================================
+    -- RENDER CUSTOM MAP PINS (Global & Regional)
+    -- ==========================================
+    if not f.pinFrames then f.pinFrames = {} end
+    if not f.customPins then f.customPins = {} end
+
+    local maxIndex = math.max(#f.customPins, #f.pinFrames)
+
+    for i = 1, maxIndex do
+        local pinData = f.customPins[i]
+        local frame = f.pinFrames[i]
+
+        if pinData and not frame then
+            frame = CreateFrame("Frame", nil, self.mapContent)
+            frame:SetFrameLevel(self.mapContent:GetFrameLevel() + 60)
+
+            local tex = frame:CreateTexture(nil, "OVERLAY")
+            tex:SetAllPoints()
+            tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_1")
+
+            frame.tex = tex
+            f.pinFrames[i] = frame
+        end
+
+        if pinData and frame then
+            frame.tex:SetVertexColor(pinData.r, pinData.g, pinData.b, 1)
+
+            local showPin = false
+            local drawX, drawY = 0, 0
+
+            if f.currentMapID == pinData.mapID then
+                drawX = pinData.x
+                drawY = pinData.y
+                showPin = true
+            elseif f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+                if T1_ZoneDB and T1_ZoneDB[pinData.mapID] then
+                    local zData = T1_ZoneDB[pinData.mapID]
+                    if zData.x and zData.w and zData.y and zData.h then
+                        drawX = zData.x + ((pinData.x - 0.5) * zData.w)
+                        drawY = zData.y + ((pinData.y - 0.5) * zData.h)
+                        showPin = true
+                    end
+                end
+            end
+
+            if showPin then
+                frame:Show()
+                local baseSize = 24
+                frame:SetSize(baseSize / self.zoomLevel, baseSize / self.zoomLevel)
+                frame:ClearAllPoints()
+                frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", drawX * contentW, -drawY * contentH)
+            else
+                frame:Hide()
+            end
+        elseif frame then
+            frame:Hide()
         end
     end
 end
@@ -738,22 +831,275 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
 end)
 
 -- ==========================================
+-- Auto-Frame: Zoom Fit Player and Pin
+-- ==========================================
+function f:ZoomFitPlayerAndPin()
+    -- NEW: Skip auto-zooming completely if we are on a city map!
+    local MY_CUSTOM_WORLD_MAP_ID = 947
+    if f.currentMapID ~= MY_CUSTOM_WORLD_MAP_ID then
+        return
+    end
+
+    -- 1. Grab Player coordinates (computed by your playerArrowTracker)
+    local pX = f.playerArrow and f.playerArrow.pX
+    local pY = f.playerArrow and f.playerArrow.pY
+
+    -- 2. Grab the latest Pin coordinates
+    local pinX, pinY = nil, nil
+    if f.customPins and #f.customPins > 0 then
+        local pinData = f.customPins[#f.customPins] -- Get the most recently added pin
+
+        local MY_CUSTOM_WORLD_MAP_ID = 947
+        if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+            if T1_ZoneDB and T1_ZoneDB[pinData.mapID] then
+                local zData = T1_ZoneDB[pinData.mapID]
+                if zData.x and zData.w and zData.y and zData.h then
+                    pinX = zData.x + ((pinData.x - 0.5) * zData.w)
+                    pinY = zData.y + ((pinData.y - 0.5) * zData.h)
+                end
+            end
+        elseif f.currentMapID == pinData.mapID then
+            -- Fallback if looking at a local regional map instead of the global map
+            pinX = pinData.x
+            pinY = pinData.y
+        end
+    end
+
+    -- 3. Determine the Bounding Box
+    local minX, maxX, minY, maxY
+    if pX and pY and pinX and pinY then
+        minX = math.min(pX, pinX)
+        maxX = math.max(pX, pinX)
+        minY = math.min(pY, pinY)
+        maxY = math.max(pY, pinY)
+    elseif pinX and pinY then
+        -- Only pin exists (player is off-map or hidden)
+        minX, maxX = pinX, pinX
+        minY, maxY = pinY, pinY
+    elseif pX and pY then
+        -- Only player exists (no pins)
+        minX, maxX = pX, pX
+        minY, maxY = pY, pY
+    else
+        return -- Nothing to frame!
+    end
+
+    -- 4. Calculate Distance and Required Zoom
+    local boxW = maxX - minX
+    local boxH = maxY - minY
+
+    -- Add 20% padding around the edges so the icons aren't touching the window border
+    local PADDING = 0.20
+    boxW = math.max(boxW + (PADDING * 2), 0.15) -- Enforce a minimum zoom limit
+    boxH = math.max(boxH + (PADDING * 2), 0.15)
+
+    -- Calculate the highest zoom level that fits both width and height
+    local zoomW = 1 / boxW
+    local zoomH = 1 / boxH
+    local targetZoom = math.min(zoomW, zoomH)
+
+    if targetZoom < 1 then targetZoom = 1 end
+    if targetZoom > 10 then targetZoom = 10 end
+
+    -- 5. Calculate Center Point to Pan To
+    local centerX = (minX + maxX) / 2
+    local centerY = (minY + maxY) / 2
+
+    local canvasW, canvasH = self.mapCanvas:GetSize()
+    local contentW, contentH = self.mapContent:GetSize()
+
+    if canvasW and canvasH and contentW and contentH then
+        local exactPixelX = centerX * contentW
+        local exactPixelY = -centerY * contentH
+
+        -- Apply the visual offsets using the new zoom level
+        local visualOffsetX = (canvasW / 2) - (exactPixelX * targetZoom)
+        local visualOffsetY = -(canvasH / 2) - (exactPixelY * targetZoom)
+
+        self.zoomLevel = targetZoom
+        self.mapOffsetX = visualOffsetX / targetZoom
+        self.mapOffsetY = visualOffsetY / targetZoom
+
+        if self.UpdateMapTransform then self:UpdateMapTransform() end
+    end
+end
+
+-- ==========================================
+-- RENDER CUSTOM MAP PINS (Global & Regional)
+-- ==========================================
+local MY_CUSTOM_WORLD_MAP_ID = 947
+if not f.pinFrames then f.pinFrames = {} end
+if not f.customPins then f.customPins = {} end
+
+-- Loop through whichever is larger: the number of active pins, or frames created
+local maxIndex = math.max(#f.customPins, #f.pinFrames)
+
+for i = 1, maxIndex do
+    local pinData = f.customPins[i]
+    local frame = f.pinFrames[i]
+
+    -- 1. Create frames safely without rotation math
+    if pinData and not frame then
+        frame = CreateFrame("Frame", nil, self.mapContent)
+        frame:SetFrameLevel(self.mapContent:GetFrameLevel() + 60)
+
+        local tex = frame:CreateTexture(nil, "OVERLAY")
+        tex:SetAllPoints()
+        -- Bulletproof fallback: A built-in Star Icon instead of a rotated color block!
+        tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_1")
+
+        frame.tex = tex
+        f.pinFrames[i] = frame
+    end
+
+    -- 2. Position and Scale Active Pins
+    if pinData and frame then
+        -- Tint the Star with the colors passed from T2
+        frame.tex:SetVertexColor(pinData.r, pinData.g, pinData.b, 1)
+
+        local showPin = false
+        local drawX, drawY = 0, 0
+
+        -- RULE 1: Are we looking at the SMALL REGIONAL MAP?
+        if f.currentMapID == pinData.mapID then
+            drawX = pinData.x
+            drawY = pinData.y
+            showPin = true
+
+            -- RULE 2: Are we looking at the GLOBAL WORLD MAP?
+        elseif f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+            if T1_ZoneDB and T1_ZoneDB[pinData.mapID] then
+                local zData = T1_ZoneDB[pinData.mapID]
+                if zData.x and zData.w and zData.y and zData.h then
+                    -- Translate local to global math
+                    drawX = zData.x + ((pinData.x - 0.5) * zData.w)
+                    drawY = zData.y + ((pinData.y - 0.5) * zData.h)
+                    showPin = true
+                end
+            end
+        end
+
+        -- Display the pin safely
+        if showPin then
+            frame:Show()
+            local baseSize = 24 -- Made it 24x24 so it is impossible to miss!
+            frame:SetSize(baseSize / self.zoomLevel, baseSize / self.zoomLevel)
+
+            frame:ClearAllPoints()
+            frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", drawX * contentW, -drawY * contentH)
+        else
+            frame:Hide()
+        end
+
+        -- 3. Hide leftover frames if wiped
+    elseif frame then
+        frame:Hide()
+    end
+end
+
+-- ==========================================
+-- GLOBAL EXPOSED API: MAP PINS
+-- ==========================================
+f.customPins = {}
+
+-- Usage 1: Clears all existing pins and sets exactly ONE new pin (Best for T2 row clicks)
+_G.func_T1_SetPin = function(mapID, localX, localY, r, g, b)
+    _G.func_T1_ClearPins()
+    _G.func_T1_AddPin(mapID, localX, localY, r, g, b)
+end
+
+-- Usage 2: Adds a pin to the map WITHOUT clearing old ones
+_G.func_T1_AddPin = function(mapID, localX, localY, r, g, b)
+    -- SMART NORMALIZE: Convert 0-100 coordinates into 0.0-1.0 math coordinates!
+    if localX and localX > 1 then localX = localX / 100 end
+    if localY and localY > 1 then localY = localY / 100 end
+
+    -- ==========================================
+    -- DEBUG LOGGING: Test the Global Math!
+    -- ==========================================
+    if T1_ZoneDB and T1_ZoneDB[mapID] then
+        local zData = T1_ZoneDB[mapID]
+        if zData.x and zData.w and zData.y and zData.h then
+            local globalX = zData.x + ((localX - 0.5) * zData.w)
+            local globalY = zData.y + ((localY - 0.5) * zData.h)
+
+            -- CHANGED: Multiply localX and localY by 100 just for the print readout!
+            print(string.format("|cff00ff00T1_TrackMap DEBUG:|r MapID: %s | Local: (%.1f, %.1f) -> Global: (%.4f, %.4f)",
+                tostring(mapID), localX * 100, localY * 100, globalX, globalY))
+        else
+            print(string.format(
+                "|cFFFF0000T1_TrackMap ERROR:|r MapID %s is in T1_ZoneDB, but it is missing x, y, w, or h data!",
+                tostring(mapID)))
+        end
+    else
+        print(string.format(
+            "|cFFFF0000T1_TrackMap ERROR:|r MapID %s is NOT in T1_ZoneDB! The map cannot translate this pin.",
+            tostring(mapID)))
+    end
+    -- ==========================================
+
+    -- Default to a bright cyan rhombus if no RGB color is provided
+    table.insert(f.customPins, {
+        mapID = mapID,
+        x = localX,
+        y = localY,
+        r = r or 0,
+        g = g or 1,
+        b = b or 1
+    })
+
+    -- NEW: Instead of just updating the transform, trigger the auto-zoom framing!
+    if f:IsShown() and f.ZoomFitPlayerAndPin then
+        f:ZoomFitPlayerAndPin()
+    end
+end
+
+
+
+-- Usage 3: Wipes all pins off the map
+_G.func_T1_ClearPins = function()
+    wipe(f.customPins)
+    if f:IsShown() and f.UpdateMapTransform then
+        f:UpdateMapTransform()
+    end
+end
+
+
+-- ==========================================
 -- Visibility, Keybindings & Initialization
 -- ==========================================
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
 
-local function ToggleT1Window()
-    if f:IsShown() then f:Hide() else f:Show() end
+-- ==========================================
+-- GLOBAL EXPOSED TOGGLE API
+-- ==========================================
+_G.func_ToggleT1Window = function(mapID)
+    -- If a specific mapID is passed from another addon, load it!
+    if mapID and type(mapID) == "number" then
+        f:LoadMap(mapID)
+        if f.UpdateMapTransform then f:UpdateMapTransform() end
+        if f.RefreshPOIs then f:RefreshPOIs() end
+        f:Show()
+    else
+        -- Otherwise, just act as a standard toggle
+        if f:IsShown() then
+            f:Hide()
+        else
+            f:Show()
+        end
+    end
 end
 
+-- Slash Commands
 SLASH_T1_CMD1 = "/t1"
-SlashCmdList["T1_CMD"] = function() ToggleT1Window() end
+SlashCmdList["T1_CMD"] = function() _G.func_ToggleT1Window() end
 
+-- Keybindings
 local toggleBtn = CreateFrame("Button", "T1_KeybindButton", UIParent, "SecureActionButtonTemplate")
 toggleBtn:SetAttribute("type", "macro")
 toggleBtn:SetAttribute("macrotext", "/t1")
-toggleBtn:SetScript("OnClick", function() ToggleT1Window() end)
+toggleBtn:SetScript("OnClick", function() _G.func_ToggleT1Window() end)
 
 local bindInitializer = CreateFrame("Frame")
 bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -768,11 +1114,16 @@ end)
 
 f:SetScript("OnShow", function(self)
     if not self.currentMapLoaded then
+        local MY_CUSTOM_WORLD_MAP_ID = 947
         self:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
         self.currentMapLoaded = true
     end
-    -- CRITICAL FIX: Force the map to draw the flags instantly when opening the window!
     if self.UpdateMapTransform then self:UpdateMapTransform() end
 end)
+
+print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")
+
+
+
 
 print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")
