@@ -7,10 +7,19 @@ f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 
 f:SetResizable(true)
 if f.SetResizeBounds then
-    f:SetResizeBounds(376, 280, 1216, 840)
+    f:SetResizeBounds(304, 210, 1216, 840)
 else
-    f:SetMinResize(376, 280)
+    f:SetMinResize(304, 210)
     f:SetMaxResize(1216, 840)
+end
+
+function f:GetDynamicMaxZoom()
+    local w = self:GetWidth() or 916
+    -- Scale from 20x (at 304 width) to 10x (at 1216 width)
+    local maxZoom = 20 - ((w - 304) / (1216 - 304)) * 10
+
+    -- Clamp the values strictly between 10 and 20 just to be safe
+    return math.max(10, math.min(20, maxZoom))
 end
 
 f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -96,7 +105,7 @@ end)
 -- Zoom Slider (Top Right)
 -- ==========================================
 f.zoomSlider = CreateFrame("Slider", "T1_TrackMapZoomSlider", f, "OptionsSliderTemplate")
-f.zoomSlider:SetSize(80, 16)
+f.zoomSlider:SetSize(60, 16)
 f.zoomSlider:SetPoint("RIGHT", collapseBtn, "LEFT", -3, 0)
 
 f.zoomSlider:SetMinMaxValues(1, 10)
@@ -167,7 +176,7 @@ f.mistToggle:SetHitRectInsets(0, -(textWidth + 10), 0, 0)
 f.mistToggle:SetScript("OnClick", function(self)
     f.showFogOfWar = self:GetChecked()
     if f.RefreshFogOfWar then f:RefreshFogOfWar() end
-    if f.UpdateMapTransform then f:UpdateMapTransform() end 
+    if f.UpdateMapTransform then f:UpdateMapTransform() end
 end)
 
 
@@ -218,7 +227,7 @@ f.ResizeGrip:SetScript("OnUpdate", function(self)
         local dx = (cX - self.startX) / scale
         local newWidth = self.startW + dx
 
-        if newWidth < 376 then newWidth = 376 end
+        if newWidth < 304 then newWidth = 304 end
         if newWidth > 1216 then newWidth = 1216 end
 
         local canvasW = newWidth - 16
@@ -233,6 +242,12 @@ f:SetScript("OnSizeChanged", function(self)
         if w and h and w > 1 and h > 1 then
             self.mapContent:SetSize(w, h)
         end
+    end
+
+    -- NEW: Update the slider's maximum limit dynamically when resized
+    if self.zoomSlider then
+        local currentMin, _ = self.zoomSlider:GetMinMaxValues()
+        self.zoomSlider:SetMinMaxValues(currentMin, self:GetDynamicMaxZoom())
     end
 end)
 
@@ -270,7 +285,8 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
             if canvasW and canvasH and contentW and contentH then
                 local fitScale = math.min(canvasW / contentW, canvasH / contentH)
                 if fitScale < 1 then fitScale = 1 end
-                if fitScale > 10 then fitScale = 10 end
+                local maxZ = f:GetDynamicMaxZoom()
+                if fitScale > maxZ then fitScale = maxZ end
                 f.zoomLevel = fitScale
                 local visualOffsetX = (canvasW - (contentW * f.zoomLevel)) / 2
                 local visualOffsetY = -(canvasH - (contentH * f.zoomLevel)) / 2
@@ -407,7 +423,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self)
                 if isCity then
                     f.cursorTooltip.text:SetFontObject("GameFontHighlight") -- ~1.1x bigger for readability
                 else
-                    f.cursorTooltip.text:SetFontObject("SystemFont_Small")   -- Compact for regular zones/sea
+                    f.cursorTooltip.text:SetFontObject("SystemFont_Small")  -- Compact for regular zones/sea
                 end
 
                 -- Wrap the invisible frame tightly to the newly sized text
@@ -460,7 +476,14 @@ end)
 -- Map Loading & Fog of War Rendering
 -- ==========================================
 
+local ALT_MAP_IDS = { -- Classic
+    [1416] = 36,      -- Alterac mountains
+    [1429] = 12,      -- Elwynn Forest
+    [1450] = 493,     -- Moonglade
+}
+
 f.mapTiles = {}
+
 function f:LoadMap(mapID)
     f.currentMapID = mapID
     for _, tile in ipairs(f.mapTiles) do tile:Hide() end
@@ -489,14 +512,16 @@ function f:LoadMap(mapID)
             customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\world map-blank.tga")
         end
 
-        -- NEW: Save a reference so we can change its color later
         f.worldMapTile = customTile
         table.insert(f.mapTiles, customTile)
     else
-        local layers = C_Map.GetMapArtLayers(mapID)
+        -- NEW: Check if there is an alternative ID to use for the Blizzard API
+        local apiMapID = ALT_MAP_IDS[mapID] or mapID
+
+        local layers = C_Map.GetMapArtLayers(apiMapID)
         if not layers or #layers == 0 then return end
         local layerInfo = layers[1]
-        local textures = C_Map.GetMapArtLayerTextures(mapID, 1)
+        local textures = C_Map.GetMapArtLayerTextures(apiMapID, 1)
         if not textures then return end
 
         local numCols = math.ceil(layerInfo.layerWidth / layerInfo.tileWidth)
@@ -527,15 +552,19 @@ if not f.exploredTexturePool then
     f.exploredTexturePool = CreateTexturePool(f.mapContent, "ARTWORK")
 end
 
+
 function f:DrawExploredZone(zoneID)
     if not T1_ZoneDB or not T1_ZoneDB[zoneID] then return end
     local zData = T1_ZoneDB[zoneID]
     if not zData.x or not zData.y or not zData.w or not zData.h then return end
 
-    local layers = C_Map.GetMapArtLayers(zoneID)
+    -- NEW: Swap to the alternative ID for API calls if one exists
+    local apiZoneID = ALT_MAP_IDS[zoneID] or zoneID
+
+    local layers = C_Map.GetMapArtLayers(apiZoneID)
     if not layers or not layers[1] then return end
 
-    local exploredTextures = C_MapExplorationInfo.GetExploredMapTextures(zoneID)
+    local exploredTextures = C_MapExplorationInfo.GetExploredMapTextures(apiZoneID)
     if not exploredTextures then return end
 
     -- 1. Convert center (x, y) to Top-Left (x, y) for the zone bounding box
@@ -614,7 +643,8 @@ function f:UpdateMapTransform()
     local absoluteMinZoom = math.max(minZoomW, minZoomH)
 
     if self.zoomLevel < absoluteMinZoom then self.zoomLevel = absoluteMinZoom end
-    if self.zoomLevel > 10 then self.zoomLevel = 10 end
+    local maxZ = self:GetDynamicMaxZoom()
+    if self.zoomLevel > maxZ then self.zoomLevel = maxZ end
     self.mapContent:SetScale(self.zoomLevel)
 
     local effW = contentW * self.zoomLevel
@@ -745,42 +775,58 @@ function f:UpdateMapTransform()
             frame:Hide()
         end
     end
-
     -- ==========================================
-    -- DEBUG: T1_ZoneDB Center Round Icons (Fixed Scope)
+    -- DEBUG: T1_ZoneDB Center Round Icons (Clickable)
     -- ==========================================
+    local MY_CUSTOM_WORLD_MAP_ID = 947
     if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID and T1_ZoneDB and f.showFogOfWar then
         if not f.debugDots then f.debugDots = {} end
 
         for zoneID, zData in pairs(T1_ZoneDB) do
             if zData.x and zData.y then
-                local dotTex = f.debugDots[zoneID]
-                if not dotTex then
-                    dotTex = self.mapContent:CreateTexture(nil, "OVERLAY", nil, 7)
-                    dotTex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_2") -- Orange Circle
-                    f.debugDots[zoneID] = dotTex
+                local dotBtn = f.debugDots[zoneID]
+                if not dotBtn then
+                    -- Create a clickable Button frame instead of a raw Texture
+                    dotBtn = CreateFrame("Button", nil, self.mapContent)
+                    dotBtn:SetFrameLevel(self.mapContent:GetFrameLevel() + 90)
+
+                    dotBtn.tex = dotBtn:CreateTexture(nil, "OVERLAY", nil, 7)
+                    dotBtn.tex:SetAllPoints()
+                    dotBtn.tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_2") -- Orange Circle
+
+                    -- Click event to load the specific zone map and reset zoom
+                    dotBtn:SetScript("OnClick", function()
+                        f.zoomLevel = 1
+                        f.mapOffsetX = 0
+                        f.mapOffsetY = 0
+                        f:LoadMap(zoneID)
+                        if f.UpdateMapTransform then f:UpdateMapTransform() end
+                    end)
+
+                    f.debugDots[zoneID] = dotBtn
                 end
 
-                dotTex:Show()
-                dotTex:SetSize(2 / self.zoomLevel, 2 / self.zoomLevel)
-                dotTex:ClearAllPoints()
-                dotTex:SetPoint("CENTER", self.mapContent, "TOPLEFT", zData.x * contentW, -zData.y * contentH)
+                dotBtn:Show()
+                -- Scaled to 24 so the hitbox is large enough to comfortably click
+                dotBtn:SetSize(2 / self.zoomLevel, 2 / self.zoomLevel)
+                dotBtn:ClearAllPoints()
+                dotBtn:SetPoint("CENTER", self.mapContent, "TOPLEFT", zData.x * contentW, -zData.y * contentH)
             end
         end
     else
         if f.debugDots then
-            for _, dotTex in pairs(f.debugDots) do dotTex:Hide() end
+            for _, dotBtn in pairs(f.debugDots) do dotBtn:Hide() end
         end
     end
 end
-
 
 f.mapCanvas:EnableMouseWheel(true)
 f.mapCanvas:SetScript("OnMouseWheel", function(self, delta)
     local oldZoom = f.zoomLevel
     local newZoom = oldZoom + (delta * 0.25)
     if newZoom < 1 then newZoom = 1 end
-    if newZoom > 10 then newZoom = 10 end
+    local maxZ = f:GetDynamicMaxZoom()
+    if newZoom > maxZ then newZoom = maxZ end
     if newZoom == oldZoom then return end
 
     local cX, cY = GetCursorPosition()
@@ -801,8 +847,8 @@ function f:ZoomToPoint(pctX, pctY, targetZoom)
     if not pctX or not pctY then return end
     targetZoom = targetZoom or 5
     if targetZoom < 1 then targetZoom = 1 end
-    if targetZoom > 10 then targetZoom = 10 end
-
+    local maxZ = self:GetDynamicMaxZoom()
+    if targetZoom > maxZ then targetZoom = maxZ end
     local canvasW, canvasH = self.mapCanvas:GetSize()
     local contentW, contentH = self.mapContent:GetSize()
     if canvasW and canvasH and contentW and contentH then
@@ -1121,6 +1167,7 @@ end)
 -- ==========================================
 -- Init & Slash Commands
 -- ==========================================
+
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
 
@@ -1174,6 +1221,27 @@ f:SetScript("OnShow", function(self)
         if defaultMap == 947 and playerMap then self:ZoomToZone(playerMap) end
     end
     if self.UpdateMapTransform then self:UpdateMapTransform() end
+end)
+
+
+-- ==========================================
+-- Auto-Refresh Mist Maps on Exploration
+-- ==========================================
+f.explorationTracker = CreateFrame("Frame")
+f.explorationTracker:RegisterEvent("ZONE_CHANGED")
+f.explorationTracker:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+f.explorationTracker:RegisterEvent("ZONE_CHANGED_INDOORS")
+
+-- Wrap in pcall in case the client version doesn't support this specific modern event
+pcall(function() f.explorationTracker:RegisterEvent("MAP_EXPLORATION_UPDATED") end)
+
+f.explorationTracker:SetScript("OnEvent", function(self, event, ...)
+    -- Only refresh if the map is actively open and Mist Maps is toggled on
+    if f:IsShown() and f.showFogOfWar then
+        if f.RefreshFogOfWar then
+            f:RefreshFogOfWar()
+        end
+    end
 end)
 
 print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")
