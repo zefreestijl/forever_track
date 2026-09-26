@@ -116,32 +116,35 @@ _G[f.zoomSlider:GetName() .. "High"]:Hide()
 f.zoomSlider.isUpdating = false
 
 f.zoomSlider:SetScript("OnValueChanged", function(self, value)
+    -- Prevent infinite loops when UpdateMapTransform moves the slider visually
     if self.isUpdating then return end
-    local oldZoom = f.zoomLevel
-    local newZoom = value
-    if newZoom == oldZoom then return end
+    if f.targetZoom == value then return end
+
+    -- 1. Update the target scale for the smoother to chase
+    f.targetZoom = value
 
     local canvasW, canvasH = f.mapCanvas:GetSize()
     local contentW, contentH = f.mapContent:GetSize()
 
     if canvasW and canvasH and contentW and contentH then
+        -- 2. Determine the focal point for the zoom
         if f.playerArrow and f.playerArrow:IsShown() and f.playerArrow.pX and f.playerArrow.pY then
+            -- Pivot around the player's current visual coordinate on the canvas
             local exactPixelX = f.playerArrow.pX * contentW
             local exactPixelY = -f.playerArrow.pY * contentH
-            local visualOffsetX = (canvasW / 2) - (exactPixelX * newZoom)
-            local visualOffsetY = -(canvasH / 2) - (exactPixelY * newZoom)
-            f.mapOffsetX = visualOffsetX / newZoom
-            f.mapOffsetY = visualOffsetY / newZoom
+            f.zoomPivotX = (f.mapOffsetX + exactPixelX) * f.zoomLevel
+            f.zoomPivotY = (f.mapOffsetY + exactPixelY) * f.zoomLevel
         else
-            local pivotX = canvasW / 2
-            local pivotY = -canvasH / 2
-            f.mapOffsetX = f.mapOffsetX + pivotX * ((1 / newZoom) - (1 / oldZoom))
-            f.mapOffsetY = f.mapOffsetY + pivotY * ((1 / newZoom) - (1 / oldZoom))
+            -- Default pivot: center of the map canvas
+            f.zoomPivotX = canvasW / 2
+            f.zoomPivotY = -canvasH / 2
         end
     end
 
-    f.zoomLevel = newZoom
-    if f.UpdateMapTransform then f:UpdateMapTransform() end
+    -- 3. Activate the animation loop
+    if f.zoomSmoother then 
+        f.zoomSmoother:Show() 
+    end
 end)
 
 
@@ -280,18 +283,35 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                 print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
             end
         elseif button == "MiddleButton" then
-            local canvasW, canvasH = self:GetSize()
-            local contentW, contentH = f.mapContent:GetSize()
-            if canvasW and canvasH and contentW and contentH then
-                local fitScale = math.min(canvasW / contentW, canvasH / contentH)
-                if fitScale < 1 then fitScale = 1 end
-                local maxZ = f:GetDynamicMaxZoom()
-                if fitScale > maxZ then fitScale = maxZ end
-                f.zoomLevel = fitScale
-                local visualOffsetX = (canvasW - (contentW * f.zoomLevel)) / 2
-                local visualOffsetY = -(canvasH - (contentH * f.zoomLevel)) / 2
-                f.mapOffsetX = visualOffsetX / f.zoomLevel
-                f.mapOffsetY = visualOffsetY / f.zoomLevel
+            local currentTime = GetTime()
+            
+            if self.lastMiddleClickTime and (currentTime - self.lastMiddleClickTime < 0.3) then
+                self.lastMiddleClickTime = 0
+                
+                -- Double Click: Smoothly zoom fit to global map
+                local canvasW, canvasH = self:GetSize()
+                local contentW, contentH = f.mapContent:GetSize()
+                if canvasW and canvasH and contentW and contentH then
+                    local fitScale = math.min(canvasW / contentW, canvasH / contentH)
+                    if fitScale < 1 then fitScale = 1 end
+                    
+                    local maxZ = f.GetDynamicMaxZoom and f:GetDynamicMaxZoom() or 10
+                    if fitScale > maxZ then fitScale = maxZ end
+                    
+                    -- Feed the animation targets instead of setting them instantly
+                    f.targetZoom = fitScale
+                    f.targetOffsetX = ((canvasW - (contentW * fitScale)) / 2) / fitScale
+                    f.targetOffsetY = (-(canvasH - (contentH * fitScale)) / 2) / fitScale
+                    
+                    if f.zoomSmoother then f.zoomSmoother:Show() end
+                end
+            else
+                -- Single Click: Zoom to player's zone
+                self.lastMiddleClickTime = currentTime
+                local playerMap = C_Map.GetBestMapForUnit("player")
+                if playerMap then
+                    f:ZoomToZone(playerMap)
+                end
             end
             if f.UpdateMapTransform then f:UpdateMapTransform() end
         elseif button == "LeftButton" and f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
@@ -821,23 +841,82 @@ function f:UpdateMapTransform()
 end
 
 f.mapCanvas:EnableMouseWheel(true)
-f.mapCanvas:SetScript("OnMouseWheel", function(self, delta)
+
+-- ==========================================
+-- Smooth Exponential Zoom Controller
+-- ==========================================
+f.targetZoom = f.zoomLevel or 1
+
+-- Dedicated ticker frame for smooth animations (hidden when idle)
+f.zoomSmoother = CreateFrame("Frame", nil, f.mapCanvas)
+f.zoomSmoother:Hide()
+
+f.zoomSmoother:SetScript("OnUpdate", function(self, elapsed)
     local oldZoom = f.zoomLevel
-    local newZoom = oldZoom + (delta * 0.25)
-    if newZoom < 1 then newZoom = 1 end
-    local maxZ = f:GetDynamicMaxZoom()
-    if newZoom > maxZ then newZoom = maxZ end
-    if newZoom == oldZoom then return end
+    local targetZ = f.targetZoom or oldZoom
+    local diffZ = targetZ - oldZoom
 
-    local cX, cY = GetCursorPosition()
-    local uiScale = UIParent:GetEffectiveScale()
-    local mouseX = (cX / uiScale) - self:GetLeft()
-    local mouseY = (cY / uiScale) - self:GetTop()
+    local lerpRate = 1 - math.exp(-14 * elapsed)
+    local newZoom = oldZoom + diffZ * lerpRate
 
-    f.mapOffsetX = f.mapOffsetX + mouseX * ((1 / newZoom) - (1 / oldZoom))
-    f.mapOffsetY = f.mapOffsetY + mouseY * ((1 / newZoom) - (1 / oldZoom))
+    local isDone = math.abs(diffZ) < 0.002
+
+    if f.targetOffsetX and f.targetOffsetY then
+        -- Pan & Zoom Mode (Used for Clicks / Tracking)
+        local diffX = f.targetOffsetX - f.mapOffsetX
+        local diffY = f.targetOffsetY - f.mapOffsetY
+        
+        f.mapOffsetX = f.mapOffsetX + diffX * lerpRate
+        f.mapOffsetY = f.mapOffsetY + diffY * lerpRate
+
+        -- Snap to exact values when nearly finished
+        if isDone and math.abs(diffX) < 0.1 and math.abs(diffY) < 0.1 then
+            f.mapOffsetX = f.targetOffsetX
+            f.mapOffsetY = f.targetOffsetY
+            f.zoomLevel = targetZ
+            f.targetOffsetX = nil
+            f.targetOffsetY = nil
+            f:UpdateMapTransform()
+            self:Hide()
+            return
+        end
+    else
+        -- Pivot Zoom Mode (Used for Scroll Wheel / Slider)
+        local pivotX = f.zoomPivotX or (f.mapCanvas:GetWidth() / 2)
+        local pivotY = f.zoomPivotY or (-(f.mapCanvas:GetHeight() / 2))
+        f.mapOffsetX = f.mapOffsetX + pivotX * ((1 / newZoom) - (1 / oldZoom))
+        f.mapOffsetY = f.mapOffsetY + pivotY * ((1 / newZoom) - (1 / oldZoom))
+        
+        if isDone then
+            f.zoomLevel = targetZ
+            f:UpdateMapTransform()
+            self:Hide()
+            return
+        end
+    end
+
     f.zoomLevel = newZoom
     f:UpdateMapTransform()
+end)
+
+f.mapCanvas:EnableMouseWheel(true)
+f.mapCanvas:SetScript("OnMouseWheel", function(self, delta)
+    local maxZ = f.GetDynamicMaxZoom and f:GetDynamicMaxZoom() or 20
+    local minZ = 1
+
+    -- Proportional scaling: changes by ~22% per wheel notch regardless of zoom level
+    local scaleFactor = (delta > 0) and 1.22 or (1 / 1.22)
+    local currentTarget = f.targetZoom or f.zoomLevel
+    f.targetZoom = math.max(minZ, math.min(maxZ, currentTarget * scaleFactor))
+
+    -- Store cursor coordinates relative to canvas to preserve the focal point
+    local cX, cY = GetCursorPosition()
+    local uiScale = UIParent:GetEffectiveScale()
+    f.zoomPivotX = (cX / uiScale) - self:GetLeft()
+    f.zoomPivotY = (cY / uiScale) - self:GetTop()
+
+    -- Activate the animation loop
+    f.zoomSmoother:Show()
 end)
 
 -- ==========================================
@@ -847,17 +926,23 @@ function f:ZoomToPoint(pctX, pctY, targetZoom)
     if not pctX or not pctY then return end
     targetZoom = targetZoom or 5
     if targetZoom < 1 then targetZoom = 1 end
-    local maxZ = self:GetDynamicMaxZoom()
+    
+    local maxZ = self.GetDynamicMaxZoom and self:GetDynamicMaxZoom() or 10
     if targetZoom > maxZ then targetZoom = maxZ end
+
     local canvasW, canvasH = self.mapCanvas:GetSize()
     local contentW, contentH = self.mapContent:GetSize()
+    
     if canvasW and canvasH and contentW and contentH then
         local exactPixelX = pctX * contentW
         local exactPixelY = -pctY * contentH
-        self.zoomLevel = targetZoom
-        self.mapOffsetX = ((canvasW / 2) - (exactPixelX * targetZoom)) / targetZoom
-        self.mapOffsetY = (-(canvasH / 2) - (exactPixelY * targetZoom)) / targetZoom
-        if self.UpdateMapTransform then self:UpdateMapTransform() end
+        
+        -- Feed the animation targets
+        self.targetZoom = targetZoom
+        self.targetOffsetX = ((canvasW / 2) - (exactPixelX * targetZoom)) / targetZoom
+        self.targetOffsetY = (-(canvasH / 2) - (exactPixelY * targetZoom)) / targetZoom
+        
+        if self.zoomSmoother then self.zoomSmoother:Show() end
     end
 end
 
