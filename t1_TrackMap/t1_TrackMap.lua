@@ -148,7 +148,7 @@ f.zoomText:SetPoint("TOPLEFT", f.zoomUI, "TOPLEFT", 5, -5)
 f.zoomText:SetJustifyH("LEFT")
 f.zoomText:SetText("Scale: 1.00x")
 
-f.showFogOfWar = true
+f.showFogOfWar = false
 f.mistToggle = CreateFrame("CheckButton", nil, f.zoomUI, "UICheckButtonTemplate")
 f.mistToggle:SetSize(15, 15)
 f.mistToggle:SetPoint("TOPRIGHT", f.zoomUI, "TOPRIGHT", -60, -3)
@@ -167,9 +167,8 @@ f.mistToggle:SetHitRectInsets(0, -(textWidth + 10), 0, 0)
 f.mistToggle:SetScript("OnClick", function(self)
     f.showFogOfWar = self:GetChecked()
     if f.RefreshFogOfWar then f:RefreshFogOfWar() end
+    if f.UpdateMapTransform then f:UpdateMapTransform() end 
 end)
-
-
 
 
 -- ==========================================
@@ -408,7 +407,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self)
                 if isCity then
                     f.cursorTooltip.text:SetFontObject("GameFontHighlight") -- ~1.1x bigger for readability
                 else
-                    f.cursorTooltip.text:SetFontObject("SystemFont_Tiny")   -- Compact for regular zones/sea
+                    f.cursorTooltip.text:SetFontObject("SystemFont_Small")   -- Compact for regular zones/sea
                 end
 
                 -- Wrap the invisible frame tightly to the newly sized text
@@ -483,14 +482,15 @@ function f:LoadMap(mapID)
     if mapID == 947 then
         local customTile = f.mapContent:CreateTexture(nil, "BACKGROUND")
         customTile:SetAllPoints(f.mapContent)
-        
-        -- Swap between your two custom backgrounds
+
         if f.isDetailedMap then
             customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\world map-detailed.tga")
         else
             customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\world map-blank.tga")
         end
-        
+
+        -- NEW: Save a reference so we can change its color later
+        f.worldMapTile = customTile
         table.insert(f.mapTiles, customTile)
     else
         local layers = C_Map.GetMapArtLayers(mapID)
@@ -523,7 +523,6 @@ function f:LoadMap(mapID)
     if f.RefreshFogOfWar then f:RefreshFogOfWar() end
 end
 
-
 if not f.exploredTexturePool then
     f.exploredTexturePool = CreateTexturePool(f.mapContent, "ARTWORK")
 end
@@ -533,16 +532,17 @@ function f:DrawExploredZone(zoneID)
     local zData = T1_ZoneDB[zoneID]
     if not zData.x or not zData.y or not zData.w or not zData.h then return end
 
-    local artID = C_Map.GetMapArtID(zoneID)
-    if not artID then return end
-    local layers = C_Map.GetMapArtLayers(artID)
+    local layers = C_Map.GetMapArtLayers(zoneID)
     if not layers or not layers[1] then return end
 
     local exploredTextures = C_MapExplorationInfo.GetExploredMapTextures(zoneID)
     if not exploredTextures then return end
 
-    local zonePixelX = zData.x * f.mapContent:GetWidth()
-    local zonePixelY = -zData.y * f.mapContent:GetHeight()
+    -- 1. Convert center (x, y) to Top-Left (x, y) for the zone bounding box
+    local zoneTopLeftX = zData.x - (zData.w / 2)
+    local zoneTopLeftY = zData.y - (zData.h / 2)
+
+    -- Pre-calculate the pixel scale of the zone
     local zonePixelW = zData.w * f.mapContent:GetWidth()
     local zonePixelH = zData.h * f.mapContent:GetHeight()
 
@@ -550,15 +550,20 @@ function f:DrawExploredZone(zoneID)
         if expInfo.fileDataIDs and expInfo.fileDataIDs[1] then
             local tex = f.exploredTexturePool:Acquire()
             tex:SetTexture(expInfo.fileDataIDs[1])
+
+            -- 2. Calculate the local percentage offset within the zone
             local pctX = expInfo.offsetX / layers[1].layerWidth
             local pctY = expInfo.offsetY / layers[1].layerHeight
             local pctW = expInfo.textureWidth / layers[1].layerWidth
             local pctH = expInfo.textureHeight / layers[1].layerHeight
 
+            -- 3. Calculate final global pixel coordinates on your mapCanvas
+            local drawX = (zoneTopLeftX + (pctX * zData.w)) * f.mapContent:GetWidth()
+            local drawY = -(zoneTopLeftY + (pctY * zData.h)) * f.mapContent:GetHeight()
+
             tex:SetSize(pctW * zonePixelW, pctH * zonePixelH)
             tex:ClearAllPoints()
-            tex:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", zonePixelX + (pctX * zonePixelW),
-                zonePixelY - (pctY * zonePixelH))
+            tex:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", drawX, drawY)
             tex:Show()
         end
     end
@@ -566,6 +571,18 @@ end
 
 function f:RefreshFogOfWar()
     if f.exploredTexturePool then f.exploredTexturePool:ReleaseAll() end
+
+    -- NEW: Toggle the background color based on the mist setting
+    if f.worldMapTile then
+        if f.showFogOfWar then
+            f.worldMapTile:SetDesaturated(true)
+            f.worldMapTile:SetVertexColor(0.4, 0.4, 0.4)
+        else
+            f.worldMapTile:SetDesaturated(false)
+            f.worldMapTile:SetVertexColor(1, 1, 1)
+        end
+    end
+
     if not f.showFogOfWar then return end
 
     if f.currentMapID == 947 then
@@ -583,6 +600,7 @@ end
 f.zoomLevel = 1
 f.mapOffsetX = 0
 f.mapOffsetY = 0
+
 
 function f:UpdateMapTransform()
     if not self.mapContent or not self.mapCanvas then return end
@@ -644,8 +662,7 @@ function f:UpdateMapTransform()
                     tex = tex,
                     x = data.x or 0,
                     y = data.y or 0,
-                    status = data
-                        .status
+                    status = data.status
                 }
             end
         end
@@ -658,7 +675,6 @@ function f:UpdateMapTransform()
             end
         end
 
-        -- 3. Render and Counter-Scale
         for key, flagObj in pairs(f.cityFlags) do
             flagObj.frame:Show()
 
@@ -671,7 +687,6 @@ function f:UpdateMapTransform()
             flagObj.tex:SetDesaturated(false)
             flagObj.tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity)
 
-            -- NEW: Stretch Alliance flags to 1.2x width!
             local baseWidth = 24
             local baseHeight = 24
             if cityDataByZone[key] and cityDataByZone[key].status == "Alliance" then
@@ -730,7 +745,35 @@ function f:UpdateMapTransform()
             frame:Hide()
         end
     end
+
+    -- ==========================================
+    -- DEBUG: T1_ZoneDB Center Round Icons (Fixed Scope)
+    -- ==========================================
+    if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID and T1_ZoneDB and f.showFogOfWar then
+        if not f.debugDots then f.debugDots = {} end
+
+        for zoneID, zData in pairs(T1_ZoneDB) do
+            if zData.x and zData.y then
+                local dotTex = f.debugDots[zoneID]
+                if not dotTex then
+                    dotTex = self.mapContent:CreateTexture(nil, "OVERLAY", nil, 7)
+                    dotTex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_2") -- Orange Circle
+                    f.debugDots[zoneID] = dotTex
+                end
+
+                dotTex:Show()
+                dotTex:SetSize(2 / self.zoomLevel, 2 / self.zoomLevel)
+                dotTex:ClearAllPoints()
+                dotTex:SetPoint("CENTER", self.mapContent, "TOPLEFT", zData.x * contentW, -zData.y * contentH)
+            end
+        end
+    else
+        if f.debugDots then
+            for _, dotTex in pairs(f.debugDots) do dotTex:Hide() end
+        end
+    end
 end
+
 
 f.mapCanvas:EnableMouseWheel(true)
 f.mapCanvas:SetScript("OnMouseWheel", function(self, delta)
@@ -784,17 +827,16 @@ function f:ZoomToZone(zoneID)
     end
 end
 
-
 function f:ZoomFitPlayerAndPin()
     if f.currentMapID ~= 947 then return end
-    
+
     local pX = f.playerArrow and f.playerArrow.pX
     local pY = f.playerArrow and f.playerArrow.pY
     local pinX, pinY = nil, nil
 
     if f.customPins and #f.customPins > 0 then
         local pinData = f.customPins[#f.customPins]
-        
+
         -- FIX 1: Support pins that are placed directly on the world map!
         if pinData.mapID == 947 then
             pinX = pinData.x
@@ -823,14 +865,14 @@ function f:ZoomFitPlayerAndPin()
     -- FIX 2: Dynamic padding instead of a massive flat buffer
     local distW = maxX - minX
     local distH = maxY - minY
-    
+
     -- Multiply distance by 1.5 to leave clean screen margins around the icons.
     -- Enforce a 0.10 minimum so the camera doesn't attempt to zoom to infinity if distance is 0.
     local boxW = math.max(distW * 1.5, 0.10)
     local boxH = math.max(distH * 1.5, 0.10)
-    
+
     local targetZoom = math.min(1 / boxW, 1 / boxH)
-    
+
     f:ZoomToPoint((minX + maxX) / 2, (minY + maxY) / 2, targetZoom)
 end
 
@@ -852,10 +894,10 @@ _G.func_T1_AddPin = function(mapID, localX, localY, r, g, b)
         print(string.format("|cff00ff00T1_TrackMap DEBUG:|r City Pin - MapID: %s | Local: (%.1f, %.1f)", mapID,
             localX * 100, localY * 100))
     end
-    
+
     -- 1. Add to your custom global map
     table.insert(f.customPins, { mapID = mapID, x = localX, y = localY, r = r or 0, g = g or 1, b = b or 1 })
-    
+
     if f:IsShown() and f.UpdateMapTransform then f:UpdateMapTransform() end
     if f:IsShown() and f.ZoomFitPlayerAndPin then f:ZoomFitPlayerAndPin() end
 
@@ -871,7 +913,7 @@ _G.func_T1_ClearPins = function()
     -- 1. Clear custom map pins
     wipe(f.customPins)
     if f:IsShown() and f.UpdateMapTransform then f:UpdateMapTransform() end
-    
+
     -- 2. NEW: Clear the built-in Blizzard Minimap waypoint
     if C_Map.HasUserWaypoint() then
         C_Map.ClearUserWaypoint()
