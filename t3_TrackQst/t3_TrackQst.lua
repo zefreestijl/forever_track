@@ -588,35 +588,136 @@ UpdateQuestList = function()
 
         qBtn.text:SetText(hexDiff .. expandSymbol .. levelText .. questInfo.title .. "|r" .. status)
 
-        qBtn:SetScript("OnEnter", function(self) self.text:SetAlpha(0.7) end)
-        qBtn:SetScript("OnLeave", function(self) self.text:SetAlpha(1.0) end)
+        qBtn:SetScript("OnEnter", function(self)
+            self.text:SetAlpha(0.7)
+
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:ClearLines()
+
+            -- Title & Basic Details
+            GameTooltip:AddLine(questInfo.title, 1, 1, 1)
+            GameTooltip:AddDoubleLine("Quest ID:", tostring(questInfo.questID), 0.7, 0.7, 0.7, 1, 0.82, 0)
+
+            local questMapID = type(QuestUtils_GetQuestMapID) == "function" and
+            QuestUtils_GetQuestMapID(questInfo.questID) or nil
+            if questMapID then
+                GameTooltip:AddDoubleLine("Map ID:", tostring(questMapID), 0.7, 0.7, 0.7, 0.3, 0.8, 1)
+            end
+
+            GameTooltip:AddDoubleLine("Log Index:", tostring(logIndex), 0.7, 0.7, 0.7, 0.6, 0.6, 0.6)
+
+            -- Special Quest Action Item (if the quest provided an item to use)
+            if type(GetQuestLogSpecialItemInfo) == "function" then
+                local _, _, _, questItemID = pcall(GetQuestLogSpecialItemInfo, logIndex)
+                if questItemID then
+                    GameTooltip:AddDoubleLine("Quest Item ID:", tostring(questItemID), 0.7, 0.7, 0.7, 0.2, 1, 0.2)
+                end
+            end
+
+            -- Reward Item IDs (scraped from item links)
+            local itemIDs = {}
+            local numRewards = 0
+            if type(GetNumQuestLogRewards) == "function" then
+                local s, v = pcall(GetNumQuestLogRewards, questInfo.questID)
+                if not s or not v then s, v = pcall(GetNumQuestLogRewards) end
+                if s and v then numRewards = v end
+            end
+
+            for r = 1, numRewards do
+                local link = GetItemLinkSafe("reward", r, questInfo.questID)
+                if link then
+                    local id = link:match("item:(%d+)")
+                    if id then table.insert(itemIDs, id) end
+                end
+            end
+
+            if #itemIDs > 0 then
+                GameTooltip:AddDoubleLine("Reward Item IDs:", table.concat(itemIDs, ", "), 0.7, 0.7, 0.7, 0.9, 0.6, 1)
+            end
+
+            -- ==========================================
+            -- Objective Metadata (Types & Strings)
+            -- ==========================================
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("Objective Data (Scraping):", 1, 0.82, 0)
+
+            if type(C_QuestLog.GetQuestObjectives) == "function" then
+                local objs = C_QuestLog.GetQuestObjectives(questInfo.questID)
+                if objs and #objs > 0 then
+                    for i, obj in ipairs(objs) do
+                        local oType = obj.type or "unknown"
+                        GameTooltip:AddDoubleLine("Obj " .. i .. " [" .. oType .. "]:", (obj.text or ""), 0.5, 0.8, 1,
+                            0.8, 0.8, 0.8)
+                    end
+                end
+            elseif type(GetNumQuestLeaderBoards) == "function" then
+                local numObjs = GetNumQuestLeaderBoards(logIndex)
+                if numObjs and numObjs > 0 then
+                    for i = 1, numObjs do
+                        local text, oType = GetQuestLogLeaderBoard(i, logIndex)
+                        oType = oType or "unknown"
+                        GameTooltip:AddDoubleLine("Obj " .. i .. " [" .. oType .. "]:", (text or ""), 0.5, 0.8, 1, 0.8,
+                            0.8, 0.8)
+                    end
+                end
+            end
+            -- ==========================================
+
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine("|cFF808080Left-Click: Expand/Collapse | Right-Click: Track/Untrack|r", 0.5, 0.5, 0.5)
+            GameTooltip:Show()
+        end)
+
+        qBtn:SetScript("OnLeave", function(self)
+            self.text:SetAlpha(1.0)
+            GameTooltip:Hide()
+        end)
+
         qBtn:SetScript("OnClick", function(self, button)
             if button == "RightButton" then
                 local isCurrentlyTracked = false
                 if type(C_QuestLog.GetQuestWatchType) == "function" then
-                    isTracked = (C_QuestLog.GetQuestWatchType(questInfo.questID) ~= nil)
+                    isCurrentlyTracked = (C_QuestLog.GetQuestWatchType(questInfo.questID) ~= nil)
                 elseif type(IsQuestWatched) == "function" then
-                    isTracked = IsQuestWatched(logIndex)
+                    isCurrentlyTracked = IsQuestWatched(logIndex)
                 end
-
+                
                 if isCurrentlyTracked then
-                    if type(C_QuestLog.RemoveQuestWatch) == "function" then
+                    -- Fix 1: Clear SuperTrack state before attempting to untrack
+                    if type(C_SuperTrack) == "table" and type(C_SuperTrack.SetSuperTrackedQuestID) == "function" then
+                        if C_SuperTrack.GetSuperTrackedQuestID() == questInfo.questID then pcall(C_SuperTrack.SetSuperTrackedQuestID, 0) end
+                    elseif type(SetSuperTrackedQuestID) == "function" then
+                        if GetSuperTrackedQuestID() == questInfo.questID then pcall(SetSuperTrackedQuestID, 0) end
+                    end
+                    
+                    -- Remove from tracker
+                    if type(C_QuestLog.RemoveQuestWatch) == "function" then 
                         pcall(C_QuestLog.RemoveQuestWatch, questInfo.questID)
-                    elseif type(RemoveQuestWatch) == "function" then
-                        pcall(RemoveQuestWatch, logIndex)
+                    elseif type(RemoveQuestWatch) == "function" then 
+                        pcall(RemoveQuestWatch, logIndex) 
                     end
                 else
-                    if type(C_QuestLog.AddQuestWatch) == "function" then
+                    -- Add to tracker
+                    if type(C_QuestLog.AddQuestWatch) == "function" then 
                         pcall(C_QuestLog.AddQuestWatch, questInfo.questID)
-                    elseif type(AddQuestWatch) == "function" then
-                        pcall(AddQuestWatch, logIndex)
+                    elseif type(AddQuestWatch) == "function" then 
+                        pcall(AddQuestWatch, logIndex) 
                     end
                 end
+                
+                -- Fix 2: Defer the UI update slightly so the client has time to process the removal
+                if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
+                    C_Timer.After(0.05, UpdateQuestList)
+                else
+                    UpdateQuestList() -- Fallback for older clients without C_Timer
+                end
             else
+                -- Left-click expand/collapse
                 expandedQuests[questInfo.questID] = not expandedQuests[questInfo.questID]
+                UpdateQuestList()
             end
-            UpdateQuestList()
         end)
+
 
         local qHeight = qBtn.text:GetStringHeight()
         qBtn:SetSize(scrollFrame:GetWidth() - 25, qHeight + 4)
@@ -952,6 +1053,9 @@ f:RegisterEvent("QUEST_LOG_UPDATE")
 f:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
 f:RegisterEvent("SUPER_TRACKING_CHANGED")
 f:RegisterEvent("PLAYER_LEVEL_UP")
+
+f:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
+f:RegisterEvent("QUEST_WATCH_UPDATE")
 
 f:SetScript("OnEvent", function(self, event, unitTarget)
     if event == "QUEST_LOG_UPDATE" or (event == "UNIT_QUEST_LOG_CHANGED" and unitTarget == "player") then

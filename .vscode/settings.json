@@ -21,6 +21,8 @@
         "GetQuestDifficultyColor",
         "RAID_CLASS_COLORS",
         "CreateTexturePool",
-        "SearchBoxTemplate_OnTextChanged"
+        "SearchBoxTemplate_OnTextChanged",
+        "StaticPopupDialogs",
+        "ReloadUI"
     ]
 }
