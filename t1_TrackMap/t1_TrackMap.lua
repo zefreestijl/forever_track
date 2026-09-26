@@ -64,6 +64,35 @@ collapseBtn:SetScript("OnClick", function()
 end)
 
 -- ==========================================
+-- Map Toggle & Return Button (Top Left)
+-- ==========================================
+f.isDetailedMap = false
+f.MapToggleButton = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+f.MapToggleButton:SetSize(130, 20)
+-- Anchor it slightly to the right so it doesn't overlap the UI portrait/title
+f.MapToggleButton:SetPoint("TOPLEFT", f, "TOPLEFT", 5, 0)
+f.MapToggleButton:SetText("Show Detailed Map")
+
+f.MapToggleButton:SetScript("OnClick", function()
+    local MY_CUSTOM_WORLD_MAP_ID = 947
+
+    if f.currentMapID ~= MY_CUSTOM_WORLD_MAP_ID then
+        -- 1. If we are in a city, "Return" to the world map and reset the zoom
+        f.zoomLevel = 1
+        f.mapOffsetX = 0
+        f.mapOffsetY = 0
+        f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
+    else
+        -- 2. If we are on the world map, toggle the texture
+        f.isDetailedMap = not f.isDetailedMap
+        f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
+    end
+
+    if f.UpdateMapTransform then f:UpdateMapTransform() end
+end)
+
+
+-- ==========================================
 -- Zoom Slider (Top Right)
 -- ==========================================
 f.zoomSlider = CreateFrame("Slider", "T1_TrackMapZoomSlider", f, "OptionsSliderTemplate")
@@ -431,16 +460,37 @@ end)
 -- ==========================================
 -- Map Loading & Fog of War Rendering
 -- ==========================================
+
 f.mapTiles = {}
 function f:LoadMap(mapID)
     f.currentMapID = mapID
     for _, tile in ipairs(f.mapTiles) do tile:Hide() end
     wipe(f.mapTiles)
 
+    -- SMART BUTTON TEXT: Update the button label based on where we are
+    if f.MapToggleButton then
+        if mapID == 947 then
+            if f.isDetailedMap then
+                f.MapToggleButton:SetText("Show Blank Map")
+            else
+                f.MapToggleButton:SetText("Show Detailed Map")
+            end
+        else
+            f.MapToggleButton:SetText("Return")
+        end
+    end
+
     if mapID == 947 then
         local customTile = f.mapContent:CreateTexture(nil, "BACKGROUND")
         customTile:SetAllPoints(f.mapContent)
-        customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\world map-blank.tga")
+        
+        -- Swap between your two custom backgrounds
+        if f.isDetailedMap then
+            customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\world map-detailed.tga")
+        else
+            customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\world map-blank.tga")
+        end
+        
         table.insert(f.mapTiles, customTile)
     else
         local layers = C_Map.GetMapArtLayers(mapID)
@@ -472,6 +522,7 @@ function f:LoadMap(mapID)
 
     if f.RefreshFogOfWar then f:RefreshFogOfWar() end
 end
+
 
 if not f.exploredTexturePool then
     f.exploredTexturePool = CreateTexturePool(f.mapContent, "ARTWORK")
