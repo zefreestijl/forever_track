@@ -956,19 +956,22 @@ f.mapCanvas:SetScript("OnMouseWheel", function(self, delta)
     local maxZ = f.GetDynamicMaxZoom and f:GetDynamicMaxZoom() or 20
     local minZ = 1
 
-    -- Proportional scaling: changes by ~22% per wheel notch regardless of zoom level
     local scaleFactor = (delta > 0) and 1.22 or (1 / 1.22)
     local currentTarget = f.targetZoom or f.zoomLevel
     f.targetZoom = math.max(minZ, math.min(maxZ, currentTarget * scaleFactor))
 
-    -- Store cursor coordinates relative to canvas to preserve the focal point
     local cX, cY = GetCursorPosition()
     local uiScale = UIParent:GetEffectiveScale()
     f.zoomPivotX = (cX / uiScale) - self:GetLeft()
     f.zoomPivotY = (cY / uiScale) - self:GetTop()
 
-    -- Activate the animation loop
-    f.zoomSmoother:Show()
+    -- FIX: Instantly cancel any active auto-panning or kinetic sliding
+    f.targetOffsetX = nil
+    f.targetOffsetY = nil
+    f.velocityX = 0
+    f.velocityY = 0
+
+    if f.zoomSmoother then f.zoomSmoother:Show() end
 end)
 
 -- ==========================================
@@ -1210,21 +1213,15 @@ f.corpseTex = f.corpseFrame:CreateTexture(nil, "OVERLAY")
 f.corpseTex:SetAllPoints()
 f.corpseTex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
 
-f.gyFrame = CreateFrame("Frame", nil, f.mapContent)
-f.gyFrame:SetFrameLevel(f.mapContent:GetFrameLevel() + 54)
-f.gyTex = f.gyFrame:CreateTexture(nil, "OVERLAY")
-f.gyTex:SetAllPoints()
-f.gyTex:SetTexture("Interface\\Icons\\Spell_Holy_Resurrection")
-f.gyTex:SetTexCoord(0.1, 0.9, 0.1, 0.9)
 
 f.deathTracker = CreateFrame("Frame", nil, f.mapCanvas)
 f.deathTracker:SetScript("OnUpdate", function()
-    local hasCorpse, hasGY, cX, cY, gX, gY = false, false, 0, 0, 0, 0
+    local hasCorpse, cX, cY = false, 0, 0
+    
     if UnitIsDeadOrGhost("player") then
         local currentZoneID = C_Map.GetBestMapForUnit("player")
         if currentZoneID and C_DeathInfo then
             local corpsePos = C_DeathInfo.GetCorpseMapPosition and C_DeathInfo.GetCorpseMapPosition(currentZoneID)
-            local gyPos = C_DeathInfo.GetDeathReleasePosition and C_DeathInfo.GetDeathReleasePosition(currentZoneID)
 
             if corpsePos and corpsePos.x and corpsePos.y then
                 if f.currentMapID == 947 then
@@ -1239,20 +1236,6 @@ f.deathTracker:SetScript("OnUpdate", function()
                     cX, cY, hasCorpse = corpsePos.x, corpsePos.y, true
                 end
             end
-
-            if gyPos and gyPos.x and gyPos.y then
-                if f.currentMapID == 947 then
-                    if T1_ZoneDB and T1_ZoneDB[currentZoneID] then
-                        local zData = T1_ZoneDB[currentZoneID]
-                        if zData.x and zData.w and zData.y and zData.h then
-                            gX, gY, hasGY = zData.x + ((gyPos.x - 0.5) * zData.w), zData.y + ((gyPos.y - 0.5) * zData.h),
-                                true
-                        end
-                    end
-                elseif f.currentMapID == currentZoneID then
-                    gX, gY, hasGY = gyPos.x, gyPos.y, true
-                end
-            end
         end
     end
 
@@ -1264,15 +1247,6 @@ f.deathTracker:SetScript("OnUpdate", function()
         f.corpseFrame:SetPoint("CENTER", f.mapContent, "TOPLEFT", cX * contentW, -cY * contentH)
     else
         f.corpseFrame:Hide()
-    end
-
-    if hasGY then
-        f.gyFrame:Show()
-        f.gyFrame:SetSize(12 / f.zoomLevel, 12 / f.zoomLevel)
-        f.gyFrame:ClearAllPoints()
-        f.gyFrame:SetPoint("CENTER", f.mapContent, "TOPLEFT", gX * contentW, -gY * contentH)
-    else
-        f.gyFrame:Hide()
     end
 end)
 
