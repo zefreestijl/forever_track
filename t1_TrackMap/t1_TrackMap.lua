@@ -262,17 +262,39 @@ f.mapCanvas:SetScript("OnMouseDown", function(self, button)
     self.startX, self.startY = GetCursorPosition()
     self.startOffsetX = f.mapOffsetX or 0
     self.startOffsetY = f.mapOffsetY or 0
+    
+    -- Catch the map: kill all active animations and velocity
+    f.targetOffsetX = nil
+    f.targetOffsetY = nil
+    f.velocityX = 0
+    f.velocityY = 0
+    if f.zoomSmoother then f.zoomSmoother:Hide() end
+    
     if button == "LeftButton" then self.isDragging = true end
 end)
 
 f.mapCanvas:SetScript("OnMouseUp", function(self, button)
-    if button == "LeftButton" then self.isDragging = false end
     if not self.startX or not self.startY then return end
 
     local cX, cY = GetCursorPosition()
     local scale = UIParent:GetEffectiveScale()
     local dragDistance = (math.abs(cX - self.startX) + math.abs(cY - self.startY)) / scale
     local MY_CUSTOM_WORLD_MAP_ID = 947
+
+    if button == "LeftButton" then 
+        self.isDragging = false 
+        
+        -- If it was a drag (not a click) and velocity is high, throw the map!
+        if dragDistance >= 25 then
+            if f.velocityX and f.velocityY and (math.abs(f.velocityX) > 50 or math.abs(f.velocityY) > 50) then
+                if f.zoomSmoother then f.zoomSmoother:Show() end
+            end
+        else
+            -- Clear velocity if it was just a regular click
+            f.velocityX = 0
+            f.velocityY = 0
+        end
+    end
 
     if dragDistance < 25 then
         if button == "RightButton" then
@@ -357,14 +379,25 @@ f.cursorTooltip:Hide()
 f.cursorTooltip.text = f.cursorTooltip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 f.cursorTooltip.text:SetPoint("CENTER", f.cursorTooltip, "CENTER", 0, 0)
 
-f.mapCanvas:SetScript("OnUpdate", function(self)
+-- Add 'elapsed' to the function arguments
+f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
+    elapsed = elapsed or (1/60) -- Safety fallback
+
     if self.isDragging then
         local cX, cY = GetCursorPosition()
         local uiScale = UIParent:GetEffectiveScale()
         local dx = (cX - self.startX) / uiScale
         local dy = (cY - self.startY) / uiScale
-        f.mapOffsetX = self.startOffsetX + (dx / f.zoomLevel)
-        f.mapOffsetY = self.startOffsetY + (dy / f.zoomLevel)
+        
+        local newOffsetX = self.startOffsetX + (dx / f.zoomLevel)
+        local newOffsetY = self.startOffsetY + (dy / f.zoomLevel)
+        
+        -- Track instantaneous velocity (Units per second)
+        f.velocityX = (newOffsetX - (f.mapOffsetX or 0)) / elapsed
+        f.velocityY = (newOffsetY - (f.mapOffsetY or 0)) / elapsed
+        
+        f.mapOffsetX = newOffsetX
+        f.mapOffsetY = newOffsetY
         f:UpdateMapTransform()
     end
 
@@ -852,51 +885,70 @@ f.zoomSmoother = CreateFrame("Frame", nil, f.mapCanvas)
 f.zoomSmoother:Hide()
 
 f.zoomSmoother:SetScript("OnUpdate", function(self, elapsed)
+    local isAnimating = false
     local oldZoom = f.zoomLevel
     local targetZ = f.targetZoom or oldZoom
     local diffZ = targetZ - oldZoom
-
+    
     local lerpRate = 1 - math.exp(-14 * elapsed)
-    local newZoom = oldZoom + diffZ * lerpRate
+    
+    -- 1. ZOOMING (Slider, Scroll Wheel)
+    if math.abs(diffZ) > 0.002 then
+        isAnimating = true
+        local newZoom = oldZoom + diffZ * lerpRate
+        
+        -- Pivot zooming only applies if we aren't panning/sliding simultaneously
+        if not f.targetOffsetX and (not f.velocityX or f.velocityX == 0) then
+            local pivotX = f.zoomPivotX or (f.mapCanvas:GetWidth() / 2)
+            local pivotY = f.zoomPivotY or (-(f.mapCanvas:GetHeight() / 2))
+            f.mapOffsetX = f.mapOffsetX + pivotX * ((1 / newZoom) - (1 / oldZoom))
+            f.mapOffsetY = f.mapOffsetY + pivotY * ((1 / newZoom) - (1 / oldZoom))
+        end
+        f.zoomLevel = newZoom
+    else
+        f.zoomLevel = targetZ
+    end
 
-    local isDone = math.abs(diffZ) < 0.002
-
+    -- 2. PAN TO TARGET (Auto-focus, Double-click)
     if f.targetOffsetX and f.targetOffsetY then
-        -- Pan & Zoom Mode (Used for Clicks / Tracking)
+        isAnimating = true
         local diffX = f.targetOffsetX - f.mapOffsetX
         local diffY = f.targetOffsetY - f.mapOffsetY
         
         f.mapOffsetX = f.mapOffsetX + diffX * lerpRate
         f.mapOffsetY = f.mapOffsetY + diffY * lerpRate
 
-        -- Snap to exact values when nearly finished
-        if isDone and math.abs(diffX) < 0.1 and math.abs(diffY) < 0.1 then
+        if math.abs(diffX) < 0.1 and math.abs(diffY) < 0.1 then
             f.mapOffsetX = f.targetOffsetX
             f.mapOffsetY = f.targetOffsetY
-            f.zoomLevel = targetZ
             f.targetOffsetX = nil
             f.targetOffsetY = nil
-            f:UpdateMapTransform()
-            self:Hide()
-            return
         end
-    else
-        -- Pivot Zoom Mode (Used for Scroll Wheel / Slider)
-        local pivotX = f.zoomPivotX or (f.mapCanvas:GetWidth() / 2)
-        local pivotY = f.zoomPivotY or (-(f.mapCanvas:GetHeight() / 2))
-        f.mapOffsetX = f.mapOffsetX + pivotX * ((1 / newZoom) - (1 / oldZoom))
-        f.mapOffsetY = f.mapOffsetY + pivotY * ((1 / newZoom) - (1 / oldZoom))
+    
+    -- 3. KINETIC INERTIA (Mouse Drag Release)
+    elseif f.velocityX and f.velocityY and (math.abs(f.velocityX) > 1 or math.abs(f.velocityY) > 1) then
+        isAnimating = true
+        local friction = math.exp(-7 * elapsed) -- Decay rate (lower = more slippery)
         
-        if isDone then
-            f.zoomLevel = targetZ
-            f:UpdateMapTransform()
-            self:Hide()
-            return
+        f.mapOffsetX = f.mapOffsetX + (f.velocityX * elapsed)
+        f.mapOffsetY = f.mapOffsetY + (f.velocityY * elapsed)
+        
+        f.velocityX = f.velocityX * friction
+        f.velocityY = f.velocityY * friction
+        
+        -- Stop tracking when the slide becomes imperceptible
+        if math.abs(f.velocityX) < 10 and math.abs(f.velocityY) < 10 then
+            f.velocityX = 0
+            f.velocityY = 0
         end
     end
 
-    f.zoomLevel = newZoom
     f:UpdateMapTransform()
+    
+    -- Put the ticker to sleep when all animations settle (Saves CPU)
+    if not isAnimating then
+        self:Hide()
+    end
 end)
 
 f.mapCanvas:EnableMouseWheel(true)
