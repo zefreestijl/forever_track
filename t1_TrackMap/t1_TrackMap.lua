@@ -73,26 +73,93 @@ collapseBtn:SetScript("OnClick", function()
 end)
 
 -- ==========================================
+-- City Map Data
+-- ==========================================
+local cityDataByZone = {
+    ["elwynn-forest"] = { name = "Stormwind", id = 1453, status = "Alliance", x = 0.718, y = 0.638 },
+    ["durotar"] = { name = "Orgrimmar", id = 1454, status = "Horde", x = 0.317, y = 0.449 },
+    ["dun-morogh"] = { name = "Ironforge", id = 1455, status = "Alliance", x = 0.759, y = 0.489 },
+    ["mulgore"] = { name = "Thunder Bluff", id = 1456, status = "Horde", x = 0.193, y = 0.554 },
+    ["teldrassil"] = { name = "Darnassus", id = 1457, status = "Alliance", x = 0.118, y = 0.114 },
+    ["tirisfal-glades"] = { name = "Undercity", id = 1458, status = "Horde", x = 0.729, y = 0.226 },
+}
+
+
+
+-- ==========================================
 -- Map Toggle & Return Button (Top Left)
 -- ==========================================
 f.isDetailedMap = false
 f.MapToggleButton = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-f.MapToggleButton:SetSize(130, 20)
+f.MapToggleButton:SetSize(110, 20)
 -- Anchor it slightly to the right so it doesn't overlap the UI portrait/title
-f.MapToggleButton:SetPoint("TOPLEFT", f, "TOPLEFT", 5, 0)
+f.MapToggleButton:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
 f.MapToggleButton:SetText("Show Detailed Map")
+f.MapToggleButton:SetNormalFontObject("GameFontNormalSmall")
+f.MapToggleButton:SetHighlightFontObject("GameFontHighlightSmall")
 
 f.MapToggleButton:SetScript("OnClick", function()
     local MY_CUSTOM_WORLD_MAP_ID = 947
+    local previousMapID = f.currentMapID
 
-    if f.currentMapID ~= MY_CUSTOM_WORLD_MAP_ID then
-        -- 1. If we are in a city, "Return" to the world map and reset the zoom
-        f.zoomLevel = 1
-        f.mapOffsetX = 0
-        f.mapOffsetY = 0
+    if previousMapID ~= MY_CUSTOM_WORLD_MAP_ID then
+        -- 1. We are returning to the World Map
         f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
+
+        -- Check if the map we just left was one of the flagged cities
+        local activeCity = nil
+        for _, data in pairs(cityDataByZone) do
+            if data.id == previousMapID then
+                activeCity = data
+                break
+            end
+        end
+
+        if activeCity then
+            -- Find the pin coordinates, if one exists
+            local pinX, pinY = nil, nil
+            if f.customPins and #f.customPins > 0 then
+                local pinData = f.customPins[#f.customPins]
+                if pinData.mapID == 947 then
+                    pinX = pinData.x
+                    pinY = pinData.y
+                elseif T1_ZoneDB and T1_ZoneDB[pinData.mapID] then
+                    local zData = T1_ZoneDB[pinData.mapID]
+                    if zData.x and zData.w and zData.y and zData.h then
+                        pinX = zData.x + ((pinData.x - 0.5) * zData.w)
+                        pinY = zData.y + ((pinData.y - 0.5) * zData.h)
+                    end
+                end
+            end
+
+            if pinX and pinY then
+                -- Calculate bounding box to fit the city flag and the pin
+                local minX = math.min(activeCity.x, pinX)
+                local maxX = math.max(activeCity.x, pinX)
+                local minY = math.min(activeCity.y, pinY)
+                local maxY = math.max(activeCity.y, pinY)
+
+                local distW = maxX - minX
+                local distH = maxY - minY
+
+                -- Add a 1.5x margin so the icons aren't squeezed against the frame edges
+                local boxW = math.max(distW * 1.5, 0.10)
+                local boxH = math.max(distH * 1.5, 0.10)
+
+                local targetZoom = math.min(1 / boxW, 1 / boxH)
+
+                -- Use our smooth animation loop to glide to the center point
+                f:ZoomToPoint((minX + maxX) / 2, (minY + maxY) / 2, targetZoom)
+            else
+                -- If there is no pin, simply glide and zoom in on the city flag
+                f:ZoomToPoint(activeCity.x, activeCity.y, 4)
+            end
+        else
+            -- If we weren't in a recognized city, return to a full global overview
+            f:ZoomToPoint(0.5, 0.5, 1)
+        end
     else
-        -- 2. If we are on the world map, toggle the texture
+        -- 2. We are already on the world map, so just toggle the detailed texture
         f.isDetailedMap = not f.isDetailedMap
         f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
     end
@@ -142,8 +209,8 @@ f.zoomSlider:SetScript("OnValueChanged", function(self, value)
     end
 
     -- 3. Activate the animation loop
-    if f.zoomSmoother then 
-        f.zoomSmoother:Show() 
+    if f.zoomSmoother then
+        f.zoomSmoother:Show()
     end
 end)
 
@@ -183,17 +250,6 @@ f.mistToggle:SetScript("OnClick", function(self)
 end)
 
 
--- ==========================================
--- City Map Data
--- ==========================================
-local cityDataByZone = {
-    ["elwynn-forest"] = { name = "Stormwind", id = 1453, status = "Alliance", x = 0.718, y = 0.638 },
-    ["durotar"] = { name = "Orgrimmar", id = 1454, status = "Horde", x = 0.317, y = 0.449 },
-    ["dun-morogh"] = { name = "Ironforge", id = 1455, status = "Alliance", x = 0.759, y = 0.489 },
-    ["mulgore"] = { name = "Thunder Bluff", id = 1456, status = "Horde", x = 0.193, y = 0.554 },
-    ["teldrassil"] = { name = "Darnassus", id = 1457, status = "Alliance", x = 0.118, y = 0.114 },
-    ["tirisfal-glades"] = { name = "Undercity", id = 1458, status = "Horde", x = 0.729, y = 0.226 },
-}
 
 -- ==========================================
 -- Aspect Ratio Lock
@@ -262,14 +318,14 @@ f.mapCanvas:SetScript("OnMouseDown", function(self, button)
     self.startX, self.startY = GetCursorPosition()
     self.startOffsetX = f.mapOffsetX or 0
     self.startOffsetY = f.mapOffsetY or 0
-    
+
     -- Catch the map: kill all active animations and velocity
     f.targetOffsetX = nil
     f.targetOffsetY = nil
     f.velocityX = 0
     f.velocityY = 0
     if f.zoomSmoother then f.zoomSmoother:Hide() end
-    
+
     if button == "LeftButton" then self.isDragging = true end
 end)
 
@@ -281,9 +337,9 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
     local dragDistance = (math.abs(cX - self.startX) + math.abs(cY - self.startY)) / scale
     local MY_CUSTOM_WORLD_MAP_ID = 947
 
-    if button == "LeftButton" then 
-        self.isDragging = false 
-        
+    if button == "LeftButton" then
+        self.isDragging = false
+
         -- If it was a drag (not a click) and velocity is high, throw the map!
         if dragDistance >= 25 then
             if f.velocityX and f.velocityY and (math.abs(f.velocityX) > 50 or math.abs(f.velocityY) > 50) then
@@ -306,33 +362,61 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
             end
         elseif button == "MiddleButton" then
             local currentTime = GetTime()
-            
+
             if self.lastMiddleClickTime and (currentTime - self.lastMiddleClickTime < 0.3) then
                 self.lastMiddleClickTime = 0
-                
+
                 -- Double Click: Smoothly zoom fit to global map
                 local canvasW, canvasH = self:GetSize()
                 local contentW, contentH = f.mapContent:GetSize()
                 if canvasW and canvasH and contentW and contentH then
                     local fitScale = math.min(canvasW / contentW, canvasH / contentH)
                     if fitScale < 1 then fitScale = 1 end
-                    
+
                     local maxZ = f.GetDynamicMaxZoom and f:GetDynamicMaxZoom() or 10
                     if fitScale > maxZ then fitScale = maxZ end
-                    
+
                     -- Feed the animation targets instead of setting them instantly
                     f.targetZoom = fitScale
                     f.targetOffsetX = ((canvasW - (contentW * fitScale)) / 2) / fitScale
                     f.targetOffsetY = (-(canvasH - (contentH * fitScale)) / 2) / fitScale
-                    
+
                     if f.zoomSmoother then f.zoomSmoother:Show() end
                 end
             else
-                -- Single Click: Zoom to player's zone
+                -- Single Click: Load city map or zoom to player's zone
                 self.lastMiddleClickTime = currentTime
                 local playerMap = C_Map.GetBestMapForUnit("player")
+
                 if playerMap then
-                    f:ZoomToZone(playerMap)
+                    -- Check if the player's current map is a recognized city
+                    local isCity = false
+                    for _, data in pairs(cityDataByZone) do
+                        if data.id == playerMap then
+                            isCity = true
+                            break
+                        end
+                    end
+
+                    if isCity and f.currentMapID ~= playerMap then
+                        -- Player is in a city and viewing a different map: open the city map
+                        f.zoomLevel = 1
+                        f.mapOffsetX = 0
+                        f.mapOffsetY = 0
+                        f:LoadMap(playerMap)
+
+                        -- Clear active animations
+                        f.targetOffsetX = nil
+                        f.targetOffsetY = nil
+                        f.velocityX = 0
+                        f.velocityY = 0
+                        if f.zoomSmoother then f.zoomSmoother:Hide() end
+
+                        if f.UpdateMapTransform then f:UpdateMapTransform() end
+                    else
+                        -- Player is in a normal zone or already on the city map: smooth zoom
+                        f:ZoomToZone(playerMap)
+                    end
                 end
             end
             if f.UpdateMapTransform then f:UpdateMapTransform() end
@@ -381,21 +465,21 @@ f.cursorTooltip.text:SetPoint("CENTER", f.cursorTooltip, "CENTER", 0, 0)
 
 -- Add 'elapsed' to the function arguments
 f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
-    elapsed = elapsed or (1/60) -- Safety fallback
+    elapsed = elapsed or (1 / 60) -- Safety fallback
 
     if self.isDragging then
         local cX, cY = GetCursorPosition()
         local uiScale = UIParent:GetEffectiveScale()
         local dx = (cX - self.startX) / uiScale
         local dy = (cY - self.startY) / uiScale
-        
+
         local newOffsetX = self.startOffsetX + (dx / f.zoomLevel)
         local newOffsetY = self.startOffsetY + (dy / f.zoomLevel)
-        
+
         -- Track instantaneous velocity (Units per second)
         f.velocityX = (newOffsetX - (f.mapOffsetX or 0)) / elapsed
         f.velocityY = (newOffsetY - (f.mapOffsetY or 0)) / elapsed
-        
+
         f.mapOffsetX = newOffsetX
         f.mapOffsetY = newOffsetY
         f:UpdateMapTransform()
@@ -889,14 +973,14 @@ f.zoomSmoother:SetScript("OnUpdate", function(self, elapsed)
     local oldZoom = f.zoomLevel
     local targetZ = f.targetZoom or oldZoom
     local diffZ = targetZ - oldZoom
-    
+
     local lerpRate = 1 - math.exp(-14 * elapsed)
-    
+
     -- 1. ZOOMING (Slider, Scroll Wheel)
     if math.abs(diffZ) > 0.002 then
         isAnimating = true
         local newZoom = oldZoom + diffZ * lerpRate
-        
+
         -- Pivot zooming only applies if we aren't panning/sliding simultaneously
         if not f.targetOffsetX and (not f.velocityX or f.velocityX == 0) then
             local pivotX = f.zoomPivotX or (f.mapCanvas:GetWidth() / 2)
@@ -914,7 +998,7 @@ f.zoomSmoother:SetScript("OnUpdate", function(self, elapsed)
         isAnimating = true
         local diffX = f.targetOffsetX - f.mapOffsetX
         local diffY = f.targetOffsetY - f.mapOffsetY
-        
+
         f.mapOffsetX = f.mapOffsetX + diffX * lerpRate
         f.mapOffsetY = f.mapOffsetY + diffY * lerpRate
 
@@ -924,18 +1008,18 @@ f.zoomSmoother:SetScript("OnUpdate", function(self, elapsed)
             f.targetOffsetX = nil
             f.targetOffsetY = nil
         end
-    
-    -- 3. KINETIC INERTIA (Mouse Drag Release)
+
+        -- 3. KINETIC INERTIA (Mouse Drag Release)
     elseif f.velocityX and f.velocityY and (math.abs(f.velocityX) > 1 or math.abs(f.velocityY) > 1) then
         isAnimating = true
         local friction = math.exp(-7 * elapsed) -- Decay rate (lower = more slippery)
-        
+
         f.mapOffsetX = f.mapOffsetX + (f.velocityX * elapsed)
         f.mapOffsetY = f.mapOffsetY + (f.velocityY * elapsed)
-        
+
         f.velocityX = f.velocityX * friction
         f.velocityY = f.velocityY * friction
-        
+
         -- Stop tracking when the slide becomes imperceptible
         if math.abs(f.velocityX) < 10 and math.abs(f.velocityY) < 10 then
             f.velocityX = 0
@@ -944,7 +1028,7 @@ f.zoomSmoother:SetScript("OnUpdate", function(self, elapsed)
     end
 
     f:UpdateMapTransform()
-    
+
     -- Put the ticker to sleep when all animations settle (Saves CPU)
     if not isAnimating then
         self:Hide()
@@ -981,22 +1065,22 @@ function f:ZoomToPoint(pctX, pctY, targetZoom)
     if not pctX or not pctY then return end
     targetZoom = targetZoom or 5
     if targetZoom < 1 then targetZoom = 1 end
-    
+
     local maxZ = self.GetDynamicMaxZoom and self:GetDynamicMaxZoom() or 10
     if targetZoom > maxZ then targetZoom = maxZ end
 
     local canvasW, canvasH = self.mapCanvas:GetSize()
     local contentW, contentH = self.mapContent:GetSize()
-    
+
     if canvasW and canvasH and contentW and contentH then
         local exactPixelX = pctX * contentW
         local exactPixelY = -pctY * contentH
-        
+
         -- Feed the animation targets
         self.targetZoom = targetZoom
         self.targetOffsetX = ((canvasW / 2) - (exactPixelX * targetZoom)) / targetZoom
         self.targetOffsetY = (-(canvasH / 2) - (exactPixelY * targetZoom)) / targetZoom
-        
+
         if self.zoomSmoother then self.zoomSmoother:Show() end
     end
 end
@@ -1076,10 +1160,7 @@ _G.func_T1_AddPin = function(mapID, localX, localY, r, g, b)
     if localY and localY > 1 then localY = localY / 100 end
 
     local capitalCities = { [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true, [1458] = true }
-    if capitalCities[mapID] then
-        print(string.format("|cff00ff00T1_TrackMap DEBUG:|r City Pin - MapID: %s | Local: (%.1f, %.1f)", mapID,
-            localX * 100, localY * 100))
-    end
+
 
     -- 1. Add to your custom global map
     table.insert(f.customPins, { mapID = mapID, x = localX, y = localY, r = r or 0, g = g or 1, b = b or 1 })
@@ -1217,7 +1298,7 @@ f.corpseTex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
 f.deathTracker = CreateFrame("Frame", nil, f.mapCanvas)
 f.deathTracker:SetScript("OnUpdate", function()
     local hasCorpse, cX, cY = false, 0, 0
-    
+
     if UnitIsDeadOrGhost("player") then
         local currentZoneID = C_Map.GetBestMapForUnit("player")
         if currentZoneID and C_DeathInfo then
@@ -1352,6 +1433,55 @@ f.explorationTracker:SetScript("OnEvent", function(self, event, ...)
         if f.RefreshFogOfWar then
             f:RefreshFogOfWar()
         end
+    end
+end)
+
+-- ==========================================
+-- Auto-Switch Map on Zone Change
+-- ==========================================
+f.zoneTracker = CreateFrame("Frame")
+f.zoneTracker:RegisterEvent("ZONE_CHANGED")
+f.zoneTracker:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+f.zoneTracker:RegisterEvent("ZONE_CHANGED_INDOORS")
+f.zoneTracker:RegisterEvent("PLAYER_ENTERING_WORLD")
+
+f.lastPlayerZone = nil
+
+f.zoneTracker:SetScript("OnEvent", function()
+    local currentPlayerZone = C_Map.GetBestMapForUnit("player")
+    if not currentPlayerZone then return end
+
+    -- Prevent the math from running if we haven't actually crossed a border
+    if f.lastPlayerZone == currentPlayerZone then return end
+    f.lastPlayerZone = currentPlayerZone
+
+    -- Only auto-switch the view if you actively have the map open
+    if not f:IsShown() then return end
+
+    local capitalCities = {
+        [1453] = true,
+        [1454] = true,
+        [1455] = true,
+        [1456] = true,
+        [1457] = true,
+        [1458] = true
+    }
+    local MY_CUSTOM_WORLD_MAP_ID = 947
+
+    -- Scenario 1: Player walks INTO a capital city
+    if capitalCities[currentPlayerZone] then
+        f.zoomLevel = 1
+        f.mapOffsetX = 0
+        f.mapOffsetY = 0
+        f:LoadMap(currentPlayerZone)
+        if f.UpdateMapTransform then f:UpdateMapTransform() end
+
+        -- Scenario 2: Player walks OUT of a capital city (and is currently viewing one)
+    elseif f.currentMapID ~= MY_CUSTOM_WORLD_MAP_ID and not capitalCities[currentPlayerZone] then
+        f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
+        -- Bonus: Automatically frame the camera around the new zone you just walked into!
+        if f.ZoomToZone then f:ZoomToZone(currentPlayerZone) end
+        if f.UpdateMapTransform then f:UpdateMapTransform() end
     end
 end)
 

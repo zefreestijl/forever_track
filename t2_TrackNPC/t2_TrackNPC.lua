@@ -2,7 +2,7 @@
 local addonName = ...
 
 local f = CreateFrame("Frame", "T2_TrackNPC", UIParent, "BasicFrameTemplateWithInset")
-f:SetSize(360, 480)
+f:SetSize(320, 480)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetMovable(true)
 f:EnableMouse(true)
@@ -10,10 +10,10 @@ f:RegisterForDrag("LeftButton")
 
 f:SetResizable(true)
 if f.SetResizeBounds then
-    f:SetResizeBounds(360, 250, 360, 1200)
+    f:SetResizeBounds(320, 250, 320, 1200)
 else
-    f:SetMinResize(360, 250)
-    f:SetMaxResize(360, 1200)
+    f:SetMinResize(320, 250)
+    f:SetMaxResize(320, 1200)
 end
 
 f:SetScript("OnDragStart", f.StartMoving)
@@ -100,7 +100,7 @@ end
 -- Export Window UI
 -- ==========================================
 local exportFrame = CreateFrame("Frame", "T2_ExportFrame", f, "BasicFrameTemplateWithInset")
-exportFrame:SetSize(400, 350)
+exportFrame:SetSize(300, 350)
 exportFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 exportFrame:Hide()
 exportFrame:SetFrameStrata("DIALOG")
@@ -200,7 +200,7 @@ CollapseWindow = function(collapse)
     local point, relativeTo, relativePoint, xOfs, yOfs = f:GetPoint(1)
     if not collapse then
         local targetHeight = (T2_NPC_DATA and T2_NPC_DATA.windowHeight) or 480
-        f:SetSize(360, targetHeight)
+        f:SetSize(320, targetHeight)
         if f.Bg then f.Bg:Show() end
         if f.InsetBg then f.InsetBg:Show() end
         if f.scrollArea then f.scrollArea:Show() end
@@ -227,7 +227,7 @@ CollapseWindow = function(collapse)
         if f.importBtn then f.importBtn:Hide() end
         if f.tabContainer then f.tabContainer:Hide() end
         if resizeHandle then resizeHandle:Hide() end
-        f:SetSize(360, 32)
+        f:SetSize(320, 32)
         f.collapseBtn:SetText("+")
         isCollapsed = true
         if searchBox then searchBox:Hide() end
@@ -285,7 +285,7 @@ scrollArea:SetScript("OnMouseWheel", function(self, delta)
 end)
 
 local content = CreateFrame("Frame", nil, scrollArea)
-content:SetSize(350, 1)
+content:SetSize(330, 1)
 scrollArea:SetScrollChild(content)
 content.rows = {}
 
@@ -492,7 +492,7 @@ RefreshLogDisplay = function()
         local isGroupCollapsed = collapsedGroups[subZoneName]
 
         local headerBtn = CreateFrame("Button", nil, content)
-        headerBtn:SetSize(350, 20)
+        headerBtn:SetSize(330, 20)
         headerBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 4, yOffset)
 
         local headerText = headerBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -534,7 +534,7 @@ RefreshLogDisplay = function()
 
             for _, item in ipairs(items) do
                 local row = CreateFrame("Button", nil, content)
-                row:SetSize(350, rowHeight)
+                row:SetSize(330, rowHeight)
                 row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, yOffset)
 
                 row.bg = row:CreateTexture(nil, "BACKGROUND")
@@ -614,7 +614,7 @@ RefreshLogDisplay = function()
 
                 local delBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
                 delBtn:SetSize(17, 20)
-                delBtn:SetPoint("RIGHT", row, "RIGHT", -40, 0)
+                delBtn:SetPoint("RIGHT", row, "RIGHT", -53, 0)
                 delBtn:SetText("X")
                 delBtn:SetScript("OnClick", function()
                     if selectedItemIndex == item.originalIndex then
@@ -633,7 +633,7 @@ RefreshLogDisplay = function()
         end
         yOffset = yOffset - 8
     end
-    content:SetSize(350, math.abs(yOffset) + 10)
+    content:SetSize(330, math.abs(yOffset) + 10)
 end
 
 RefreshTabs = function()
@@ -651,7 +651,7 @@ RefreshTabs = function()
 
     if type(T2_NPC_DATA) ~= "table" or type(T2_NPC_DATA.entries) ~= "table" then return end
 
-    local maxTabWidth = 350
+    local maxTabWidth = 330
     local tabHeight = 20
     local spacingY = 23
     local spacingX = 4

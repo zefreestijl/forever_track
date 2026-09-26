@@ -53,10 +53,10 @@ if locale == "zhTW" then
 end
 
 -- =========================================================================
--- 1. Main Frame Setup & Resizing
+-- 1. Main Frame Setup & Resizing (Width set to 250)
 -- =========================================================================
 local f = CreateFrame("Frame", "t3_TrackQst", UIParent, "BasicFrameTemplateWithInset")
-f:SetSize(320, 500)
+f:SetSize(250, 500)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetMovable(true)
 f:EnableMouse(true)
@@ -66,10 +66,10 @@ f:SetScript("OnDragStop", f.StopMovingOrSizing)
 
 f:SetResizable(true)
 if f.SetResizeBounds then
-    f:SetResizeBounds(320, 200, 320, 1200)
+    f:SetResizeBounds(250, 200, 250, 1200)
 else
-    f:SetMinResize(320, 200)
-    f:SetMaxResize(320, 1200)
+    f:SetMinResize(250, 200)
+    f:SetMaxResize(250, 1200)
 end
 
 f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -101,22 +101,28 @@ end)
 local UpdateQuestList
 
 -- =========================================================================
--- 2. Bottom Action Buttons
+-- 2. Bottom Action Buttons (Resized to 74px to fit 250px total width)
 -- =========================================================================
 local btnExpandAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-btnExpandAll:SetSize(90, 22)
-btnExpandAll:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 12, 8)
+btnExpandAll:SetSize(74, 22)
+btnExpandAll:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 8, 8)
 btnExpandAll:SetText(L.BTN_EXPAND)
+btnExpandAll:SetNormalFontObject("GameFontNormalSmall")
+btnExpandAll:SetHighlightFontObject("GameFontHighlightSmall")
 
 local btnCollapseAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-btnCollapseAll:SetSize(90, 22)
-btnCollapseAll:SetPoint("LEFT", btnExpandAll, "RIGHT", 10, 0)
+btnCollapseAll:SetSize(74, 22)
+btnCollapseAll:SetPoint("LEFT", btnExpandAll, "RIGHT", 5, 0)
 btnCollapseAll:SetText(L.BTN_COLLAPSE)
+btnCollapseAll:SetNormalFontObject("GameFontNormalSmall")
+btnCollapseAll:SetHighlightFontObject("GameFontHighlightSmall")
 
 local btnUntrackAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-btnUntrackAll:SetSize(90, 22)
-btnUntrackAll:SetPoint("LEFT", btnCollapseAll, "RIGHT", 10, 0)
+btnUntrackAll:SetSize(74, 22)
+btnUntrackAll:SetPoint("LEFT", btnCollapseAll, "RIGHT", 5, 0)
 btnUntrackAll:SetText(L.BTN_UNTRACK)
+btnUntrackAll:SetNormalFontObject("GameFontNormalSmall")
+btnUntrackAll:SetHighlightFontObject("GameFontHighlightSmall")
 
 local untrackText = btnUntrackAll:GetFontString()
 if untrackText then untrackText:SetTextColor(0.5, 0.5, 0.5) end
@@ -134,7 +140,7 @@ scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -50)
 scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -30, 35)
 
 local content = CreateFrame("Frame", nil, scrollFrame)
-content:SetSize(scrollFrame:GetWidth(), 1)
+content:SetSize(210, 1)
 scrollFrame:SetScrollChild(content)
 
 scrollFrame:SetScript("OnMouseWheel", function(self, delta)
@@ -320,14 +326,10 @@ end
 -- AGGRESSIVE QUEST COMPLETION SCANNER
 -- =========================================================================
 local function IsQuestReadySafe(questInfo, logIndex)
-    -- 1. Direct Table Flag Check (Modern Client)
     if questInfo.isComplete == true or questInfo.isComplete == 1 then return true end
-
-    -- 2. Modern explicit API checks
     if type(C_QuestLog.IsComplete) == "function" and C_QuestLog.IsComplete(questInfo.questID) then return true end
     if type(IsQuestComplete) == "function" and IsQuestComplete(questInfo.questID) then return true end
 
-    -- 3. Live Objective Progress check (Modern)
     if type(C_QuestLog.GetQuestObjectives) == "function" then
         local objs = C_QuestLog.GetQuestObjectives(questInfo.questID)
         if objs and #objs > 0 then
@@ -342,7 +344,6 @@ local function IsQuestReadySafe(questInfo, logIndex)
         end
     end
 
-    -- 4. Live Objective Progress check (Classic/TBC/WotLK)
     if type(GetNumQuestLeaderBoards) == "function" and type(GetQuestLogLeaderBoard) == "function" then
         local numObjs = GetNumQuestLeaderBoards(logIndex)
         if numObjs and numObjs > 0 then
@@ -358,7 +359,6 @@ local function IsQuestReadySafe(questInfo, logIndex)
         end
     end
 
-    -- 5. Deep inspection of classic GetQuestLogTitle returns
     if type(GetQuestLogTitle) == "function" then
         local _, _, _, _, _, t6, t7 = GetQuestLogTitle(logIndex)
         if t6 == 1 or t7 == 1 then return true end
@@ -367,12 +367,11 @@ local function IsQuestReadySafe(questInfo, logIndex)
     return false
 end
 
-
 -- =========================================================================
 -- STATE CACHING: Auto-Tracker & Recent Updated
 -- =========================================================================
 local questProgressCache = {}
-local recentQuests = {} -- Stores questID -> GetTime()
+local recentQuests = {}
 
 local function GetQuestProgressHash(questID, logIndex)
     local hash = ""
@@ -402,12 +401,9 @@ local function CheckForQuestUpdates()
         local q = C_QuestLog.GetInfo(i)
         if q and not q.isHidden and not q.isHeader then
             local hash = GetQuestProgressHash(q.questID, i)
-
-            -- If cache exists and hash changed, progress was made!
             if questProgressCache[q.questID] and questProgressCache[q.questID] ~= hash then
-                recentQuests[q.questID] = GetTime() -- Tag for "Recent" tab
+                recentQuests[q.questID] = GetTime()
 
-                -- Auto-Track logic
                 local isTracked = false
                 if type(C_QuestLog.GetQuestWatchType) == "function" then
                     isTracked = (C_QuestLog.GetQuestWatchType(q.questID) ~= nil)
@@ -423,12 +419,10 @@ local function CheckForQuestUpdates()
                     end
                 end
             end
-            -- Update cache
             questProgressCache[q.questID] = hash
         end
     end
 end
-
 
 -- =========================================================================
 -- LIVE TIMER CACHING & HELPERS
@@ -467,7 +461,6 @@ local function FetchQuestTimeLeft(questID, logIndex)
     return timeLeft
 end
 
-
 -- =========================================================================
 -- 5. Main Update Function
 -- =========================================================================
@@ -482,13 +475,13 @@ UpdateQuestList = function()
     for _, line in ipairs(questLines) do line:Hide() end
     for _, tab in ipairs(tabButtons) do tab:Hide() end
 
-    wipe(activeTimers) -- [NEW] Clear the active timers list
+    wipe(activeTimers)
 
     local numEntries = C_QuestLog.GetNumQuestLogEntries()
 
     local filters = {
         [L.TAB_ALL] = true,
-        [L.TAB_RECENT] = true, -- Add here
+        [L.TAB_RECENT] = true,
         [L.TAB_READY] = true,
         [L.TAB_TRACKED] = true,
         [L.TAB_UNTRACKED] = true
@@ -504,7 +497,7 @@ UpdateQuestList = function()
     table.sort(sortedFilters, function(a, b)
         local order = {
             [L.TAB_ALL] = 1,
-            [L.TAB_RECENT] = 2, -- Add here
+            [L.TAB_RECENT] = 2,
             [L.TAB_READY] = 3,
             [L.TAB_TRACKED] = 4,
             [L.TAB_UNTRACKED] = 5
@@ -519,7 +512,8 @@ UpdateQuestList = function()
     for i, filterName in ipairs(sortedFilters) do
         local tab = GetOrCreateTab(i)
         tab:SetText(filterName)
-        local tabWidth = tab.text:GetStringWidth() + 20
+        -- Reduced horizontal padding to 14 to save space in narrow view
+        local tabWidth = tab.text:GetStringWidth() + 14
         tab:SetWidth(tabWidth)
 
         if tabX + tabWidth > f:GetWidth() - 20 then
@@ -600,9 +594,9 @@ UpdateQuestList = function()
             if button == "RightButton" then
                 local isCurrentlyTracked = false
                 if type(C_QuestLog.GetQuestWatchType) == "function" then
-                    isCurrentlyTracked = (C_QuestLog.GetQuestWatchType(questInfo.questID) ~= nil)
+                    isTracked = (C_QuestLog.GetQuestWatchType(questInfo.questID) ~= nil)
                 elseif type(IsQuestWatched) == "function" then
-                    isCurrentlyTracked = IsQuestWatched(logIndex)
+                    isTracked = IsQuestWatched(logIndex)
                 end
 
                 if isCurrentlyTracked then
@@ -630,12 +624,8 @@ UpdateQuestList = function()
         yOffset = yOffset - (qHeight + 4)
         lineIndex = lineIndex + 1
 
-        -- =================================================================
-        -- LIVE PROGRESS (Always visible, directly below the quest title)
-        -- =================================================================
+        -- Objectives
         local objLines = ""
-
-        -- 1. Modern API check
         if type(C_QuestLog.GetQuestObjectives) == "function" then
             local objectives = C_QuestLog.GetQuestObjectives(questInfo.questID)
             if objectives and #objectives > 0 then
@@ -646,7 +636,6 @@ UpdateQuestList = function()
             end
         end
 
-        -- 2. Classic / WotLK fallback check if modern API returned empty
         if objLines == "" and type(GetNumQuestLeaderBoards) == "function" and type(GetQuestLogLeaderBoard) == "function" then
             local numObjs = GetNumQuestLeaderBoards(logIndex)
             if numObjs and numObjs > 0 then
@@ -660,12 +649,11 @@ UpdateQuestList = function()
             end
         end
 
-        -- Render objectives to screen first
         if objLines ~= "" then
             FlushText(objLines, 32)
         end
 
-        -- 3. QUEST TIMER CHECK (LIVE UPDATING)
+        -- Timers
         local initialTimeLeft = FetchQuestTimeLeft(questInfo.questID, logIndex)
         if initialTimeLeft and initialTimeLeft > 0 then
             local tBtn = GetOrCreateLine(lineIndex)
@@ -682,7 +670,6 @@ UpdateQuestList = function()
             yOffset = yOffset - (h + 4)
             lineIndex = lineIndex + 1
 
-            -- Save reference for the OnUpdate loop
             table.insert(activeTimers, {
                 btn = tBtn,
                 questID = questInfo.questID,
@@ -690,9 +677,7 @@ UpdateQuestList = function()
             })
         end
 
-        -- =================================================================
-        -- EXPANDABLE DETAILS (Story, Rewards, Items, Location)
-        -- =================================================================
+        -- Expanded Details
         if expandedQuests[questInfo.questID] then
             if C_QuestLog and type(C_QuestLog.SetSelectedQuest) == "function" then
                 pcall(C_QuestLog.SetSelectedQuest, questInfo.questID)
@@ -750,8 +735,8 @@ UpdateQuestList = function()
 
                         local iBtn = GetOrCreateLine(lineIndex)
                         iBtn:ClearAllPoints()
-                        iBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 45, yOffset)
-                        iBtn.text:SetWidth(scrollFrame:GetWidth() - 55)
+                        iBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 35, yOffset)
+                        iBtn.text:SetWidth(scrollFrame:GetWidth() - 45)
                         iBtn.text:SetFontObject("GameFontHighlightSmall")
                         iBtn.text:SetText("- " .. count .. (link or itemName))
 
@@ -768,7 +753,7 @@ UpdateQuestList = function()
                         end)
 
                         local h = iBtn.text:GetStringHeight()
-                        iBtn:SetSize(scrollFrame:GetWidth() - 55, h + 4)
+                        iBtn:SetSize(scrollFrame:GetWidth() - 45, h + 4)
                         iBtn:Show()
                         yOffset = yOffset - (h + 6)
                         lineIndex = lineIndex + 1
@@ -795,8 +780,8 @@ UpdateQuestList = function()
 
                         local cBtn = GetOrCreateLine(lineIndex)
                         cBtn:ClearAllPoints()
-                        cBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 45, yOffset)
-                        cBtn.text:SetWidth(scrollFrame:GetWidth() - 55)
+                        cBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 35, yOffset)
+                        cBtn.text:SetWidth(scrollFrame:GetWidth() - 45)
                         cBtn.text:SetFontObject("GameFontHighlightSmall")
                         cBtn.text:SetText("- " .. count .. (link or itemName))
 
@@ -813,7 +798,7 @@ UpdateQuestList = function()
                         end)
 
                         local h = cBtn.text:GetStringHeight()
-                        cBtn:SetSize(scrollFrame:GetWidth() - 55, h + 4)
+                        cBtn:SetSize(scrollFrame:GetWidth() - 45, h + 4)
                         cBtn:Show()
                         yOffset = yOffset - (h + 6)
                         lineIndex = lineIndex + 1
@@ -858,7 +843,6 @@ UpdateQuestList = function()
         end
         yOffset = yOffset - 4
     end
-
 
     local focusedQuestID = nil
     if C_SuperTrack and type(C_SuperTrack.GetSuperTrackedQuestID) == "function" then
@@ -917,11 +901,10 @@ UpdateQuestList = function()
 
                     local isUntracked = not isTracked
                     local isReady = IsQuestReadySafe(questInfo, i)
-                    local isRecent = (recentQuests[questInfo.questID] ~= nil) -- New check
-
+                    local isRecent = (recentQuests[questInfo.questID] ~= nil)
 
                     if activeFilter == L.TAB_ALL or
-                        (activeFilter == L.TAB_RECENT and isRecent) or -- New condition
+                        (activeFilter == L.TAB_RECENT and isRecent) or
                         (activeFilter == L.TAB_READY and isReady) or
                         (activeFilter == L.TAB_TRACKED and isTracked) or
                         (activeFilter == L.TAB_UNTRACKED and isUntracked) or
@@ -958,13 +941,15 @@ UpdateQuestList = function()
     end
 end
 
-
 -- =========================================================================
 -- 6. Events & Keybinds
 -- =========================================================================
-f:SetScript("OnShow", UpdateQuestList)
+f:SetScript("OnShow", function()
+    f:SetWidth(250) -- Forces the width to bypass WoW's layout cache
+    UpdateQuestList()
+end)
 f:RegisterEvent("QUEST_LOG_UPDATE")
-f:RegisterEvent("UNIT_QUEST_LOG_CHANGED") -- Highly reliable for live progress
+f:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
 f:RegisterEvent("SUPER_TRACKING_CHANGED")
 f:RegisterEvent("PLAYER_LEVEL_UP")
 
@@ -974,7 +959,6 @@ f:SetScript("OnEvent", function(self, event, unitTarget)
     end
     UpdateQuestList()
 end)
-
 
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
@@ -997,7 +981,6 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     SaveBindings(GetCurrentBindingSet())
 end)
 
-
 -- =========================================================================
 -- LIVE TIMER TICKER (Runs only when window is open)
 -- =========================================================================
@@ -1006,7 +989,7 @@ f:SetScript("OnUpdate", function(self, elapsed)
     if #activeTimers == 0 then return end
 
     timerUpdateAccumulator = timerUpdateAccumulator + elapsed
-    if timerUpdateAccumulator >= 1.0 then -- Throttle to 1 second
+    if timerUpdateAccumulator >= 1.0 then
         timerUpdateAccumulator = 0
 
         for _, tData in ipairs(activeTimers) do
