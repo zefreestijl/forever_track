@@ -19,6 +19,7 @@
         "UISpecialFrames",
         "UiMapPoint",
         "GetQuestDifficultyColor",
-        "RAID_CLASS_COLORS"
+        "RAID_CLASS_COLORS",
+        "CreateTexturePool"
     ]
 }
