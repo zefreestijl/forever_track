@@ -34,7 +34,7 @@ T1_ZoneDB = {
     [1442] = { name = "stonetalon-mountains", x = 0.167, y = 0.452, comment = "石爪山脈", w = 0.147, h = 0.123 },
     [1443] = { name = "desolace", x = 0.130, y = 0.540, comment = "淒涼之地", w = 0.129, h = 0.118 },
     [1444] = { name = "feralas", x = 0.131, y = 0.681, comment = "菲拉斯", w = 0.194, h = 0.173 },
-    [1445] = { name = "dustwallow-marsh", x = 0.295, y = 0.645, comment = "塵泥沼澤", w = 0.152, h = 0.132 },
+    [1445] = { name = "dustwallow-marsh", x = 0.296, y = 0.646, comment = "塵泥沼澤", w = 0.142, h = 0.132 },
     [1446] = { name = "tanaris", x = 0.298, y = 0.813, comment = "塔納利斯", w = 0.187, h = 0.172 },
     [1447] = { name = "azshara", x = 0.359, y = 0.360, comment = "艾薩拉", w = 0.147, h = 0.132 },
     [1448] = { name = "felwood", x = 0.224, y = 0.294, comment = "費伍德森林", w = 0.168, h = 0.155 },
