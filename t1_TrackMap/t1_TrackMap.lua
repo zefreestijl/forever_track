@@ -150,13 +150,13 @@ f.zoomText:SetText("Scale: 1.00x")
 
 f.showFogOfWar = true
 f.mistToggle = CreateFrame("CheckButton", nil, f.zoomUI, "UICheckButtonTemplate")
-f.mistToggle:SetSize(24, 24)
-f.mistToggle:SetPoint("TOPRIGHT", f.zoomUI, "TOPRIGHT", -75, -5)
+f.mistToggle:SetSize(15, 15)
+f.mistToggle:SetPoint("TOPRIGHT", f.zoomUI, "TOPRIGHT", -60, -3)
 f.mistToggle:SetChecked(f.showFogOfWar)
 f.mistToggle:SetAlpha(0.5) -- Grey out the toggle so it looks inactive
 
 f.mistToggle.text = f.mistToggle:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-f.mistToggle.text:SetPoint("LEFT", f.mistToggle, "RIGHT", 4, 0)
+f.mistToggle.text:SetPoint("LEFT", f.mistToggle, "RIGHT", 0, 0)
 f.mistToggle.text:SetText("Mist Maps")
 f.mistToggle.text:SetTextColor(0.6, 0.6, 0.6) -- Dim the text
 

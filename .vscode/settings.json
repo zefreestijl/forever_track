@@ -20,6 +20,7 @@
         "UiMapPoint",
         "GetQuestDifficultyColor",
         "RAID_CLASS_COLORS",
-        "CreateTexturePool"
+        "CreateTexturePool",
+        "SearchBoxTemplate_OnTextChanged"
     ]
 }

@@ -29,6 +29,53 @@ f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
 f.title:SetText("t2_TrackNPC")
 
+-- CRITICAL FIX: Pre-declare the function here so the Search Box can "see" it!
+local RefreshLogDisplay
+
+-- ==========================================
+-- Search Box
+-- ==========================================
+
+local currentSearchQuery = ""
+
+local searchBox = CreateFrame("EditBox", nil, f, "SearchBoxTemplate")
+searchBox:SetSize(200, 20)
+searchBox:SetPoint("TOP", f, "TOP", 0, -25)
+searchBox:SetAutoFocus(false)
+
+-- 1. Handle the built-in "X" clear button and empty states
+searchBox:SetScript("OnTextChanged", function(self)
+    -- Required for the SearchBoxTemplate to show/hide the little 'X' button
+    SearchBoxTemplate_OnTextChanged(self) 
+    
+    -- If the box becomes completely empty (e.g., clicking the X), reset the list instantly
+    if self:GetText() == "" then
+        currentSearchQuery = ""
+        if RefreshLogDisplay then RefreshLogDisplay() end
+    end
+end)
+
+-- 2. Trigger the actual search ONLY when pressing Enter
+searchBox:SetScript("OnEnterPressed", function(self)
+    local text = self:GetText()
+    currentSearchQuery = strtrim(text):lower()
+    
+    -- Update the list
+    if RefreshLogDisplay then RefreshLogDisplay() end
+    
+    -- Drop the keyboard focus so you can go back to playing/using keybinds
+    self:ClearFocus() 
+end)
+
+-- 3. Allow pressing Escape to cancel searching
+searchBox:SetScript("OnEscapePressed", function(self)
+    self:SetText("")
+    currentSearchQuery = ""
+    if RefreshLogDisplay then RefreshLogDisplay() end
+    self:ClearFocus()
+end)
+
+
 -- State Variables
 local activeRegion = nil  -- LEVEL 1: e.g. "Eastern Kingdoms <Alliance>"
 local activeTabZone = nil -- LEVEL 2: e.g. "Elwynn Forest"
@@ -36,7 +83,6 @@ local isCollapsed = false
 local selectedItemIndex = nil
 local collapsedGroups = {}
 
-local RefreshLogDisplay
 local inputBox, inputLabel, CollapseWindow
 
 -- ==========================================
@@ -168,6 +214,7 @@ CollapseWindow = function(collapse)
         if resizeHandle then resizeHandle:Show() end
         f.collapseBtn:SetText("_")
         isCollapsed = false
+        if searchBox then searchBox:Show() end
     else
         if f.Bg then f.Bg:Hide() end
         if f.InsetBg then f.InsetBg:Hide() end
@@ -183,6 +230,7 @@ CollapseWindow = function(collapse)
         f:SetSize(360, 32)
         f.collapseBtn:SetText("+")
         isCollapsed = true
+        if searchBox then searchBox:Hide() end
     end
     if point and relativeTo then
         f:ClearAllPoints()
@@ -395,8 +443,29 @@ RefreshLogDisplay = function()
     local filteredEntries = {}
     for index, item in ipairs(T2_NPC_DATA.entries) do
         if item.region == activeRegion and item.mainLocation == activeTabZone then
-            item.originalIndex = index
-            table.insert(filteredEntries, item)
+            local passesSearch = true
+
+            -- Only run the search logic if the user typed something
+            if currentSearchQuery and currentSearchQuery ~= "" then
+                passesSearch = false
+
+                local nameStr = item.name and item.name:lower() or ""
+                local descStr = item.description and item.description:lower() or ""
+                local commStr = item.comment and item.comment:lower() or ""
+
+                -- string.find(string, query, startPos, plainText)
+                -- "true" forces a plain text wildcard match and runs significantly faster
+                if string.find(nameStr, currentSearchQuery, 1, true) or
+                    string.find(descStr, currentSearchQuery, 1, true) or
+                    string.find(commStr, currentSearchQuery, 1, true) then
+                    passesSearch = true
+                end
+            end
+
+            if passesSearch then
+                item.originalIndex = index
+                table.insert(filteredEntries, item)
+            end
         end
     end
 
@@ -721,7 +790,7 @@ RefreshTabs = function()
         end
     end
 
-    tabContainer:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -32)
+    tabContainer:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -52) -- Pushed down for search box
     local totalTabContainerHeight = math.abs(yOffset) + (activeRegion and tabHeight or 0) + 8
     tabContainer:SetSize(330, totalTabContainerHeight)
 
