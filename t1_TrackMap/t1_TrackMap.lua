@@ -302,7 +302,7 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                 local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
 
                 -- 2. Check if the click is physically close to a city flag
-                local CLICK_RADIUS_SQ = 0.001
+                local CLICK_RADIUS_SQ = 0.0005
 
                 for _, data in pairs(cityDataByZone) do
                     if data.x and data.y then
@@ -576,33 +576,43 @@ f.zoomLevel = 1
 f.mapOffsetX = 0
 f.mapOffsetY = 0
 
+
 function f:UpdateMapTransform()
     if not self.mapContent or not self.mapCanvas then return end
-
-    if self.zoomLevel < 1 then self.zoomLevel = 1 end
-    if self.zoomLevel > 10 then self.zoomLevel = 10 end
-
-    self.mapContent:SetScale(self.zoomLevel)
 
     local canvasW, canvasH = self.mapCanvas:GetSize()
     local contentW, contentH = self.mapContent:GetSize()
     if not canvasW or canvasW <= 0 or not contentW or contentW <= 0 then return end
 
+    -- ==========================================
+    -- 1. DYNAMIC MINIMUM ZOOM
+    -- The map MUST be at least as large as the window to prevent empty space.
+    -- ==========================================
+    local minZoomW = canvasW / contentW
+    local minZoomH = canvasH / contentH
+    local absoluteMinZoom = math.max(minZoomW, minZoomH)
+
+    if self.zoomLevel < absoluteMinZoom then self.zoomLevel = absoluteMinZoom end
+    if self.zoomLevel > 10 then self.zoomLevel = 10 end
+
+    self.mapContent:SetScale(self.zoomLevel)
+
+    -- ==========================================
+    -- 2. HARD PAN CLAMPING (Restored TOPLEFT Math)
+    -- ==========================================
     local effW = contentW * self.zoomLevel
     local effH = contentH * self.zoomLevel
 
-    local BLEED_RATIO = 0.75
-    local bleedX = canvasW * BLEED_RATIO
-    local bleedY = canvasH * BLEED_RATIO
-
-    local visualMinX = (canvasW - effW) - bleedX
-    local visualMaxX = bleedX
-    local visualMinY = -bleedY
-    local visualMaxY = (effH - canvasH) + bleedY
+    -- With 0 bleed, these are the exact mathematical walls:
+    local visualMaxX = 0
+    local visualMinX = canvasW - effW
+    local visualMinY = 0
+    local visualMaxY = effH - canvasH
 
     local currentVisualX = self.mapOffsetX * self.zoomLevel
     local currentVisualY = self.mapOffsetY * self.zoomLevel
 
+    -- Clamp to boundaries
     if currentVisualX > visualMaxX then currentVisualX = visualMaxX end
     if currentVisualX < visualMinX then currentVisualX = visualMinX end
     if currentVisualY < visualMinY then currentVisualY = visualMinY end
@@ -611,6 +621,9 @@ function f:UpdateMapTransform()
     self.mapOffsetX = currentVisualX / self.zoomLevel
     self.mapOffsetY = currentVisualY / self.zoomLevel
 
+    -- ==========================================
+    -- 3. APPLY TRANSFORM (TOPLEFT Anchor Restored!)
+    -- ==========================================
     self.mapContent:ClearAllPoints()
     self.mapContent:SetPoint("TOPLEFT", self.mapCanvas, "TOPLEFT", self.mapOffsetX, self.mapOffsetY)
 
@@ -629,7 +642,6 @@ function f:UpdateMapTransform()
     local MY_CUSTOM_WORLD_MAP_ID = 947
 
     if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-        -- 1. Create the frames exactly once
         if not f.cityFlags then
             f.cityFlags = {}
             for key, data in pairs(cityDataByZone) do
@@ -645,12 +657,10 @@ function f:UpdateMapTransform()
                 end
                 tex:SetTexCoord(10 / 64, 54 / 64, 10 / 64, 54 / 64)
 
-                -- NEW: Save the 'tex' reference so we can recolor it dynamically!
                 f.cityFlags[key] = { frame = flagFrame, tex = tex, x = data.x or 0, y = data.y or 0 }
             end
         end
 
-        -- 2. Determine if the player is currently inside a capital city
         local playerMap = C_Map.GetBestMapForUnit("player")
         local playerInCityID = nil
         for key, data in pairs(cityDataByZone) do
@@ -660,19 +670,17 @@ function f:UpdateMapTransform()
             end
         end
 
-
-        -- 3. Render and Counter-Scale
         for key, flagObj in pairs(f.cityFlags) do
             flagObj.frame:Show()
 
-            -- NEW: Fade out other cities to 0.5 opacity instead of making them ominous and gray!
             if playerInCityID and cityDataByZone[key].id ~= playerInCityID then
-                flagObj.tex:SetDesaturated(false)
-                flagObj.tex:SetVertexColor(1, 1, 1, 0.5) -- Keep true color, just drop opacity to 30%
+                flagObj.baseOpacity = 0.3
             else
-                flagObj.tex:SetDesaturated(false)
-                flagObj.tex:SetVertexColor(1, 1, 1, 1) -- Full color and opacity
+                flagObj.baseOpacity = 1.0
             end
+
+            flagObj.tex:SetDesaturated(false)
+            flagObj.tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity)
 
             local baseSize = 24
             flagObj.frame:SetSize(baseSize / self.zoomLevel, baseSize / self.zoomLevel)
@@ -688,7 +696,7 @@ function f:UpdateMapTransform()
     end
 
     -- ==========================================
-    -- RENDER CUSTOM MAP PINS (Global & Regional)
+    -- RENDER CUSTOM MAP PINS
     -- ==========================================
     if not f.pinFrames then f.pinFrames = {} end
     if not f.customPins then f.customPins = {} end
@@ -746,6 +754,8 @@ function f:UpdateMapTransform()
         end
     end
 end
+
+
 
 f.mapCanvas:EnableMouseWheel(true)
 f.mapCanvas:SetScript("OnMouseWheel", function(self, delta)
@@ -831,6 +841,90 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
         f.playerArrow:Hide()
         f.playerArrow.pX = nil
         f.playerArrow.pY = nil
+    end
+end)
+
+
+-- ==========================================
+-- Live Party Tracker (Party 1-4)
+-- ==========================================
+if not f.partyFrames then
+    f.partyFrames = {}
+    for i = 1, 4 do
+        local pf = CreateFrame("Frame", nil, f.mapContent)
+        pf:SetFrameLevel(f.mapContent:GetFrameLevel() + 5) -- Just below the player arrow
+
+        local tex = pf:CreateTexture(nil, "OVERLAY")
+        tex:SetAllPoints()
+        -- Using a built-in mask texture as a perfect white circle we can tint!
+        tex:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+
+        pf.tex = tex
+        f.partyFrames[i] = pf
+    end
+end
+
+f.partyTracker = CreateFrame("Frame", nil, f.mapCanvas)
+f.partyTracker:SetScript("OnUpdate", function()
+    local MY_CUSTOM_WORLD_MAP_ID = 947
+    local contentW = f.mapContent:GetWidth()
+    local contentH = f.mapContent:GetHeight()
+
+    for i = 1, 4 do
+        local unit = "party" .. i
+        local pf = f.partyFrames[i]
+        local showPartyMember = false
+        local drawX, drawY = 0, 0
+
+        -- If the party member exists, is online, and isn't dead
+        if UnitExists(unit) and UnitIsConnected(unit) then
+            local unitMapID = C_Map.GetBestMapForUnit(unit)
+
+            if unitMapID then
+                local pos = C_Map.GetPlayerMapPosition(unitMapID, unit)
+                if pos and pos.x and pos.y then
+                    -- SCENARIO 1: Global World Map
+                    if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+                        if T1_ZoneDB and T1_ZoneDB[unitMapID] then
+                            local zData = T1_ZoneDB[unitMapID]
+                            if zData.x and zData.w and zData.y and zData.h then
+                                drawX = zData.x + ((pos.x - 0.5) * zData.w)
+                                drawY = zData.y + ((pos.y - 0.5) * zData.h)
+                                showPartyMember = true
+                            end
+                        end
+
+                        -- SCENARIO 2: Local Map
+                    elseif f.currentMapID == unitMapID then
+                        drawX = pos.x
+                        drawY = pos.y
+                        showPartyMember = true
+                    end
+                end
+            end
+        end
+
+        -- Render the party member
+        if showPartyMember then
+            -- Tint the circle to match their class color
+            local _, classFilename = UnitClass(unit)
+            if classFilename then
+                local color = RAID_CLASS_COLORS[classFilename]
+                if color then
+                    pf.tex:SetVertexColor(color.r, color.g, color.b, 1)
+                end
+            else
+                pf.tex:SetVertexColor(0.5, 0.5, 1, 1) -- Default pale blue
+            end
+
+            pf:Show()
+            local baseSize = 16 -- Slightly smaller than the player arrow (32)
+            pf:SetSize(baseSize / f.zoomLevel, baseSize / f.zoomLevel)
+            pf:ClearAllPoints()
+            pf:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawX * contentW, -drawY * contentH)
+        else
+            pf:Hide()
+        end
     end
 end)
 
@@ -939,7 +1033,8 @@ end)
 -- ==========================================
 -- Auto-Frame: Zoom Fit Player and Pin
 -- ==========================================
-function f:ZoomFitPlayerAndPin() -- =========================================================================
+function f:ZoomFitPlayerAndPin()
+    -- =========================================================================
     -- 1. Main Frame Setup
     -- =========================================================================
     local f = CreateFrame("Frame", "t3_TrackQst", UIParent, "BasicFrameTemplateWithInset")
@@ -1706,6 +1801,57 @@ function f:ZoomFitPlayerAndPin() -- ============================================
 end
 
 -- ==========================================
+-- Auto-Frame: Zoom to Specific Zone
+-- ==========================================
+function f:ZoomToZone(zoneID)
+    local MY_CUSTOM_WORLD_MAP_ID = 947
+    -- Only run this math if we are looking at the global world map
+    if f.currentMapID ~= MY_CUSTOM_WORLD_MAP_ID or not zoneID then return end
+
+    if T1_ZoneDB and T1_ZoneDB[zoneID] then
+        local zData = T1_ZoneDB[zoneID]
+        if zData.x and zData.y and zData.w and zData.h then
+            local centerX = zData.x
+            local centerY = zData.y
+
+            -- We add a 30% padding multiplier so the zone doesn't touch the screen edges,
+            -- allowing you to see neighboring zones clearly.
+            local PADDING_MULTIPLIER = 1.3
+            local boxW = zData.w * PADDING_MULTIPLIER
+            local boxH = zData.h * PADDING_MULTIPLIER
+
+            -- Enforce a minimum box size so it doesn't zoom in too aggressively on tiny zones
+            boxW = math.max(boxW, 0.10)
+            boxH = math.max(boxH, 0.10)
+
+            local zoomW = 1 / boxW
+            local zoomH = 1 / boxH
+            local targetZoom = math.min(zoomW, zoomH)
+
+            if targetZoom < 1 then targetZoom = 1 end
+            if targetZoom > 10 then targetZoom = 10 end
+
+            local canvasW, canvasH = self.mapCanvas:GetSize()
+            local contentW, contentH = self.mapContent:GetSize()
+
+            if canvasW and canvasH and contentW and contentH then
+                local exactPixelX = centerX * contentW
+                local exactPixelY = -centerY * contentH
+
+                local visualOffsetX = (canvasW / 2) - (exactPixelX * targetZoom)
+                local visualOffsetY = -(canvasH / 2) - (exactPixelY * targetZoom)
+
+                self.zoomLevel = targetZoom
+                self.mapOffsetX = visualOffsetX / targetZoom
+                self.mapOffsetY = visualOffsetY / targetZoom
+
+                if self.UpdateMapTransform then self:UpdateMapTransform() end
+            end
+        end
+    end
+end
+
+-- ==========================================
 -- RENDER CUSTOM MAP PINS (Global & Regional)
 -- ==========================================
 local MY_CUSTOM_WORLD_MAP_ID = 947
@@ -1850,17 +1996,14 @@ f:Hide()
 -- GLOBAL EXPOSED TOGGLE API (Smart Default)
 -- ==========================================
 _G.func_ToggleT1Window = function(mapID)
-    -- If a specific mapID is passed from another addon (like T2), load it!
     if mapID and type(mapID) == "number" then
         f:LoadMap(mapID)
         if f.UpdateMapTransform then f:UpdateMapTransform() end
         f:Show()
     else
-        -- Otherwise, just act as a standard toggle
         if f:IsShown() then
             f:Hide()
         else
-            -- Check where the player is currently standing
             local playerMap = C_Map.GetBestMapForUnit("player")
             local capitalCities = {
                 [1453] = true,
@@ -1871,14 +2014,20 @@ _G.func_ToggleT1Window = function(mapID)
                 [1458] = true
             }
 
-            -- If standing in a capital city, default to the city map. Otherwise, World Map!
             local defaultMap = 947
             if playerMap and capitalCities[playerMap] then
                 defaultMap = playerMap
             end
 
             f:LoadMap(defaultMap)
-            if f.UpdateMapTransform then f:UpdateMapTransform() end
+
+            -- NEW: If it decided to open the World Map, automatically frame the current zone!
+            if defaultMap == 947 and playerMap then
+                f:ZoomToZone(playerMap)
+            elseif f.UpdateMapTransform then
+                f:UpdateMapTransform()
+            end
+
             f:Show()
         end
     end
@@ -1905,7 +2054,7 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     SaveBindings(bindSet)
 end)
 
--- Update OnShow to use the same smart location logic on first load
+-- Update OnShow to trigger the zone zoom on first load
 f:SetScript("OnShow", function(self)
     if not self.currentMapID then
         local playerMap = C_Map.GetBestMapForUnit("player")
@@ -1919,10 +2068,52 @@ f:SetScript("OnShow", function(self)
         }
         local defaultMap = (playerMap and capitalCities[playerMap]) and playerMap or 947
         self:LoadMap(defaultMap)
+
+        -- NEW: Frame the current zone on initial load
+        if defaultMap == 947 and playerMap then
+            self:ZoomToZone(playerMap)
+        end
     end
     if self.UpdateMapTransform then self:UpdateMapTransform() end
 end)
+-- ==========================================
+-- City Flag Hover Engine
+-- ==========================================
+if not f.flagHoverTracker then
+    f.flagHoverTracker = CreateFrame("Frame", nil, f.mapCanvas)
+end
 
+f.flagHoverTracker:SetScript("OnUpdate", function()
+    local MY_CUSTOM_WORLD_MAP_ID = 947
+    -- Only run hover math on the global world map
+    if f.currentMapID ~= MY_CUSTOM_WORLD_MAP_ID or not f.cityFlags then return end
 
+    local rawX, rawY = GetCursorPosition()
+    local mapScale = f.mapContent:GetEffectiveScale()
+    local left = f.mapContent:GetLeft()
+    local top = f.mapContent:GetTop()
+
+    if not left or not top then return end
+
+    -- Calculate exact percentage coordinates of the mouse
+    local pctX = ((rawX / mapScale) - left) / f.mapContent:GetWidth()
+    local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
+    local CLICK_RADIUS_SQ = 0.0005
+
+    for key, flagObj in pairs(f.cityFlags) do
+        if cityDataByZone[key] then
+            local dx = (cityDataByZone[key].x or 0) - pctX
+            local dy = (cityDataByZone[key].y or 0) - pctY
+
+            -- If mouse is within the hit-box, force opacity to 0.7 for interactive feedback
+            if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
+                flagObj.tex:SetVertexColor(1, 1, 1, 0.7)
+            else
+                -- Otherwise, revert to the base opacity we saved during the map transform
+                flagObj.tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity or 1)
+            end
+        end
+    end
+end)
 
 print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")

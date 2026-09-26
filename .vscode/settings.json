@@ -18,6 +18,7 @@
         "SlashCmdList",
         "UISpecialFrames",
         "UiMapPoint",
-        "GetQuestDifficultyColor"
+        "GetQuestDifficultyColor",
+        "RAID_CLASS_COLORS"
     ]
 }
