@@ -784,15 +784,22 @@ function f:ZoomToZone(zoneID)
     end
 end
 
+
 function f:ZoomFitPlayerAndPin()
     if f.currentMapID ~= 947 then return end
+    
     local pX = f.playerArrow and f.playerArrow.pX
     local pY = f.playerArrow and f.playerArrow.pY
     local pinX, pinY = nil, nil
 
     if f.customPins and #f.customPins > 0 then
         local pinData = f.customPins[#f.customPins]
-        if T1_ZoneDB and T1_ZoneDB[pinData.mapID] then
+        
+        -- FIX 1: Support pins that are placed directly on the world map!
+        if pinData.mapID == 947 then
+            pinX = pinData.x
+            pinY = pinData.y
+        elseif T1_ZoneDB and T1_ZoneDB[pinData.mapID] then
             local zData = T1_ZoneDB[pinData.mapID]
             if zData.x and zData.w and zData.y and zData.h then
                 pinX = zData.x + ((pinData.x - 0.5) * zData.w)
@@ -813,9 +820,18 @@ function f:ZoomFitPlayerAndPin()
         return
     end
 
-    local boxW = math.max((maxX - minX) + 0.40, 0.15)
-    local boxH = math.max((maxY - minY) + 0.40, 0.15)
-    f:ZoomToPoint((minX + maxX) / 2, (minY + maxY) / 2, math.min(1 / boxW, 1 / boxH))
+    -- FIX 2: Dynamic padding instead of a massive flat buffer
+    local distW = maxX - minX
+    local distH = maxY - minY
+    
+    -- Multiply distance by 1.5 to leave clean screen margins around the icons.
+    -- Enforce a 0.10 minimum so the camera doesn't attempt to zoom to infinity if distance is 0.
+    local boxW = math.max(distW * 1.5, 0.10)
+    local boxH = math.max(distH * 1.5, 0.10)
+    
+    local targetZoom = math.min(1 / boxW, 1 / boxH)
+    
+    f:ZoomToPoint((minX + maxX) / 2, (minY + maxY) / 2, targetZoom)
 end
 
 -- ==========================================
@@ -836,15 +852,32 @@ _G.func_T1_AddPin = function(mapID, localX, localY, r, g, b)
         print(string.format("|cff00ff00T1_TrackMap DEBUG:|r City Pin - MapID: %s | Local: (%.1f, %.1f)", mapID,
             localX * 100, localY * 100))
     end
+    
+    -- 1. Add to your custom global map
     table.insert(f.customPins, { mapID = mapID, x = localX, y = localY, r = r or 0, g = g or 1, b = b or 1 })
+    
     if f:IsShown() and f.UpdateMapTransform then f:UpdateMapTransform() end
     if f:IsShown() and f.ZoomFitPlayerAndPin then f:ZoomFitPlayerAndPin() end
+
+    -- 2. NEW: Push the exact same coordinates to the built-in Blizzard Minimap!
+    if C_Map.CanSetUserWaypointOnMap(mapID) then
+        local uiMapPoint = UiMapPoint.CreateFromCoordinates(mapID, localX, localY)
+        C_Map.SetUserWaypoint(uiMapPoint)
+        C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+    end
 end
 
 _G.func_T1_ClearPins = function()
+    -- 1. Clear custom map pins
     wipe(f.customPins)
     if f:IsShown() and f.UpdateMapTransform then f:UpdateMapTransform() end
+    
+    -- 2. NEW: Clear the built-in Blizzard Minimap waypoint
+    if C_Map.HasUserWaypoint() then
+        C_Map.ClearUserWaypoint()
+    end
 end
+
 
 -- ==========================================
 -- Live Trackers
