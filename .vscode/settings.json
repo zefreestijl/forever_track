@@ -23,6 +23,10 @@
         "CreateTexturePool",
         "SearchBoxTemplate_OnTextChanged",
         "StaticPopupDialogs",
-        "ReloadUI"
+        "ReloadUI",
+        "MapExplorationDataProviderMixin",
+        "GroupMembersDataProviderMixin",
+        "MapCanvasMixin",
+        "WorldMapFrame"
     ]
 }
