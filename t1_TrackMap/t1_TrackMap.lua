@@ -4,6 +4,8 @@
 local f = CreateFrame("Frame", "t1_TrackMap", UIParent, "BasicFrameTemplateWithInset")
 f:SetSize(916, 640)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+f:SetFrameStrata("FULLSCREEN_DIALOG")
+f:SetFrameLevel(100)
 
 f:SetResizable(true)
 if f.SetResizeBounds then
@@ -76,12 +78,12 @@ end)
 -- City Map Data
 -- ==========================================
 local cityDataByZone = {
-    ["elwynn-forest"] = { name = "Stormwind", id = 1453, status = "Alliance", x = 0.718, y = 0.638 },
-    ["durotar"] = { name = "Orgrimmar", id = 1454, status = "Horde", x = 0.317, y = 0.449 },
-    ["dun-morogh"] = { name = "Ironforge", id = 1455, status = "Alliance", x = 0.759, y = 0.489 },
-    ["mulgore"] = { name = "Thunder Bluff", id = 1456, status = "Horde", x = 0.193, y = 0.554 },
-    ["teldrassil"] = { name = "Darnassus", id = 1457, status = "Alliance", x = 0.118, y = 0.114 },
-    ["tirisfal-glades"] = { name = "Undercity", id = 1458, status = "Horde", x = 0.729, y = 0.226 },
+    ["elwynn-forest"] = { name = "Stormwind", id = 1453, status = "Alliance", x = 0.716, y = 0.631 },
+    ["durotar"] = { name = "Orgrimmar", id = 1454, status = "Horde", x = 0.297, y = 0.435 },
+    ["dun-morogh"] = { name = "Ironforge", id = 1455, status = "Alliance", x = 0.755, y = 0.488 },
+    ["mulgore"] = { name = "Thunder Bluff", id = 1456, status = "Horde", x = 0.200, y = 0.529 },
+    ["teldrassil"] = { name = "Darnassus", id = 1457, status = "Alliance", x = 0.137, y = 0.162 },
+    ["tirisfal-glades"] = { name = "Undercity", id = 1458, status = "Horde", x = 0.728, y = 0.274 },
 }
 
 
@@ -89,12 +91,11 @@ local cityDataByZone = {
 -- ==========================================
 -- Map Toggle & Return Button (Top Left)
 -- ==========================================
-f.isDetailedMap = false
+f.showFogOfWar = true
 f.MapToggleButton = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 f.MapToggleButton:SetSize(110, 20)
--- Anchor it slightly to the right so it doesn't overlap the UI portrait/title
 f.MapToggleButton:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
-f.MapToggleButton:SetText("Show Detailed Map")
+f.MapToggleButton:SetText("Hide Mist")
 f.MapToggleButton:SetNormalFontObject("GameFontNormalSmall")
 f.MapToggleButton:SetHighlightFontObject("GameFontHighlightSmall")
 
@@ -106,62 +107,19 @@ f.MapToggleButton:SetScript("OnClick", function()
         -- 1. We are returning to the World Map
         f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
 
-        -- Check if the map we just left was one of the flagged cities
-        local activeCity = nil
-        for _, data in pairs(cityDataByZone) do
-            if data.id == previousMapID then
-                activeCity = data
-                break
-            end
-        end
-
-        if activeCity then
-            -- Find the pin coordinates, if one exists
-            local pinX, pinY = nil, nil
-            if f.customPins and #f.customPins > 0 then
-                local pinData = f.customPins[#f.customPins]
-                if pinData.mapID == 947 then
-                    pinX = pinData.x
-                    pinY = pinData.y
-                elseif T1_ZoneDB and T1_ZoneDB[pinData.mapID] then
-                    local zData = T1_ZoneDB[pinData.mapID]
-                    if zData.x and zData.w and zData.y and zData.h then
-                        pinX = zData.x + ((pinData.x - 0.5) * zData.w)
-                        pinY = zData.y + ((pinData.y - 0.5) * zData.h)
-                    end
-                end
-            end
-
-            if pinX and pinY then
-                -- Calculate bounding box to fit the city flag and the pin
-                local minX = math.min(activeCity.x, pinX)
-                local maxX = math.max(activeCity.x, pinX)
-                local minY = math.min(activeCity.y, pinY)
-                local maxY = math.max(activeCity.y, pinY)
-
-                local distW = maxX - minX
-                local distH = maxY - minY
-
-                -- Add a 1.5x margin so the icons aren't squeezed against the frame edges
-                local boxW = math.max(distW * 1.5, 0.10)
-                local boxH = math.max(distH * 1.5, 0.10)
-
-                local targetZoom = math.min(1 / boxW, 1 / boxH)
-
-                -- Use our smooth animation loop to glide to the center point
-                f:ZoomToPoint((minX + maxX) / 2, (minY + maxY) / 2, targetZoom)
-            else
-                -- If there is no pin, simply glide and zoom in on the city flag
-                f:ZoomToPoint(activeCity.x, activeCity.y, 4)
-            end
-        else
-            -- If we weren't in a recognized city, return to a full global overview
-            f:ZoomToPoint(0.5, 0.5, 1)
-        end
+        -- [Keep your existing activeCity and pin gliding logic exactly as it is here]
+        -- ... (Paste your original return glide logic here) ...
+        
     else
-        -- 2. We are already on the world map, so just toggle the detailed texture
-        f.isDetailedMap = not f.isDetailedMap
-        f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
+        -- 2. We are already on the world map, so toggle the Mist Maps
+        f.showFogOfWar = not f.showFogOfWar
+        if f.RefreshFogOfWar then f:RefreshFogOfWar() end
+        
+        if f.showFogOfWar then
+            f.MapToggleButton:SetText("Hide Mist")
+        else
+            f.MapToggleButton:SetText("Show Mist")
+        end
     end
 
     if f.UpdateMapTransform then f:UpdateMapTransform() end
@@ -216,38 +174,19 @@ end)
 
 
 -- ==========================================
--- Live Zoom Scale Display & Mist Toggle
+-- Live Zoom Scale Display
 -- ==========================================
 f.zoomUI = CreateFrame("Frame", nil, f)
 f.zoomUI:SetAllPoints(f.mapCanvas)
-f.zoomUI:SetFrameStrata("HIGH")
+-- Blast past the +90 frame levels generated by your map pins and icons
+f.zoomUI:SetFrameLevel(f:GetFrameLevel() + 200) 
 
 f.zoomText = f.zoomUI:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 f.zoomText:SetPoint("TOPLEFT", f.zoomUI, "TOPLEFT", 5, -5)
 f.zoomText:SetJustifyH("LEFT")
 f.zoomText:SetText("Scale: 1.00x")
 
-f.showFogOfWar = false
-f.mistToggle = CreateFrame("CheckButton", nil, f.zoomUI, "UICheckButtonTemplate")
-f.mistToggle:SetSize(15, 15)
-f.mistToggle:SetPoint("TOPRIGHT", f.zoomUI, "TOPRIGHT", -60, -3)
-f.mistToggle:SetChecked(f.showFogOfWar)
-f.mistToggle:SetAlpha(0.5) -- Grey out the toggle so it looks inactive
-
-f.mistToggle.text = f.mistToggle:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-f.mistToggle.text:SetPoint("LEFT", f.mistToggle, "RIGHT", 0, 0)
-f.mistToggle.text:SetText("Mist Maps")
-f.mistToggle.text:SetTextColor(0.6, 0.6, 0.6) -- Dim the text
-
--- Expand the button's invisible clickable area to the right so it covers the text
-local textWidth = f.mistToggle.text:GetStringWidth() or 60
-f.mistToggle:SetHitRectInsets(0, -(textWidth + 10), 0, 0)
-
-f.mistToggle:SetScript("OnClick", function(self)
-    f.showFogOfWar = self:GetChecked()
-    if f.RefreshFogOfWar then f:RefreshFogOfWar() end
-    if f.UpdateMapTransform then f:UpdateMapTransform() end
-end)
+f.showFogOfWar = true
 
 
 
@@ -257,7 +196,7 @@ end)
 f.ResizeGrip = CreateFrame("Button", nil, f)
 f.ResizeGrip:SetSize(16, 16)
 f.ResizeGrip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -2, 2)
-f.ResizeGrip:SetFrameLevel(99)
+f.ResizeGrip:SetFrameLevel(f:GetFrameLevel() + 10)
 f.ResizeGrip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
 f.ResizeGrip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
 f.ResizeGrip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
@@ -457,7 +396,8 @@ end)
 -- ==========================================
 f.cursorTooltip = CreateFrame("Frame", nil, f.mapCanvas)
 f.cursorTooltip:SetSize(120, 65)
-f.cursorTooltip:SetFrameLevel(f.mapCanvas:GetFrameLevel() + 20)
+f.cursorTooltip:SetFrameStrata("TOOLTIP") -- Force to the absolute top layer
+f.cursorTooltip:SetFrameLevel(f:GetFrameLevel() + 20)
 f.cursorTooltip:Hide()
 
 f.cursorTooltip.text = f.cursorTooltip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -614,9 +554,10 @@ end)
 -- ==========================================
 
 local ALT_MAP_IDS = { -- Classic
-    [1416] = 36,      -- Alterac mountains
-    [1429] = 12,      -- Elwynn Forest
-    [1450] = 493,     -- Moonglade
+    --[1416] = 36,      -- Alterac mountains
+    --[1429] = 12,      -- Elwynn Forest
+    --[1450] = 493,     -- Moonglade
+     --[1433] = 0,      -- Redridge mountains
 }
 
 f.mapTiles = {}
@@ -629,10 +570,10 @@ function f:LoadMap(mapID)
     -- SMART BUTTON TEXT: Update the button label based on where we are
     if f.MapToggleButton then
         if mapID == 947 then
-            if f.isDetailedMap then
-                f.MapToggleButton:SetText("Show Blank Map")
+            if f.showFogOfWar then
+                f.MapToggleButton:SetText("Hide Mist")
             else
-                f.MapToggleButton:SetText("Show Detailed Map")
+                f.MapToggleButton:SetText("Show Mist")
             end
         else
             f.MapToggleButton:SetText("Return")
@@ -643,15 +584,13 @@ function f:LoadMap(mapID)
         local customTile = f.mapContent:CreateTexture(nil, "BACKGROUND")
         customTile:SetAllPoints(f.mapContent)
 
-        if f.isDetailedMap then
-            customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\world map-detailed.tga")
-        else
-            customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\world map-blank.tga")
-        end
+        -- Load your new single 8016x5344 texture
+        customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-0.0.1.tga")
 
         f.worldMapTile = customTile
         table.insert(f.mapTiles, customTile)
     else
+        -- [Keep the rest of your C_Map.GetMapArtLayers logic exactly as it is]
         -- NEW: Check if there is an alternative ID to use for the Blizzard API
         local apiMapID = ALT_MAP_IDS[mapID] or mapID
 
@@ -695,37 +634,41 @@ function f:DrawExploredZone(zoneID)
     local zData = T1_ZoneDB[zoneID]
     if not zData.x or not zData.y or not zData.w or not zData.h then return end
 
-    -- NEW: Swap to the alternative ID for API calls if one exists
-    local apiZoneID = ALT_MAP_IDS[zoneID] or zoneID
-
-    local layers = C_Map.GetMapArtLayers(apiZoneID)
+    local layers = C_Map.GetMapArtLayers(zoneID)
     if not layers or not layers[1] then return end
 
-    local exploredTextures = C_MapExplorationInfo.GetExploredMapTextures(apiZoneID)
+    local exploredTextures = C_MapExplorationInfo.GetExploredMapTextures(zoneID)
     if not exploredTextures then return end
 
-    -- 1. Convert center (x, y) to Top-Left (x, y) for the zone bounding box
-    local zoneTopLeftX = zData.x - (zData.w / 2)
-    local zoneTopLeftY = zData.y - (zData.h / 2)
+    -- 1. Calculate the native aspect ratio of the Blizzard map layer (e.g., 668 / 1002 = 0.666)
+    local nativeRatio = layers[1].layerHeight / layers[1].layerWidth
 
-    -- Pre-calculate the pixel scale of the zone
+    -- 2. Force the pixel height to respect the native ratio based on the width to prevent stretching
     local zonePixelW = zData.w * f.mapContent:GetWidth()
-    local zonePixelH = zData.h * f.mapContent:GetHeight()
+    local zonePixelH = zonePixelW * nativeRatio
+
+    -- 3. Calculate the true center of your custom T1_ZoneDB coordinates
+    local boxCenterX = zData.x * f.mapContent:GetWidth()
+    local boxCenterY = zData.y * f.mapContent:GetHeight()
+
+    -- 4. Calculate the un-distorted Top-Left anchor for the exploration tiles
+    local drawTopLeftX = boxCenterX - (zonePixelW / 2)
+    local drawTopLeftY = boxCenterY - (zonePixelH / 2)
 
     for _, expInfo in ipairs(exploredTextures) do
         if expInfo.fileDataIDs and expInfo.fileDataIDs[1] then
             local tex = f.exploredTexturePool:Acquire()
             tex:SetTexture(expInfo.fileDataIDs[1])
 
-            -- 2. Calculate the local percentage offset within the zone
+            -- 5. Calculate local percentages (your original accurate math)
             local pctX = expInfo.offsetX / layers[1].layerWidth
             local pctY = expInfo.offsetY / layers[1].layerHeight
             local pctW = expInfo.textureWidth / layers[1].layerWidth
             local pctH = expInfo.textureHeight / layers[1].layerHeight
 
-            -- 3. Calculate final global pixel coordinates on your mapCanvas
-            local drawX = (zoneTopLeftX + (pctX * zData.w)) * f.mapContent:GetWidth()
-            local drawY = -(zoneTopLeftY + (pctY * zData.h)) * f.mapContent:GetHeight()
+            -- 6. Draw using the un-distorted pixel dimensions based on the native ratio
+            local drawX = drawTopLeftX + (pctX * zonePixelW)
+            local drawY = -(drawTopLeftY + (pctY * zonePixelH))
 
             tex:SetSize(pctW * zonePixelW, pctH * zonePixelH)
             tex:ClearAllPoints()
@@ -734,6 +677,8 @@ function f:DrawExploredZone(zoneID)
         end
     end
 end
+
+
 
 function f:RefreshFogOfWar()
     if f.exploredTexturePool then f.exploredTexturePool:ReleaseAll() end
@@ -857,7 +802,7 @@ function f:UpdateMapTransform()
             local baseWidth = 24
             local baseHeight = 24
             if cityDataByZone[key] and cityDataByZone[key].status == "Alliance" then
-                baseWidth = baseWidth * 1.2
+                baseWidth = baseWidth * 1.15
             end
 
             flagObj.frame:SetSize(baseWidth / self.zoomLevel, baseHeight / self.zoomLevel)
