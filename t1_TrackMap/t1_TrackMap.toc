@@ -5,5 +5,7 @@
 ## Version: 0.1
 ## SavedVariables: T1_MAP_DATA
 
-map_id.lua
+map_data.lua
+map_outline.lua
+
 t1_TrackMap.lua
