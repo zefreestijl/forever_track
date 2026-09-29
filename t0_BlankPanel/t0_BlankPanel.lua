@@ -77,7 +77,7 @@ end
 -- UnitPositionFrame initialization crashes on custom map canvases.
 
 -- Render the Zone natively!
-f.Map:SetMapID(1429)
+f.Map:SetMapID(2521)
 
 
 -- ==========================================

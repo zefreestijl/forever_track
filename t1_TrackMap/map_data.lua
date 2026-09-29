@@ -49,7 +49,7 @@ T1_ZoneDB = {
     [1458] = { zone = "undercity", x = 0, y = 0, w = 0, comment = "" },
     [2521] = { zone = "zephras-isle", x = 0.0078, y = 0.205, w = 0.2070, comment = "微風島" },
     [16601] = { zone = "hyial", x = -0.3683, y = 0.1754, w = 0.1175, comment = "海加爾山" },
-    [16591] = { zone = "riverglades", x = 0.4927, y = -0.1084, w = 0.15, comment = "河川林地" },
+    [2548] = { zone = "riverglades", x = 0.4927, y = -0.1084, w = 0.15, comment = "河川林地" },
     [16651] = { zone = "shendralas", x = -0.4868, y = -0.0815, w = 0.0705, comment = "辛德拉斯" },
     [0] = { zone = "shimmering-flats", x = 0, y = 0, w = 0, comment = "閃光平原" },
     

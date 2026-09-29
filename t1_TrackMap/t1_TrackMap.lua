@@ -115,7 +115,7 @@ local cityDataByZone = {
     ["mulgore"]           = { name = "Thunder Bluff", id = 1456, status = "Horde", x = -0.450, y = -0.029 },
     ["teldrassil"]        = { name = "Darnassus", id = 1457, status = "Alliance", x = -0.540, y = 0.340 },
     ["tirisfal-glades"]   = { name = "Undercity", id = 1458, status = "Horde", x = 0.342, y = 0.226 },
-    ["alterac-mountains"] = { name = "Dalaran", id = 1416, status = "Neutral", x = 0.339, y = 0.172, w = 0.14, h = 0.08, scale = 3.5 },
+    ["alterac-mountains"] = { name = "Dalaran", id = 1416, status = "Neutral", x = 0.3395, y = 0.1746, w = 0.0283, h = 0.0189, scale = 50 },
 }
 
 -- ==========================================
@@ -130,61 +130,13 @@ f.MapToggleButton:SetNormalFontObject("GameFontNormalSmall")
 f.MapToggleButton:SetHighlightFontObject("GameFontHighlightSmall")
 
 f.MapToggleButton:SetScript("OnClick", function()
-    local MY_CUSTOM_WORLD_MAP_ID = 947
-    local previousMapID = f.currentMapID
-
-    if previousMapID ~= MY_CUSTOM_WORLD_MAP_ID then
-        f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
-
-        local activeCity = nil
-        for _, data in pairs(cityDataByZone) do
-            if data.id == previousMapID then
-                activeCity = data
-                break
-            end
-        end
-
-        if activeCity then
-            local pinX, pinY = nil, nil
-            if f.customPins and #f.customPins > 0 then
-                local pinData = f.customPins[#f.customPins]
-                if pinData.mapID == 947 then
-                    pinX = pinData.x
-                    pinY = pinData.y
-                elseif T1_ZoneDB and T1_ZoneDB[pinData.mapID] then
-                    local zData = T1_ZoneDB[pinData.mapID]
-                    local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
-                    if zData.x and zData.y then
-                        pinX = zData.x + ((pinData.x - 0.5) * zoneW)
-                        pinY = zData.y + ((0.5 - pinData.y) * (zoneW / 1.5))
-                    end
-                end
-            end
-
-            if pinX and pinY then
-                local minX = math.min(activeCity.x, pinX)
-                local maxX = math.max(activeCity.x, pinX)
-                local minY = math.min(activeCity.y, pinY)
-                local maxY = math.max(activeCity.y, pinY)
-
-                local boxW = math.max((maxX - minX) * 1.5, 0.10)
-                local boxH = math.max((maxY - minY) * 1.5, 0.10)
-
-                local centerUI_X, centerUI_Y = LogicalToUIPercent((minX + maxX) / 2, (minY + maxY) / 2)
-                f:ZoomToPoint(centerUI_X, centerUI_Y, math.min(1.5 / boxW, 1.0 / boxH))
-            else
-                local centerUI_X, centerUI_Y = LogicalToUIPercent(activeCity.x, activeCity.y)
-                f:ZoomToPoint(centerUI_X, centerUI_Y, 4)
-            end
-        else
-            f:ZoomToPoint(0.5, 0.5, 1)
-        end
+    if f.currentMapID ~= 947 then
+        f:LoadMap(947)
     else
         f.showFogOfWar = not f.showFogOfWar
         if f.RefreshFogOfWar then f:RefreshFogOfWar() end
         f.MapToggleButton:SetText(f.showFogOfWar and "Hide Mist" or "Show Mist")
     end
-
     if f.UpdateMapTransform then f:UpdateMapTransform() end
 end)
 
@@ -323,10 +275,12 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
     if dragDistance < 25 then
         if button == "RightButton" then
             local targetMapID = (f.currentMapID == MY_CUSTOM_WORLD_MAP_ID) and self.hoveredMapID or f.currentMapID
-            if _G.func_ToggleT2Window then
-                _G.func_ToggleT2Window(targetMapID)
-            else
-                print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
+            if targetMapID and targetMapID > 0 then
+                if _G.func_ToggleT2Window then
+                    _G.func_ToggleT2Window(targetMapID)
+                else
+                    print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
+                end
             end
         elseif button == "MiddleButton" then
             local currentTime = GetTime()
@@ -347,56 +301,24 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
             else
                 self.lastMiddleClickTime = currentTime
                 local playerMap = C_Map.GetBestMapForUnit("player")
-                if playerMap then
-                    local isCity = false
-                    for _, data in pairs(cityDataByZone) do
-                        if data.id == playerMap then
-                            isCity = true; break
-                        end
-                    end
-                    if isCity and f.currentMapID ~= playerMap then
-                        f.zoomLevel = 1
-                        f.mapOffsetX = 0
-                        f.mapOffsetY = 0
-                        f:LoadMap(playerMap)
-                        f.targetOffsetX = nil
-                        f.targetOffsetY = nil
-                        f.velocityX = 0
-                        f.velocityY = 0
-                        if f.zoomSmoother then f.zoomSmoother:Hide() end
-                        if f.UpdateMapTransform then f:UpdateMapTransform() end
-                    else
-                        f:ZoomToZone(playerMap)
-                    end
+                if playerMap and playerMap > 0 then
+                    f.zoomLevel = 1
+                    f.mapOffsetX = 0
+                    f.mapOffsetY = 0
+                    f:LoadMap(playerMap)
                 end
             end
             if f.UpdateMapTransform then f:UpdateMapTransform() end
+
+            -- UNIFIED CLICK LOGIC: Loads exactly what the tooltip was showing
         elseif button == "LeftButton" and f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-            local rawX, rawY = GetCursorPosition()
-            local mapScale = f.mapContent:GetEffectiveScale()
-            local left = f.mapContent:GetLeft()
-            local top = f.mapContent:GetTop()
-
-            if left and top then
-                local pctX = ((rawX / mapScale) - left) / f.mapContent:GetWidth()
-                local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
-                local logicalMouseX, logicalMouseY = UIPercentToLogical(pctX, pctY)
-                local CLICK_RADIUS_SQ = 0.0005 / (f.zoomLevel * f.zoomLevel)
-
-                for _, data in pairs(cityDataByZone) do
-                    if data.x and data.y then
-                        local dx = data.x - logicalMouseX
-                        local dy = data.y - logicalMouseY
-                        if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
-                            f.zoomLevel = 1
-                            f.mapOffsetX = 0
-                            f.mapOffsetY = 0
-                            f:LoadMap(data.id)
-                            if f.UpdateMapTransform then f:UpdateMapTransform() end
-                            break
-                        end
-                    end
-                end
+            local targetMapID = self.hoveredMapID
+            if targetMapID and targetMapID > 0 then
+                f.zoomLevel = 1
+                f.mapOffsetX = 0
+                f.mapOffsetY = 0
+                f:LoadMap(targetMapID)
+                if f.UpdateMapTransform then f:UpdateMapTransform() end
             end
         end
     end
@@ -456,61 +378,82 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                     local hoverLocalX, hoverLocalY = nil, nil
                     local foundPolygonZone = false
 
-                    -- 1. Direct Lookup in T1_OutlineDB
-                    if T1_OutlineDB then
-                        for id, outlineData in pairs(T1_OutlineDB) do
-                            if outlineData.loops and outlineData.bounds then
-                                if logicalX >= outlineData.bounds.minX and logicalX <= outlineData.bounds.maxX and
-                                    logicalY >= outlineData.bounds.minY and logicalY <= outlineData.bounds.maxY then
-                                    if IsPointInPolygon(logicalX, logicalY, outlineData.loops) then
-                                        closestID = id
-                                        foundPolygonZone = true
+                    local isHoveringCity = false
+                    local hoverCityStatus = nil
 
-                                        -- Pull metadata from ZoneDB if it exists, otherwise leave as Unmapped
-                                        if T1_ZoneDB and T1_ZoneDB[id] then
-                                            local zData = T1_ZoneDB[id]
-                                            closestZone = zData.zone or ("Zone_" .. id)
-                                            closestComment = zData.comment or ""
-                                            if zData.x and zData.y then
-                                                local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
-                                                hoverLocalX = ((logicalX - zData.x) / zoneW) + 0.5
-                                                hoverLocalY = ((zData.y - logicalY) / (zoneW / 1.5)) + 0.5
-                                            end
-                                        else
-                                            closestZone = "???"
-                                        end
-                                        break
-                                    end
-                                end
+                    -- PRECISE CITY DETECTION: Tight radius perfectly matches the visual 24x24 flag icon
+                    local CLICK_RADIUS_SQ = 0.00015 / (f.zoomLevel * f.zoomLevel)
+
+                    for _, data in pairs(cityDataByZone) do
+                        if data.x and data.y then
+                            local dx = data.x - logicalX
+                            local dy = data.y - logicalY
+                            if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
+                                closestID = data.id
+                                closestZone = data.name
+                                hoverCityStatus = data.status
+                                isHoveringCity = true
+                                break
                             end
                         end
                     end
 
-                    -- 2. Fallback to Center Distance for zones that don't have outlines yet
-                    if not foundPolygonZone and T1_ZoneDB then
-                        local minDist = 999
-                        for id, zData in pairs(T1_ZoneDB) do
-                            -- Only fallback if this ID doesn't have an outline file
-                            local hasOutline = T1_OutlineDB and T1_OutlineDB[id] and T1_OutlineDB[id].loops
-                            if not hasOutline and zData.x and zData.y then
-                                local dx = zData.x - logicalX
-                                local dy = zData.y - logicalY
-                                local distSq = (dx * dx) + (dy * dy)
-                                if distSq < minDist then
-                                    minDist = distSq
-                                    closestZone = zData.zone or ("Zone_" .. id)
-                                    closestComment = zData.comment or ""
-                                    closestID = id
+                    -- If we aren't exactly on a flag, detect the general zone polygon underneath
+                    if not isHoveringCity then
+                        if T1_OutlineDB then
+                            for id, outlineData in pairs(T1_OutlineDB) do
+                                if tonumber(id) and tonumber(id) > 0 and outlineData.loops and outlineData.bounds then
+                                    if logicalX >= outlineData.bounds.minX and logicalX <= outlineData.bounds.maxX and
+                                        logicalY >= outlineData.bounds.minY and logicalY <= outlineData.bounds.maxY then
+                                        if IsPointInPolygon(logicalX, logicalY, outlineData.loops) then
+                                            closestID = id
+                                            foundPolygonZone = true
 
-                                    local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
-                                    hoverLocalX = ((logicalX - zData.x) / zoneW) + 0.5
-                                    hoverLocalY = ((zData.y - logicalY) / (zoneW / 1.5)) + 0.5
+                                            if T1_ZoneDB and T1_ZoneDB[id] then
+                                                local zData = T1_ZoneDB[id]
+                                                closestZone = zData.zone or ("Zone_" .. id)
+                                                closestComment = zData.comment or ""
+                                                if zData.x and zData.y then
+                                                    local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
+                                                    hoverLocalX = ((logicalX - zData.x) / zoneW) + 0.5
+                                                    hoverLocalY = ((zData.y - logicalY) / (zoneW / 1.5)) + 0.5
+                                                end
+                                            else
+                                                closestZone = "???"
+                                            end
+                                            break
+                                        end
+                                    end
                                 end
                             end
                         end
-                        if minDist > 0.015 then
-                            closestZone, closestComment, closestID = "Great Sea", "", "???"
-                            hoverLocalX, hoverLocalY = nil, nil
+
+                        if not foundPolygonZone and T1_ZoneDB then
+                            local minDist = 999
+                            for id, zData in pairs(T1_ZoneDB) do
+                                if tonumber(id) and tonumber(id) > 0 then
+                                    local hasOutline = T1_OutlineDB and T1_OutlineDB[id] and T1_OutlineDB[id].loops
+                                    if not hasOutline and zData.x and zData.y then
+                                        local dx = zData.x - logicalX
+                                        local dy = zData.y - logicalY
+                                        local distSq = (dx * dx) + (dy * dy)
+                                        if distSq < minDist then
+                                            minDist = distSq
+                                            closestZone = zData.zone or ("Zone_" .. id)
+                                            closestComment = zData.comment or ""
+                                            closestID = id
+
+                                            local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
+                                            hoverLocalX = ((logicalX - zData.x) / zoneW) + 0.5
+                                            hoverLocalY = ((zData.y - logicalY) / (zoneW / 1.5)) + 0.5
+                                        end
+                                    end
+                                end
+                            end
+                            if minDist > 0.015 then
+                                closestZone, closestComment, closestID = "Great Sea", "", "???"
+                                hoverLocalX, hoverLocalY = nil, nil
+                            end
                         end
                     end
 
@@ -524,13 +467,14 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                         end
                     end
 
+                    -- Fix color bleeding: Only colorize the tooltip if we specifically targeted a city flag
                     local colorCode = "|cffffffff"
-                    if cityDataByZone[closestZone] then
-                        if cityDataByZone[closestZone].status == "Alliance" then
-                            colorCode = "|cff003399" -- Darker Royal Blue
-                        elseif cityDataByZone[closestZone].status == "Horde" then
+                    if isHoveringCity then
+                        if hoverCityStatus == "Alliance" then
+                            colorCode = "|cff003399"
+                        elseif hoverCityStatus == "Horde" then
                             colorCode = "|cffff2020"
-                        elseif cityDataByZone[closestZone].status == "Neutral" then
+                        elseif hoverCityStatus == "Neutral" then
                             colorCode = "|cffffcc00"
                         end
                     end
@@ -543,7 +487,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                     end
 
                     local headerText = (closestID == "???") and "|cffaaaaaa#???|r" or
-                    string.format("|cffaaaaaa#%s%s|r", closestID, coordText)
+                        string.format("|cffaaaaaa#%s%s|r", closestID, coordText)
 
                     if closestComment ~= "" then
                         f.cursorTooltip.text:SetFormattedText("%s\n%s%s\n%s\n%.3f, %.3f|r", headerText, colorCode,
@@ -553,20 +497,18 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                             closestZone:upper(), logicalX, logicalY)
                     end
 
-                    -- FIX: Unified Tooltip Font Size
                     f.cursorTooltip.text:SetFontObject("SystemFont_Small")
                 else
                     local mapName = "Unknown Map"
                     local colorCode = "|cffffffff"
                     local isCity = false
 
-                   
                     for key, data in pairs(cityDataByZone) do
                         if data.id == f.currentMapID then
                             isCity = true
                             mapName = data.name
                             if data.status == "Alliance" then
-                                colorCode = "|cff003399" -- Darker Royal Blue
+                                colorCode = "|cff003399"
                             elseif data.status == "Horde" then
                                 colorCode = "|cffff2020"
                             elseif data.status == "Neutral" then
@@ -590,7 +532,6 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                     f.cursorTooltip.text:SetFormattedText("%s\n%s%s\n%.3f, %.3f|r", headerText, colorCode,
                         mapName:upper(), pctX, pctY)
 
-                    -- FIX: Unified Tooltip Font Size
                     f.cursorTooltip.text:SetFontObject("SystemFont_Small")
                     if not self.isDragging then ResetCursor() end
                 end
@@ -648,14 +589,6 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
     end
 end)
 
-
--- ==========================================
--- Hover Polygon Boundary Drawer
--- ==========================================
-if not f.debugLinePool then
-    f.debugLinePool = {}
-end
-
 -- ==========================================
 -- Hover Polygon Boundary Drawer
 -- ==========================================
@@ -668,7 +601,7 @@ function f:DrawHoverPolygon(zoneID)
         line:Hide()
     end
 
-    if f.currentMapID ~= 947 or not T1_OutlineDB or not zoneID then return end
+    if f.currentMapID ~= 947 or not T1_OutlineDB or not zoneID or zoneID <= 0 then return end
 
     local data = T1_OutlineDB[zoneID]
     if not data or not data.loops then return end
@@ -692,14 +625,11 @@ function f:DrawHoverPolygon(zoneID)
             line:SetThickness(2 / f.zoomLevel)
             line:SetColorTexture(0, 0, 0, .5)
 
-            -- NEW: Calculate offset strictly from the center (0,0) point
-            -- In WoW, positive Y goes UP from the center, matching our North logic!
             local startX = (pt1.x / 1.5) * contentW
             local startY = pt1.y * contentH
             local endX = (pt2.x / 1.5) * contentW
             local endY = pt2.y * contentH
 
-            -- Anchor directly to the CENTER of the map content
             line:SetStartPoint("CENTER", startX, startY)
             line:SetEndPoint("CENTER", endX, endY)
             line:Show()
@@ -715,6 +645,14 @@ end
 f.mapTiles = {}
 
 function f:LoadMap(mapID)
+    if not mapID or mapID <= 0 then return end
+
+    local targetZoomZone = nil
+    if mapID ~= 947 and mapID ~= 1416 and T1_ZoneDB and not T1_ZoneDB[mapID] and not C_Map.GetMapArtLayers(mapID) then
+        targetZoomZone = mapID
+        mapID = 947
+    end
+
     f.currentMapID = mapID
     for _, tile in ipairs(f.mapTiles) do tile:Hide() end
     wipe(f.mapTiles)
@@ -745,101 +683,241 @@ function f:LoadMap(mapID)
         table.insert(f.mapTiles, customTile)
     else
         local layers = C_Map.GetMapArtLayers(mapID)
-        if not layers or #layers == 0 then return end
-        local layerInfo = layers[1]
-        local textures = C_Map.GetMapArtLayerTextures(mapID, 1)
-        if not textures then return end
+        if layers and #layers > 0 then
+            for layerIndex, layerInfo in ipairs(layers) do
+                local textures = C_Map.GetMapArtLayerTextures(mapID, layerIndex)
+                if textures then
+                    local numCols = math.ceil(layerInfo.layerWidth / layerInfo.tileWidth)
+                    local numRows = math.ceil(layerInfo.layerHeight / layerInfo.tileHeight)
+                    local scaleX = f.mapContent:GetWidth() / layerInfo.layerWidth
+                    local scaleY = f.mapContent:GetHeight() / layerInfo.layerHeight
 
-        local numCols = math.ceil(layerInfo.layerWidth / layerInfo.tileWidth)
-        local numRows = math.ceil(layerInfo.layerHeight / layerInfo.tileHeight)
-        local scaleX = f.mapContent:GetWidth() / layerInfo.layerWidth
-        local scaleY = f.mapContent:GetHeight() / layerInfo.layerHeight
-
-        local textureIndex = 1
-        for row = 1, numRows do
-            for col = 1, numCols do
-                if textureIndex > #textures then break end
-                local tile = f.mapContent:CreateTexture(nil, "BACKGROUND")
-                local tileWidth = layerInfo.tileWidth * scaleX
-                local tileHeight = layerInfo.tileHeight * scaleY
-                tile:SetSize(tileWidth, tileHeight)
-                tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", (col - 1) * tileWidth, -(row - 1) * tileHeight)
-                tile:SetTexture(textures[textureIndex])
-                table.insert(f.mapTiles, tile)
-                textureIndex = textureIndex + 1
+                    local textureIndex = 1
+                    for row = 1, numRows do
+                        for col = 1, numCols do
+                            if textureIndex > #textures then break end
+                            local tile = f.mapContent:CreateTexture(nil, "BACKGROUND")
+                            tile:SetDrawLayer("BACKGROUND", layerIndex - 1)
+                            local tileWidth = layerInfo.tileWidth * scaleX
+                            local tileHeight = layerInfo.tileHeight * scaleY
+                            tile:SetSize(tileWidth, tileHeight)
+                            tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", (col - 1) * tileWidth,
+                                -(row - 1) * tileHeight)
+                            tile:SetTexture(textures[textureIndex])
+                            table.insert(f.mapTiles, tile)
+                            textureIndex = textureIndex + 1
+                        end
+                    end
+                end
             end
         end
     end
 
     if f.RefreshFogOfWar then f:RefreshFogOfWar() end
+
+    if targetZoomZone and targetZoomZone > 0 then
+        f.zoomLevel = 1
+        f.mapOffsetX = 0
+        f.mapOffsetY = 0
+        f:ZoomToZone(targetZoomZone)
+    end
 end
 
 if not f.exploredTexturePool then
     f.exploredTexturePool = CreateTexturePool(f.mapContent, "ARTWORK")
 end
+if not f.exploredMaskPool then
+    f.exploredMaskPool = {}
+end
 
 function f:DrawExploredZone(zoneID)
-    if not T1_ZoneDB or not T1_ZoneDB[zoneID] then return end
-    local zData = T1_ZoneDB[zoneID]
-    local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
-    if not zData.x or not zData.y then return end
-
+    if not zoneID or zoneID <= 0 then return end
     local layers = C_Map.GetMapArtLayers(zoneID)
     if not layers or not layers[1] then return end
 
     local exploredTextures = C_MapExplorationInfo.GetExploredMapTextures(zoneID)
     if not exploredTextures then return end
 
-    local nativeRatio = layers[1].layerHeight / layers[1].layerWidth
-    local centerPctX, centerPctY = LogicalToUIPercent(zData.x, zData.y)
-    local zonePixelW = (zoneW / 1.5) * f.mapContent:GetWidth()
-    local zonePixelH = zonePixelW * nativeRatio
-    local boxCenterX = centerPctX * f.mapContent:GetWidth()
-    local boxCenterY = centerPctY * f.mapContent:GetHeight()
-    local drawTopLeftX = boxCenterX - (zonePixelW / 2)
-    local drawTopLeftY = boxCenterY - (zonePixelH / 2)
+    local layerW = layers[1].layerWidth
+    local layerH = layers[1].layerHeight
+    local contentW = f.mapContent:GetWidth()
+    local contentH = f.mapContent:GetHeight()
+    local TILE_SIZE = 256
+
+    local isWorldMap = (f.currentMapID == 947)
+    local drawTopLeftX, drawTopLeftY, zonePixelW, zonePixelH, scaleX, scaleY
+
+    if isWorldMap then
+        if not T1_ZoneDB or not T1_ZoneDB[zoneID] then return end
+        local zData = T1_ZoneDB[zoneID]
+        local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
+        if not zData.x or not zData.y then return end
+
+        local nativeRatio = layerH / layerW
+        local centerPctX, centerPctY = LogicalToUIPercent(zData.x, zData.y)
+        zonePixelW = (zoneW / 1.5) * contentW
+        zonePixelH = zonePixelW * nativeRatio
+
+        local boxCenterX = centerPctX * contentW
+        local boxCenterY = centerPctY * contentH
+        drawTopLeftX = boxCenterX - (zonePixelW / 2)
+        drawTopLeftY = boxCenterY - (zonePixelH / 2)
+    else
+        scaleX = contentW / layerW
+        scaleY = contentH / layerH
+    end
 
     for _, expInfo in ipairs(exploredTextures) do
-        if expInfo.fileDataIDs and expInfo.fileDataIDs[1] then
-            local tex = f.exploredTexturePool:Acquire()
-            tex:SetTexture(expInfo.fileDataIDs[1])
+        local numCols = math.ceil(expInfo.textureWidth / TILE_SIZE)
+        local numRows = math.ceil(expInfo.textureHeight / TILE_SIZE)
+        local idx = 1
 
-            local pctX = expInfo.offsetX / layers[1].layerWidth
-            local pctY = expInfo.offsetY / layers[1].layerHeight
-            local pctW = expInfo.textureWidth / layers[1].layerWidth
-            local pctH = expInfo.textureHeight / layers[1].layerHeight
+        for r = 0, numRows - 1 do
+            for c = 0, numCols - 1 do
+                local fileDataID = expInfo.fileDataIDs[idx]
+                if fileDataID then
+                    local tileW = math.min(TILE_SIZE, expInfo.textureWidth - (c * TILE_SIZE))
+                    local tileH = math.min(TILE_SIZE, expInfo.textureHeight - (r * TILE_SIZE))
 
-            local drawX = drawTopLeftX + (pctX * zonePixelW)
-            local drawY = -(drawTopLeftY + (pctY * zonePixelH))
+                    if isWorldMap then
+                        local tileOffsetX = expInfo.offsetX + (c * TILE_SIZE)
+                        local tileOffsetY = expInfo.offsetY + (r * TILE_SIZE)
 
-            tex:SetSize(pctW * zonePixelW, pctH * zonePixelH)
-            tex:ClearAllPoints()
-            tex:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", drawX, drawY)
-            tex:Show()
+                        local pctX        = tileOffsetX / layerW
+                        local pctY        = tileOffsetY / layerH
+                        local pctW        = tileW / layerW
+                        local pctH        = tileH / layerH
+
+                        local rectX       = drawTopLeftX + (pctX * zonePixelW)
+                        local rectY       = drawTopLeftY + (pctY * zonePixelH)
+                        local rectW       = pctW * zonePixelW
+                        local rectH       = pctH * zonePixelH
+
+                        local left        = rectX / contentW
+                        local right       = (rectX + rectW) / contentW
+                        local top         = rectY / contentH
+                        local bottom      = (rectY + rectH) / contentH
+
+                        if left < 0 then
+                            local diff = -left * contentW
+                            rectX = rectX + diff; rectW = rectW - diff; left = 0
+                        end
+                        if right > 1 then
+                            local diff = (right - 1) * contentW
+                            rectW = rectW - diff; right = 1
+                        end
+                        if top < 0 then
+                            local diff = -top * contentH
+                            rectY = rectY + diff; rectH = rectH - diff; top = 0
+                        end
+                        if bottom > 1 then
+                            local diff = (bottom - 1) * contentH
+                            rectH = rectH - diff; bottom = 1
+                        end
+
+                        if rectW > 0 and rectH > 0 then
+                            local mask = f.exploredMaskPool[f.exploredMaskIndex]
+                            if not mask then
+                                mask = f.mapContent:CreateMaskTexture()
+                                f.exploredMaskPool[f.exploredMaskIndex] = mask
+                            end
+                            f.exploredMaskIndex = f.exploredMaskIndex + 1
+
+                            mask:SetTexture(fileDataID)
+                            mask:SetSize(rectW, rectH)
+                            mask:ClearAllPoints()
+                            mask:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", rectX, -rectY)
+                            pcall(function() mask:SetTexCoord(0, tileW / TILE_SIZE, 0, tileH / TILE_SIZE) end)
+                            mask:Show()
+
+                            local tex = f.exploredTexturePool:Acquire()
+                            tex:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-0.0.1.tga")
+                            tex:SetDesaturated(false)
+                            tex:SetVertexColor(1, 1, 1, 1)
+                            tex:SetTexCoord(left, right, top, bottom)
+                            tex:SetSize(rectW, rectH)
+                            tex:ClearAllPoints()
+                            tex:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", rectX, -rectY)
+
+                            tex:AddMaskTexture(mask)
+                            tex.activeMask = mask
+                            tex:Show()
+                        end
+                    else
+                        local tileOffsetX = expInfo.offsetX + (c * TILE_SIZE)
+                        local tileOffsetY = expInfo.offsetY + (r * TILE_SIZE)
+
+                        local drawX = tileOffsetX * scaleX
+                        local drawY = -(tileOffsetY * scaleY)
+                        local drawW_scaled = tileW * scaleX
+                        local drawH_scaled = tileH * scaleY
+
+                        local tex = f.exploredTexturePool:Acquire()
+                        tex:SetTexture(fileDataID)
+                        tex:SetSize(drawW_scaled, drawH_scaled)
+                        tex:ClearAllPoints()
+                        tex:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", drawX, drawY)
+
+                        if tex.activeMask then
+                            tex:RemoveMaskTexture(tex.activeMask)
+                            tex.activeMask = nil
+                        end
+                        pcall(function() tex:SetTexCoord(0, tileW / TILE_SIZE, 0, tileH / TILE_SIZE) end)
+                        tex:SetDesaturated(false)
+                        tex:SetVertexColor(1, 1, 1, 1)
+                        tex:Show()
+                    end
+                end
+                idx = idx + 1
+            end
         end
     end
 end
 
 function f:RefreshFogOfWar()
-    if f.exploredTexturePool then f.exploredTexturePool:ReleaseAll() end
+    if f.exploredTexturePool then
+        for tex in f.exploredTexturePool:EnumerateActive() do
+            if tex.activeMask then
+                tex:RemoveMaskTexture(tex.activeMask)
+                tex.activeMask = nil
+            end
+        end
+        f.exploredTexturePool:ReleaseAll()
+    end
+
+    if f.exploredMaskPool then
+        for _, mask in pairs(f.exploredMaskPool) do
+            mask:Hide()
+        end
+    end
+    f.exploredMaskIndex = 1
 
     if f.worldMapTile and f.currentMapID == 947 then
         if f.showFogOfWar then
             f.worldMapTile:SetDesaturated(true)
-            f.worldMapTile:SetVertexColor(0.4, 0.4, 0.4)
+            f.worldMapTile:SetVertexColor(0.25, 0.25, 0.25)
         else
             f.worldMapTile:SetDesaturated(false)
             f.worldMapTile:SetVertexColor(1, 1, 1)
         end
     end
 
-    if f.currentMapID == 1416 or not f.showFogOfWar then return end
+    if f.currentMapID ~= 947 and f.currentMapID ~= 1416 then
+        for _, tile in ipairs(f.mapTiles) do
+            tile:SetDesaturated(false)
+            tile:SetVertexColor(1, 1, 1)
+        end
+    end
 
     if f.currentMapID == 947 then
-        if T1_ZoneDB then
-            for zoneID, _ in pairs(T1_ZoneDB) do f:DrawExploredZone(zoneID) end
+        if f.showFogOfWar and T1_ZoneDB then
+            for zoneID, _ in pairs(T1_ZoneDB) do
+                if tonumber(zoneID) and tonumber(zoneID) > 0 then
+                    f:DrawExploredZone(tonumber(zoneID))
+                end
+            end
         end
-    else
+    elseif f.currentMapID ~= 1416 and f.currentMapID > 0 then
         f:DrawExploredZone(f.currentMapID)
     end
 end
@@ -1020,7 +1098,7 @@ function f:UpdateMapTransform()
         if not f.debugDots then f.debugDots = {} end
 
         for zoneID, zData in pairs(T1_ZoneDB) do
-            if zData.x and zData.y then
+            if tonumber(zoneID) and tonumber(zoneID) > 0 and zData.x and zData.y then
                 local dotBtn = f.debugDots[zoneID]
                 if not dotBtn then
                     dotBtn = CreateFrame("Button", nil, self.mapContent)
@@ -1169,7 +1247,7 @@ function f:ZoomToPoint(pctX, pctY, targetZoom)
 end
 
 function f:ZoomToZone(zoneID)
-    if f.currentMapID ~= 947 or not zoneID then return end
+    if f.currentMapID ~= 947 or not zoneID or zoneID <= 0 then return end
     if T1_ZoneDB and T1_ZoneDB[zoneID] then
         local zData = T1_ZoneDB[zoneID]
         local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
@@ -1259,6 +1337,7 @@ end
 -- Live Trackers
 -- ==========================================
 local function IsCustomCityMap(mapID)
+    if not mapID or mapID <= 0 then return false end
     for _, data in pairs(cityDataByZone) do
         if data.id == mapID and data.w and data.h then return true end
     end
@@ -1266,6 +1345,7 @@ local function IsCustomCityMap(mapID)
 end
 
 local function ConvertToCitySpace(unitMapID, rawX, rawY, targetCityID)
+    if not unitMapID or unitMapID <= 0 or not targetCityID or targetCityID <= 0 then return false, 0, 0 end
     local cityData = nil
     for _, data in pairs(cityDataByZone) do
         if data.id == targetCityID and data.w and data.h then
@@ -1290,7 +1370,7 @@ local function ConvertToCitySpace(unitMapID, rawX, rawY, targetCityID)
             dy = dy * customScale
 
             if targetCityID == 1416 then
-                local angle = math.rad(-70)
+                local angle = math.rad(-66)
                 local cosA, sinA = math.cos(angle), math.sin(angle)
                 local rotX = (dx * cosA) - (dy * sinA)
                 local rotY = (dx * sinA) + (dy * cosA)
@@ -1317,7 +1397,7 @@ f.playerArrowTracker = CreateFrame("Frame", nil, f.mapCanvas)
 f.playerArrowTracker:SetScript("OnUpdate", function()
     local hasValidData, pX, pY = false, 0, 0
     local currentZoneID = C_Map.GetBestMapForUnit("player")
-    if currentZoneID then
+    if currentZoneID and currentZoneID > 0 then
         local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
         if pos and pos.x and pos.y then
             if f.currentMapID == 947 then
@@ -1343,7 +1423,7 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
         f.playerArrow:SetSize(32 / f.zoomLevel, 32 / f.zoomLevel)
         local facing = GetPlayerFacing()
         if facing then
-            if f.currentMapID == 1416 then facing = facing - math.rad(-70) end
+            if f.currentMapID == 1416 then facing = facing - math.rad(-66) end
             f.playerArrow:SetRotation(facing)
         end
         f.playerArrow.pX, f.playerArrow.pY = pX, pY
@@ -1390,7 +1470,7 @@ f.partyTracker:SetScript("OnUpdate", function()
         local unit, pf, showPartyMember, drawX, drawY = "party" .. i, f.partyFrames[i], false, 0, 0
         if UnitExists(unit) and UnitIsConnected(unit) then
             local unitMapID = C_Map.GetBestMapForUnit(unit)
-            if unitMapID then
+            if unitMapID and unitMapID > 0 then
                 local pos = C_Map.GetPlayerMapPosition(unitMapID, unit)
                 if pos and pos.x and pos.y then
                     if f.currentMapID == 947 then
@@ -1450,7 +1530,7 @@ f.deathTracker:SetScript("OnUpdate", function()
 
     if UnitIsDeadOrGhost("player") then
         local currentZoneID = C_Map.GetBestMapForUnit("player")
-        if currentZoneID and C_DeathInfo then
+        if currentZoneID and currentZoneID > 0 and C_DeathInfo then
             local corpsePos = C_DeathInfo.GetCorpseMapPosition and C_DeathInfo.GetCorpseMapPosition(currentZoneID)
             if corpsePos and corpsePos.x and corpsePos.y then
                 if f.currentMapID == 947 then
@@ -1499,7 +1579,8 @@ f.flagHoverTracker:SetScript("OnUpdate", function()
     local pctX = ((rawX / mapScale) - left) / f.mapContent:GetWidth()
     local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
     local logicalMouseX, logicalMouseY = UIPercentToLogical(pctX, pctY)
-    local CLICK_RADIUS_SQ = 0.0005 / (f.zoomLevel * f.zoomLevel)
+
+    local CLICK_RADIUS_SQ = 0.00015 / (f.zoomLevel * f.zoomLevel)
 
     for key, flagObj in pairs(f.cityFlags) do
         if cityDataByZone[key] then
@@ -1522,6 +1603,7 @@ f:Hide()
 
 _G.func_ToggleT1Window = function(mapID)
     if mapID and type(mapID) == "number" then
+        if mapID < 0 then return end
         f:LoadMap(mapID)
         if f.UpdateMapTransform then f:UpdateMapTransform() end
         f:Show()
@@ -1530,21 +1612,10 @@ _G.func_ToggleT1Window = function(mapID)
             f:Hide()
         else
             local playerMap = C_Map.GetBestMapForUnit("player")
-            local capitalCities = { [1416] = true, [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true,
-                [1458] = true }
-            local defaultMap = (playerMap and capitalCities[playerMap]) and playerMap or 947
-
-            if defaultMap ~= 947 then
-                f.zoomLevel = 1
-                f.mapOffsetX = 0
-                f.mapOffsetY = 0
-                f.targetOffsetX = nil
-                f.targetOffsetY = nil
-            end
+            local defaultMap = (playerMap and playerMap == 1416) and 1416 or 947
 
             f:LoadMap(defaultMap)
-
-            if defaultMap == 947 and playerMap then
+            if defaultMap == 947 and playerMap and playerMap > 0 then
                 f:ZoomToZone(playerMap)
             elseif f.UpdateMapTransform then
                 f:UpdateMapTransform()
@@ -1575,11 +1646,9 @@ end)
 f:SetScript("OnShow", function(self)
     if not self.currentMapID then
         local playerMap = C_Map.GetBestMapForUnit("player")
-        local capitalCities = { [1416] = true, [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true,
-            [1458] = true }
-        local defaultMap = (playerMap and capitalCities[playerMap]) and playerMap or 947
+        local defaultMap = (playerMap and playerMap == 1416) and 1416 or 947
         self:LoadMap(defaultMap)
-        if defaultMap == 947 and playerMap then self:ZoomToZone(playerMap) end
+        if defaultMap == 947 and playerMap and playerMap > 0 then self:ZoomToZone(playerMap) end
     end
     if self.UpdateMapTransform then self:UpdateMapTransform() end
 end)
@@ -1613,17 +1682,13 @@ f.zoneTracker:RegisterEvent("PLAYER_ENTERING_WORLD")
 f.lastPlayerZone = nil
 f.zoneTracker:SetScript("OnEvent", function()
     local currentPlayerZone = C_Map.GetBestMapForUnit("player")
-    if not currentPlayerZone then return end
+    if not currentPlayerZone or currentPlayerZone <= 0 then return end
     if f.lastPlayerZone == currentPlayerZone then return end
     f.lastPlayerZone = currentPlayerZone
     if not f:IsShown() then return end
 
-    local capitalCities = {
-        [1416] = true, [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true, [1458] = true
-    }
     local MY_CUSTOM_WORLD_MAP_ID = 947
-
-    if capitalCities[currentPlayerZone] then
+    if currentPlayerZone == 1416 then
         f.zoomLevel = 1
         f.mapOffsetX = 0
         f.mapOffsetY = 0
@@ -1633,7 +1698,7 @@ f.zoneTracker:SetScript("OnEvent", function()
         f.velocityY = 0
         f:LoadMap(currentPlayerZone)
         if f.UpdateMapTransform then f:UpdateMapTransform() end
-    elseif f.currentMapID ~= MY_CUSTOM_WORLD_MAP_ID and not capitalCities[currentPlayerZone] then
+    elseif f.currentMapID ~= MY_CUSTOM_WORLD_MAP_ID then
         f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
         if f.ZoomToZone then f:ZoomToZone(currentPlayerZone) end
         if f.UpdateMapTransform then f:UpdateMapTransform() end
