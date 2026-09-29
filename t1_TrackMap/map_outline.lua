@@ -1628,7 +1628,7 @@ T1_OutlineDB = {
             },
         },
     },
-    [4736] = {
+    [1422] = {
         zone = "western-plaguelands",
         loops = {
             {

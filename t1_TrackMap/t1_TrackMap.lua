@@ -30,14 +30,12 @@ f:RegisterForDrag("LeftButton")
 f:SetScript("OnDragStart", f.StartMoving)
 f:SetScript("OnDragStop", f.StopMovingOrSizing)
 
-
 -- ==========================================
 -- Logical <-> UI Percent Converters
--- Center Origin: X (-0.75 to +0.75), Y (-0.50 to +0.50)
 -- ==========================================
 local function LogicalToUIPercent(logicalX, logicalY)
     local pctX = (logicalX / 1.5) + 0.5
-    local pctY = 0.5 - logicalY -- Inverted: North (+Y) becomes top of screen (0 pctY)
+    local pctY = 0.5 - logicalY 
     return pctX, pctY
 end
 
@@ -47,8 +45,6 @@ local function UIPercentToLogical(pctX, pctY)
     return logicalX, logicalY
 end
 
-
--- Returns true if point (px, py) is inside the polygon loops
 local function IsPointInPolygon(px, py, loops)
     local inside = false
     for _, loop in ipairs(loops) do
@@ -56,10 +52,10 @@ local function IsPointInPolygon(px, py, loops)
         for i = 1, #loop do
             local xi, yi = loop[i].x, loop[i].y
             local xj, yj = loop[j].x, loop[j].y
-
+            
             local intersect = ((yi > py) ~= (yj > py))
                 and (px < (xj - xi) * (py - yi) / (yj - yi) + xi)
-
+                
             if intersect then
                 inside = not inside
             end
@@ -68,7 +64,6 @@ local function IsPointInPolygon(px, py, loops)
     end
     return inside
 end
-
 
 -- ==========================================
 -- 2. Map Canvas & Content
@@ -111,20 +106,20 @@ collapseBtn:SetScript("OnClick", function()
 end)
 
 -- ==========================================
--- City Map Data (Now in Center Origin logic)
+-- City Map Data
 -- ==========================================
 local cityDataByZone = {
-    ["elwynn-forest"]     = { name = "Stormwind", id = 1453, status = "Alliance", x = 0.324, y = -0.131 },
-    ["durotar"]           = { name = "Orgrimmar", id = 1454, status = "Horde", x = -0.305, y = 0.065 },
-    ["dun-morogh"]        = { name = "Ironforge", id = 1455, status = "Alliance", x = 0.382, y = 0.012 },
-    ["mulgore"]           = { name = "Thunder Bluff", id = 1456, status = "Horde", x = -0.450, y = -0.029 },
-    ["teldrassil"]        = { name = "Darnassus", id = 1457, status = "Alliance", x = -0.540, y = 0.340 },
-    ["tirisfal-glades"]   = { name = "Undercity", id = 1458, status = "Horde", x = 0.342, y = 0.226 },
-    ["alterac-mountains"] = { name = "Dalaran", id = 1416, status = "Neutral", x = 0.339, y = 0.172, w = 0.14, h = 0.08, scale = 3.5 },
+    ["elwynn-forest"]   = { name = "Stormwind",     id = 1453, status = "Alliance", x = 0.324, y = -0.131 },
+    ["durotar"]         = { name = "Orgrimmar",     id = 1454, status = "Horde",    x = -0.305, y = 0.065 },
+    ["dun-morogh"]      = { name = "Ironforge",     id = 1455, status = "Alliance", x = 0.382, y = 0.012 },
+    ["mulgore"]         = { name = "Thunder Bluff", id = 1456, status = "Horde",    x = -0.450, y = -0.029 },
+    ["teldrassil"]      = { name = "Darnassus",     id = 1457, status = "Alliance", x = -0.540, y = 0.340 },
+    ["tirisfal-glades"] = { name = "Undercity",     id = 1458, status = "Horde",    x = 0.342, y = 0.226 },
+    ["alterac-mountains"] = { name = "Dalaran",     id = 1416, status = "Neutral",  x = 0.339, y = 0.172, w = 0.14, h = 0.08, scale = 3.5 },
 }
 
 -- ==========================================
--- Map Toggle & Return Button (Top Left)
+-- Map Toggle & Return Button
 -- ==========================================
 f.showFogOfWar = true
 f.MapToggleButton = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
@@ -161,7 +156,7 @@ f.MapToggleButton:SetScript("OnClick", function()
                     local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
                     if zData.x and zData.y then
                         pinX = zData.x + ((pinData.x - 0.5) * zoneW)
-                        pinY = zData.y + ((0.5 - pinData.y) * (zoneW / 1.5)) -- FIX
+                        pinY = zData.y + ((0.5 - pinData.y) * (zoneW / 1.5))
                     end
                 end
             end
@@ -171,10 +166,10 @@ f.MapToggleButton:SetScript("OnClick", function()
                 local maxX = math.max(activeCity.x, pinX)
                 local minY = math.min(activeCity.y, pinY)
                 local maxY = math.max(activeCity.y, pinY)
-
+                
                 local boxW = math.max((maxX - minX) * 1.5, 0.10)
                 local boxH = math.max((maxY - minY) * 1.5, 0.10)
-
+                
                 local centerUI_X, centerUI_Y = LogicalToUIPercent((minX + maxX) / 2, (minY + maxY) / 2)
                 f:ZoomToPoint(centerUI_X, centerUI_Y, math.min(1.5 / boxW, 1.0 / boxH))
             else
@@ -194,12 +189,11 @@ f.MapToggleButton:SetScript("OnClick", function()
 end)
 
 -- ==========================================
--- Zoom Slider (Top Right)
+-- Zoom Slider & Resize
 -- ==========================================
 f.zoomSlider = CreateFrame("Slider", "T1_TrackMapZoomSlider", f, "OptionsSliderTemplate")
 f.zoomSlider:SetSize(60, 16)
 f.zoomSlider:SetPoint("RIGHT", collapseBtn, "LEFT", -3, 0)
-
 f.zoomSlider:SetMinMaxValues(1, 10)
 f.zoomSlider:SetValueStep(0.01)
 f.zoomSlider:SetObeyStepOnDrag(true)
@@ -210,20 +204,15 @@ f.zoomSlider.isUpdating = false
 f.zoomSlider:SetScript("OnValueChanged", function(self, value)
     if self.isUpdating then return end
     if f.targetZoom == value then return end
-
     f.targetZoom = value
-
     local canvasW, canvasH = f.mapCanvas:GetSize()
     local contentW, contentH = f.mapContent:GetSize()
-
     if canvasW and canvasH and contentW and contentH then
         if f.playerArrow and f.playerArrow:IsShown() and f.playerArrow.pX and f.playerArrow.pY then
-            -- f.playerArrow pX/pY are logic coordinates on World Map, convert to UI Pct for pivot
             local uiPctX, uiPctY = LogicalToUIPercent(f.playerArrow.pX, f.playerArrow.pY)
             if f.currentMapID ~= 947 then
                 uiPctX, uiPctY = f.playerArrow.pX, f.playerArrow.pY
             end
-
             local exactPixelX = uiPctX * contentW
             local exactPixelY = -uiPctY * contentH
             f.zoomPivotX = (f.mapOffsetX + exactPixelX) * f.zoomLevel
@@ -233,28 +222,18 @@ f.zoomSlider:SetScript("OnValueChanged", function(self, value)
             f.zoomPivotY = -canvasH / 2
         end
     end
-
-    if f.zoomSmoother then
-        f.zoomSmoother:Show()
-    end
+    if f.zoomSmoother then f.zoomSmoother:Show() end
 end)
 
--- ==========================================
--- Live Zoom Scale Display
--- ==========================================
 f.zoomUI = CreateFrame("Frame", nil, f)
 f.zoomUI:SetAllPoints(f.mapCanvas)
 f.zoomUI:SetFrameLevel(f:GetFrameLevel() + 5)
-
 f.zoomText = f.zoomUI:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 f.zoomText:SetPoint("TOPLEFT", f.zoomUI, "TOPLEFT", 5, -5)
 f.zoomText:SetJustifyH("LEFT")
 f.zoomText:SetText("Scale: 1.00x")
 f.showFogOfWar = true
 
--- ==========================================
--- Aspect Ratio Lock
--- ==========================================
 f.ResizeGrip = CreateFrame("Button", nil, f)
 f.ResizeGrip:SetSize(16, 16)
 f.ResizeGrip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -2, 2)
@@ -262,7 +241,6 @@ f.ResizeGrip:SetFrameLevel(f:GetFrameLevel() + 10)
 f.ResizeGrip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
 f.ResizeGrip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
 f.ResizeGrip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
-
 f.ResizeGrip:EnableMouse(true)
 f.ResizeGrip:RegisterForDrag("LeftButton")
 f.ResizeGrip:SetScript("OnDragStart", function(self)
@@ -279,17 +257,14 @@ f.ResizeGrip:SetScript("OnDragStop", function(self)
 end)
 
 local MAP_ASPECT_RATIO = 1.5
-
 f.ResizeGrip:SetScript("OnUpdate", function(self)
     if self.isResizing then
         local cX, _ = GetCursorPosition()
         local scale = UIParent:GetEffectiveScale()
         local dx = (cX - self.startX) / scale
         local newWidth = self.startW + dx
-
         if newWidth < 304 then newWidth = 304 end
         if newWidth > 1216 then newWidth = 1216 end
-
         local canvasW = newWidth - 16
         local newHeight = (canvasW / MAP_ASPECT_RATIO) + 40
         f:SetSize(newWidth, newHeight)
@@ -303,7 +278,6 @@ f:SetScript("OnSizeChanged", function(self)
             self.mapContent:SetSize(w, h)
         end
     end
-
     if self.zoomSlider then
         local currentMin, _ = self.zoomSlider:GetMinMaxValues()
         self.zoomSlider:SetMinMaxValues(currentMin, self:GetDynamicMaxZoom())
@@ -318,13 +292,11 @@ f.mapCanvas:SetScript("OnMouseDown", function(self, button)
     self.startX, self.startY = GetCursorPosition()
     self.startOffsetX = f.mapOffsetX or 0
     self.startOffsetY = f.mapOffsetY or 0
-
     f.targetOffsetX = nil
     f.targetOffsetY = nil
     f.velocityX = 0
     f.velocityY = 0
     if f.zoomSmoother then f.zoomSmoother:Hide() end
-
     if button == "LeftButton" then self.isDragging = true end
 end)
 
@@ -358,7 +330,6 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
             end
         elseif button == "MiddleButton" then
             local currentTime = GetTime()
-
             if self.lastMiddleClickTime and (currentTime - self.lastMiddleClickTime < 0.3) then
                 self.lastMiddleClickTime = 0
                 local canvasW, canvasH = self:GetSize()
@@ -366,41 +337,31 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                 if canvasW and canvasH and contentW and contentH then
                     local fitScale = math.min(canvasW / contentW, canvasH / contentH)
                     if fitScale < 1 then fitScale = 1 end
-
                     local maxZ = f.GetDynamicMaxZoom and f:GetDynamicMaxZoom() or 10
                     if fitScale > maxZ then fitScale = maxZ end
-
                     f.targetZoom = fitScale
                     f.targetOffsetX = ((canvasW - (contentW * fitScale)) / 2) / fitScale
                     f.targetOffsetY = (-(canvasH - (contentH * fitScale)) / 2) / fitScale
-
                     if f.zoomSmoother then f.zoomSmoother:Show() end
                 end
             else
                 self.lastMiddleClickTime = currentTime
                 local playerMap = C_Map.GetBestMapForUnit("player")
-
                 if playerMap then
                     local isCity = false
                     for _, data in pairs(cityDataByZone) do
-                        if data.id == playerMap then
-                            isCity = true
-                            break
-                        end
+                        if data.id == playerMap then isCity = true; break end
                     end
-
                     if isCity and f.currentMapID ~= playerMap then
                         f.zoomLevel = 1
                         f.mapOffsetX = 0
                         f.mapOffsetY = 0
                         f:LoadMap(playerMap)
-
                         f.targetOffsetX = nil
                         f.targetOffsetY = nil
                         f.velocityX = 0
                         f.velocityY = 0
                         if f.zoomSmoother then f.zoomSmoother:Hide() end
-
                         if f.UpdateMapTransform then f:UpdateMapTransform() end
                     else
                         f:ZoomToZone(playerMap)
@@ -417,7 +378,6 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
             if left and top then
                 local pctX = ((rawX / mapScale) - left) / f.mapContent:GetWidth()
                 local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
-
                 local logicalMouseX, logicalMouseY = UIPercentToLogical(pctX, pctY)
                 local CLICK_RADIUS_SQ = 0.0005 / (f.zoomLevel * f.zoomLevel)
 
@@ -490,41 +450,72 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                 if f.currentMapID == 947 then
                     local logicalX, logicalY = UIPercentToLogical(pctX, pctY)
 
-                    -- Default to Great Sea if we aren't inside any polygon
                     local closestZone, closestComment, closestID = "Great Sea", "", "???"
-                    local hoverLocalX, hoverLocalY = 0, 0
+                    local hoverLocalX, hoverLocalY = nil, nil
                     local foundPolygonZone = false
 
-                    if T1_ZoneDB then
-                        for id, data in pairs(T1_ZoneDB) do
-                            -- STRICT SHAPE HOVERING: Only check zones with polygon data
-                            if data.loops and data.bounds then
-                                -- 1. Fast Bounding Box Check
-                                if logicalX >= data.bounds.minX and logicalX <= data.bounds.maxX and
-                                    logicalY >= data.bounds.minY and logicalY <= data.bounds.maxY then
-                                    -- 2. Pixel-perfect Ray-casting Check
-                                    if IsPointInPolygon(logicalX, logicalY, data.loops) then
-                                        closestZone = data.zone
-                                        closestComment = data.comment or ""
+                    -- 1. Direct Lookup in T1_OutlineDB
+                    if T1_OutlineDB then
+                        for id, outlineData in pairs(T1_OutlineDB) do
+                            if outlineData.loops and outlineData.bounds then
+                                if logicalX >= outlineData.bounds.minX and logicalX <= outlineData.bounds.maxX and 
+                                   logicalY >= outlineData.bounds.minY and logicalY <= outlineData.bounds.maxY then
+                                   
+                                    if IsPointInPolygon(logicalX, logicalY, outlineData.loops) then
                                         closestID = id
-
-                                        -- Calculate relative coordinates for the tooltip display
-                                        local zoneW = (data.w and data.w > 0) and data.w or 0.05
-                                        hoverLocalX = ((logicalX - data.x) / zoneW) + 0.5
-                                        hoverLocalY = ((data.y - logicalY) / (zoneW / 1.5)) + 0.5
-
                                         foundPolygonZone = true
-                                        break -- We found the hovered zone, stop searching!
+                                        
+                                        -- Pull metadata from ZoneDB if it exists, otherwise leave as Unmapped
+                                        if T1_ZoneDB and T1_ZoneDB[id] then
+                                            local zData = T1_ZoneDB[id]
+                                            closestZone = zData.zone or ("Zone_"..id)
+                                            closestComment = zData.comment or ""
+                                            if zData.x and zData.y then
+                                                local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
+                                                hoverLocalX = ((logicalX - zData.x) / zoneW) + 0.5
+                                                hoverLocalY = ((zData.y - logicalY) / (zoneW / 1.5)) + 0.5
+                                            end
+                                        else
+                                            closestZone = "UNMAPPED_"..id
+                                        end
+                                        break
                                     end
                                 end
                             end
                         end
                     end
 
+                    -- 2. Fallback to Center Distance for zones that don't have outlines yet
+                    if not foundPolygonZone and T1_ZoneDB then
+                        local minDist = 999
+                        for id, zData in pairs(T1_ZoneDB) do
+                            -- Only fallback if this ID doesn't have an outline file
+                            local hasOutline = T1_OutlineDB and T1_OutlineDB[id] and T1_OutlineDB[id].loops
+                            if not hasOutline and zData.x and zData.y then
+                                local dx = zData.x - logicalX
+                                local dy = zData.y - logicalY
+                                local distSq = (dx * dx) + (dy * dy)
+                                if distSq < minDist then
+                                    minDist = distSq
+                                    closestZone = zData.zone or ("Zone_"..id)
+                                    closestComment = zData.comment or ""
+                                    closestID = id
+                                    
+                                    local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
+                                    hoverLocalX = ((logicalX - zData.x) / zoneW) + 0.5
+                                    hoverLocalY = ((zData.y - logicalY) / (zoneW / 1.5)) + 0.5
+                                end
+                            end
+                        end
+                        if minDist > 0.015 then
+                            closestZone, closestComment, closestID = "Great Sea", "", "???"
+                            hoverLocalX, hoverLocalY = nil, nil
+                        end
+                    end
+
                     self.hoveredZone = closestZone
                     self.hoveredMapID = (closestID ~= "???") and tonumber(closestID) or nil
 
-                    -- Only redraw the outline if the hovered zone actually changes
                     if self.lastHoveredMapID ~= self.hoveredMapID then
                         self.lastHoveredMapID = self.hoveredMapID
                         if f.DrawHoverPolygon then
@@ -533,10 +524,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                     end
 
                     local colorCode = "|cffffffff"
-                    local isCity = false
-
                     if cityDataByZone[closestZone] then
-                        isCity = true
                         if cityDataByZone[closestZone].status == "Alliance" then
                             colorCode = "|cff0044cc"
                         elseif cityDataByZone[closestZone].status == "Horde" then
@@ -548,8 +536,12 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
 
                     if not self.isDragging then ResetCursor() end
 
-                    local headerText = (closestID == "???") and "|cffaaaaaa#???|r" or
-                        string.format("|cffaaaaaa#%s (%.0f, %.0f)|r", closestID, hoverLocalX * 100, hoverLocalY * 100)
+                    local coordText = ""
+                    if hoverLocalX and hoverLocalY then
+                        coordText = string.format(" (%.0f, %.0f)", hoverLocalX * 100, hoverLocalY * 100)
+                    end
+
+                    local headerText = (closestID == "???") and "|cffaaaaaa#???|r" or string.format("|cffaaaaaa#%s%s|r", closestID, coordText)
 
                     if closestComment ~= "" then
                         f.cursorTooltip.text:SetFormattedText("%s\n%s%s\n%s\n%.3f, %.3f|r", headerText, colorCode,
@@ -558,12 +550,10 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                         f.cursorTooltip.text:SetFormattedText("%s\n%s%s\n%.3f, %.3f|r", headerText, colorCode,
                             closestZone:upper(), logicalX, logicalY)
                     end
+                    
+                    -- FIX: Unified Tooltip Font Size
+                    f.cursorTooltip.text:SetFontObject("SystemFont_Small")
 
-                    if isCity then
-                        f.cursorTooltip.text:SetFontObject("GameFontHighlight")
-                    else
-                        f.cursorTooltip.text:SetFontObject("SystemFont_Small")
-                    end
                 else
                     local mapName = "Unknown Map"
                     local colorCode = "|cffffffff"
@@ -598,7 +588,8 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                     f.cursorTooltip.text:SetFormattedText("%s\n%s%s\n%.3f, %.3f|r", headerText, colorCode,
                         mapName:upper(), pctX, pctY)
 
-                    f.cursorTooltip.text:SetFontObject("GameFontHighlight")
+                    -- FIX: Unified Tooltip Font Size
+                    f.cursorTooltip.text:SetFontObject("SystemFont_Small")
                     if not self.isDragging then ResetCursor() end
                 end
 
@@ -635,8 +626,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
             else
                 f.cursorTooltip:Hide()
                 if not self.isDragging then ResetCursor() end
-
-                -- NEW: Clear outline when mouse leaves valid map bounds
+                
                 if self.hoveredMapID ~= nil then
                     self.hoveredMapID = nil
                     self.lastHoveredMapID = nil
@@ -647,8 +637,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
     else
         f.cursorTooltip:Hide()
         if not self.isDragging then ResetCursor() end
-
-        -- NEW: Clear outline when mouse leaves canvas entirely
+        
         if self.hoveredMapID ~= nil then
             self.hoveredMapID = nil
             self.lastHoveredMapID = nil
@@ -659,10 +648,68 @@ end)
 
 
 -- ==========================================
+-- Hover Polygon Boundary Drawer
+-- ==========================================
+if not f.debugLinePool then
+    f.debugLinePool = {}
+end
+
+-- ==========================================
+-- Hover Polygon Boundary Drawer
+-- ==========================================
+if not f.debugLinePool then
+    f.debugLinePool = {}
+end
+
+function f:DrawHoverPolygon(zoneID)
+    for _, line in ipairs(f.debugLinePool) do
+        line:Hide()
+    end
+
+    if f.currentMapID ~= 947 or not T1_OutlineDB or not zoneID then return end
+
+    local data = T1_OutlineDB[zoneID]
+    if not data or not data.loops then return end
+
+    local lineIndex = 1
+    local contentW = f.mapContent:GetWidth()
+    local contentH = f.mapContent:GetHeight()
+
+    for _, loop in ipairs(data.loops) do
+        local numPoints = #loop
+        for i = 1, numPoints do
+            local pt1 = loop[i]
+            local pt2 = loop[(i % numPoints) + 1] 
+
+            local line = f.debugLinePool[lineIndex]
+            if not line then
+                line = f.mapContent:CreateLine(nil, "OVERLAY")
+                table.insert(f.debugLinePool, line)
+            end
+
+            line:SetThickness(2 / f.zoomLevel)
+            line:SetColorTexture(0, 0, 0, 1) 
+
+            -- NEW: Calculate offset strictly from the center (0,0) point
+            -- In WoW, positive Y goes UP from the center, matching our North logic!
+            local startX = (pt1.x / 1.5) * contentW
+            local startY = pt1.y * contentH
+            local endX = (pt2.x / 1.5) * contentW
+            local endY = pt2.y * contentH
+
+            -- Anchor directly to the CENTER of the map content
+            line:SetStartPoint("CENTER", startX, startY)
+            line:SetEndPoint("CENTER", endX, endY)
+            line:Show()
+
+            lineIndex = lineIndex + 1
+        end
+    end
+end
+
+-- ==========================================
 -- Map Loading & Fog of War Rendering
 -- ==========================================
-
-local ALT_MAP_IDS = {}
 f.mapTiles = {}
 
 function f:LoadMap(mapID)
@@ -742,16 +789,11 @@ function f:DrawExploredZone(zoneID)
     if not exploredTextures then return end
 
     local nativeRatio = layers[1].layerHeight / layers[1].layerWidth
-
-    -- Project logical center into UI Percentage to find anchor
     local centerPctX, centerPctY = LogicalToUIPercent(zData.x, zData.y)
-
     local zonePixelW = (zoneW / 1.5) * f.mapContent:GetWidth()
     local zonePixelH = zonePixelW * nativeRatio
-
     local boxCenterX = centerPctX * f.mapContent:GetWidth()
     local boxCenterY = centerPctY * f.mapContent:GetHeight()
-
     local drawTopLeftX = boxCenterX - (zonePixelW / 2)
     local drawTopLeftY = boxCenterY - (zonePixelH / 2)
 
@@ -797,61 +839,6 @@ function f:RefreshFogOfWar()
         end
     else
         f:DrawExploredZone(f.currentMapID)
-    end
-end
-
--- ==========================================
--- Hover Polygon Boundary Drawer
--- ==========================================
-if not f.debugLinePool then
-    f.debugLinePool = {}
-end
-
-function f:DrawHoverPolygon(zoneID)
-    -- Always hide existing lines first
-    for _, line in ipairs(f.debugLinePool) do
-        line:Hide()
-    end
-
-    -- Abort if we are not on the custom world map, or if no valid zone is hovered
-    if f.currentMapID ~= 947 or not T1_ZoneDB or not zoneID then return end
-
-    local data = T1_ZoneDB[zoneID]
-    if not data or not data.loops then return end
-
-    local lineIndex = 1
-    local contentW = f.mapContent:GetWidth()
-    local contentH = f.mapContent:GetHeight()
-
-    for _, loop in ipairs(data.loops) do
-        local numPoints = #loop
-        for i = 1, numPoints do
-            local pt1 = loop[i]
-            local pt2 = loop[(i % numPoints) + 1]
-
-            local line = f.debugLinePool[lineIndex]
-            if not line then
-                line = f.mapContent:CreateLine(nil, "OVERLAY")
-                table.insert(f.debugLinePool, line)
-            end
-
-            line:SetThickness(2 / f.zoomLevel)
-            line:SetColorTexture(0, 0, 0, 0.5) -- Black stroke
-
-            local uiX1, uiY1 = LogicalToUIPercent(pt1.x, pt1.y)
-            local uiX2, uiY2 = LogicalToUIPercent(pt2.x, pt2.y)
-
-            local startX = uiX1 * contentW
-            local startY = -uiY1 * contentH
-            local endX = uiX2 * contentW
-            local endY = -uiY2 * contentH
-
-            line:SetStartPoint("TOPLEFT", startX, startY)
-            line:SetEndPoint("TOPLEFT", endX, endY)
-            line:Show()
-
-            lineIndex = lineIndex + 1
-        end
     end
 end
 
@@ -942,6 +929,7 @@ function f:UpdateMapTransform()
                 playerInCityID = playerMap; break
             end
         end
+
         for key, flagObj in pairs(f.cityFlags) do
             flagObj.frame:Show()
 
@@ -961,12 +949,11 @@ function f:UpdateMapTransform()
             end
 
             flagObj.frame:SetSize(baseWidth / self.zoomLevel, baseHeight / self.zoomLevel)
+            if flagObj.frame.SetScale then flagObj.frame:SetScale(1) end
+            
             flagObj.frame:ClearAllPoints()
-
             local uiX, uiY = LogicalToUIPercent(flagObj.x, flagObj.y)
-
-            -- FIX: Change "CENTER" to "BOTTOM" to lock the base of the flag to the map point
-            flagObj.frame:SetPoint("BOTTOM", self.mapContent, "TOPLEFT", uiX * contentW, -uiY * contentH)
+            flagObj.frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", uiX * contentW, -uiY * contentH)
         end
     else
         if f.cityFlags then
@@ -993,7 +980,7 @@ function f:UpdateMapTransform()
         if pinData and frame then
             frame.tex:SetVertexColor(pinData.r, pinData.g, pinData.b, 1)
             local showPin, drawX, drawY = false, 0, 0
-
+            
             if f.currentMapID == pinData.mapID then
                 drawX, drawY, showPin = pinData.x, pinData.y, true
             elseif f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
@@ -1002,15 +989,16 @@ function f:UpdateMapTransform()
                     local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
                     if zData.x and zData.y then
                         drawX = zData.x + ((pinData.x - 0.5) * zoneW)
-                        drawY = zData.y + ((0.5 - pinData.y) * (zoneW / 1.5)) -- FIX
+                        drawY = zData.y + ((0.5 - pinData.y) * (zoneW / 1.5))
                         showPin = true
                     end
                 end
             end
-
+            
             if showPin then
                 frame:Show()
                 frame:SetSize(24 / self.zoomLevel, 24 / self.zoomLevel)
+                if frame.SetScale then frame:SetScale(1) end
                 frame:ClearAllPoints()
                 if f.currentMapID == 947 then
                     local uiX, uiY = LogicalToUIPercent(drawX, drawY)
@@ -1026,9 +1014,6 @@ function f:UpdateMapTransform()
         end
     end
 
-    -- ==========================================
-    -- DEBUG: T1_ZoneDB Center Round Icons (Clickable)
-    -- ==========================================
     if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID and T1_ZoneDB and f.showFogOfWar then
         if not f.debugDots then f.debugDots = {} end
 
@@ -1061,14 +1046,12 @@ function f:UpdateMapTransform()
                 dotBtn:SetPoint("CENTER", self.mapContent, "TOPLEFT", uiX * contentW, -uiY * contentH)
             end
         end
-        -- ... existing debug dots code ...
     else
         if f.debugDots then
             for _, dotBtn in pairs(f.debugDots) do dotBtn:Hide() end
         end
     end
-
-    -- FIX: Keep the hover polygon scaled correctly when zooming or panning
+    
     if f.DrawHoverPolygon then
         f:DrawHoverPolygon(f.mapCanvas.hoveredMapID)
     end
@@ -1080,7 +1063,6 @@ f.mapCanvas:EnableMouseWheel(true)
 -- Smooth Exponential Zoom Controller
 -- ==========================================
 f.targetZoom = f.zoomLevel or 1
-
 f.zoomSmoother = CreateFrame("Frame", nil, f.mapCanvas)
 f.zoomSmoother:Hide()
 
@@ -1089,7 +1071,6 @@ f.zoomSmoother:SetScript("OnUpdate", function(self, elapsed)
     local oldZoom = f.zoomLevel
     local targetZ = f.targetZoom or oldZoom
     local diffZ = targetZ - oldZoom
-
     local lerpRate = 1 - math.exp(-14 * elapsed)
 
     if math.abs(diffZ) > 0.002 then
@@ -1124,13 +1105,10 @@ f.zoomSmoother:SetScript("OnUpdate", function(self, elapsed)
     elseif f.velocityX and f.velocityY and (math.abs(f.velocityX) > 1 or math.abs(f.velocityY) > 1) then
         isAnimating = true
         local friction = math.exp(-7 * elapsed)
-
         f.mapOffsetX = f.mapOffsetX + (f.velocityX * elapsed)
         f.mapOffsetY = f.mapOffsetY + (f.velocityY * elapsed)
-
         f.velocityX = f.velocityX * friction
         f.velocityY = f.velocityY * friction
-
         if math.abs(f.velocityX) < 10 and math.abs(f.velocityY) < 10 then
             f.velocityX = 0
             f.velocityY = 0
@@ -1138,10 +1116,7 @@ f.zoomSmoother:SetScript("OnUpdate", function(self, elapsed)
     end
 
     f:UpdateMapTransform()
-
-    if not isAnimating then
-        self:Hide()
-    end
+    if not isAnimating then self:Hide() end
 end)
 
 f.mapCanvas:EnableMouseWheel(true)
@@ -1187,7 +1162,6 @@ function f:ZoomToPoint(pctX, pctY, targetZoom)
         self.targetZoom = targetZoom
         self.targetOffsetX = ((canvasW / 2) - (exactPixelX * targetZoom)) / targetZoom
         self.targetOffsetY = (-(canvasH / 2) - (exactPixelY * targetZoom)) / targetZoom
-
         if self.zoomSmoother then self.zoomSmoother:Show() end
     end
 end
@@ -1223,7 +1197,7 @@ function f:ZoomFitPlayerAndPin()
             local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
             if zData.x and zData.y then
                 pinX = zData.x + ((pinData.x - 0.5) * zoneW)
-                pinY = zData.y + ((0.5 - pinData.y) * (zoneW / 1.5)) -- FIX
+                pinY = zData.y + ((0.5 - pinData.y) * (zoneW / 1.5))
             end
         end
     end
@@ -1242,11 +1216,10 @@ function f:ZoomFitPlayerAndPin()
 
     local distW = maxX - minX
     local distH = maxY - minY
-
     local boxW = math.max(distW * 1.5, 0.10)
     local boxH = math.max(distH * 1.5, 0.10)
     local targetZoom = math.min(1.5 / boxW, 1.0 / boxH)
-
+    
     local centerUI_X, centerUI_Y = LogicalToUIPercent((minX + maxX) / 2, (minY + maxY) / 2)
     f:ZoomToPoint(centerUI_X, centerUI_Y, targetZoom)
 end
@@ -1263,9 +1236,7 @@ end
 _G.func_T1_AddPin = function(mapID, localX, localY, r, g, b)
     if localX and localX > 1 then localX = localX / 100 end
     if localY and localY > 1 then localY = localY / 100 end
-
     table.insert(f.customPins, { mapID = mapID, x = localX, y = localY, r = r or 0, g = g or 1, b = b or 1 })
-
     if f:IsShown() and f.UpdateMapTransform then f:UpdateMapTransform() end
     if f:IsShown() and f.ZoomFitPlayerAndPin then f:ZoomFitPlayerAndPin() end
 
@@ -1279,21 +1250,15 @@ end
 _G.func_T1_ClearPins = function()
     wipe(f.customPins)
     if f:IsShown() and f.UpdateMapTransform then f:UpdateMapTransform() end
-
-    if C_Map.HasUserWaypoint() then
-        C_Map.ClearUserWaypoint()
-    end
+    if C_Map.HasUserWaypoint() then C_Map.ClearUserWaypoint() end
 end
-
 
 -- ==========================================
 -- Live Trackers
 -- ==========================================
 local function IsCustomCityMap(mapID)
     for _, data in pairs(cityDataByZone) do
-        if data.id == mapID and data.w and data.h then
-            return true
-        end
+        if data.id == mapID and data.w and data.h then return true end
     end
     return false
 end
@@ -1302,44 +1267,40 @@ local function ConvertToCitySpace(unitMapID, rawX, rawY, targetCityID)
     local cityData = nil
     for _, data in pairs(cityDataByZone) do
         if data.id == targetCityID and data.w and data.h then
-            cityData = data
-            break
+            cityData = data; break
         end
     end
-
     if not cityData then return false, 0, 0 end
 
     if T1_ZoneDB and T1_ZoneDB[unitMapID] then
         local zData = T1_ZoneDB[unitMapID]
         local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
-
+        
         if zData.x and zData.y then
             local worldX = zData.x + ((rawX - 0.5) * zoneW)
-            local worldY = zData.y + ((0.5 - rawY) * (zoneW / 1.5)) -- FIX
-
+            local worldY = zData.y + ((0.5 - rawY) * (zoneW / 1.5))
+            
             local dx = (worldX - cityData.x)
             local dy = (worldY - cityData.y)
-
+            
             local customScale = cityData.scale or 1
             dx = dx * customScale
             dy = dy * customScale
-
+            
             if targetCityID == 1416 then
-                local angle = math.rad(-70)
+                local angle = math.rad(-70) 
                 local cosA, sinA = math.cos(angle), math.sin(angle)
-
                 local rotX = (dx * cosA) - (dy * sinA)
                 local rotY = (dx * sinA) + (dy * cosA)
-
                 dx, dy = rotX, rotY
             end
-
+            
             local cityW = (cityData.w and cityData.w > 0) and cityData.w or 0.14
             local cityH = (cityData.h and cityData.h > 0) and cityData.h or cityW
-
+            
             local localCityX = (dx / cityW) + 0.5
             local localCityY = 0.5 - (dy / cityH)
-
+            
             return true, localCityX, localCityY
         end
     end
@@ -1363,7 +1324,6 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
                     local zoneW = (zoneData.w and zoneData.w > 0) and zoneData.w or 0.05
                     if zoneData.x and zoneData.y then
                         pX = zoneData.x + ((pos.x - 0.5) * zoneW)
-                        -- FIX: Divide zoneW by 1.5 for the vertical axis
                         pY = zoneData.y + ((0.5 - pos.y) * (zoneW / 1.5))
                         hasValidData = true
                     end
@@ -1379,24 +1339,19 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
     if hasValidData then
         f.playerArrow:Show()
         f.playerArrow:SetSize(32 / f.zoomLevel, 32 / f.zoomLevel)
-
         local facing = GetPlayerFacing()
         if facing then
-            if f.currentMapID == 1416 then
-                facing = facing - math.rad(-70)
-            end
+            if f.currentMapID == 1416 then facing = facing - math.rad(-70) end
             f.playerArrow:SetRotation(facing)
         end
-
         f.playerArrow.pX, f.playerArrow.pY = pX, pY
-
+        
         local drawUI_X, drawUI_Y = pX, pY
         if f.currentMapID == 947 then
             drawUI_X, drawUI_Y = LogicalToUIPercent(pX, pY)
         end
-
-        f.playerArrow:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * f.mapContent:GetWidth(),
-            -drawUI_Y * f.mapContent:GetHeight())
+        
+        f.playerArrow:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * f.mapContent:GetWidth(), -drawUI_Y * f.mapContent:GetHeight())
     else
         f.playerArrow:Hide()
         f.playerArrow.pX, f.playerArrow.pY = nil, nil
@@ -1410,12 +1365,12 @@ if not f.partyFrames then
         pf:SetFrameLevel(f.mapContent:GetFrameLevel() + 5)
         pf:EnableMouse(true)
         pf:SetScript("OnMouseDown", function(self, button)
-            if button == "LeftButton" and self.pX and self.pY then
+            if button == "LeftButton" and self.pX and self.pY then 
                 local targetX, targetY = self.pX, self.pY
                 if f.currentMapID == 947 then
                     targetX, targetY = LogicalToUIPercent(self.pX, self.pY)
                 end
-                f:ZoomToPoint(targetX, targetY, 6)
+                f:ZoomToPoint(targetX, targetY, 6) 
             end
         end)
         pf.tex = pf:CreateTexture(nil, "OVERLAY")
@@ -1441,7 +1396,6 @@ f.partyTracker:SetScript("OnUpdate", function()
                             local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
                             if zData.x and zData.y then
                                 drawX = zData.x + ((pos.x - 0.5) * zoneW)
-                                -- FIX: Divide zoneW by 1.5
                                 drawY = zData.y + ((0.5 - pos.y) * (zoneW / 1.5))
                                 showPartyMember = true
                             end
@@ -1463,14 +1417,15 @@ f.partyTracker:SetScript("OnUpdate", function()
                 pf.tex:SetVertexColor(0.5, 0.5, 1, 1)
             end
             pf.pX, pf.pY = drawX, drawY
-
+            
             local drawUI_X, drawUI_Y = drawX, drawY
             if f.currentMapID == 947 then
                 drawUI_X, drawUI_Y = LogicalToUIPercent(drawX, drawY)
             end
-
+            
             pf:Show()
             pf:SetSize(16 / f.zoomLevel, 16 / f.zoomLevel)
+            if pf.SetScale then pf:SetScale(1) end
             pf:ClearAllPoints()
             pf:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * contentW, -drawUI_Y * contentH)
         else
@@ -1494,7 +1449,6 @@ f.deathTracker:SetScript("OnUpdate", function()
         local currentZoneID = C_Map.GetBestMapForUnit("player")
         if currentZoneID and C_DeathInfo then
             local corpsePos = C_DeathInfo.GetCorpseMapPosition and C_DeathInfo.GetCorpseMapPosition(currentZoneID)
-
             if corpsePos and corpsePos.x and corpsePos.y then
                 if f.currentMapID == 947 then
                     if T1_ZoneDB and T1_ZoneDB[currentZoneID] then
@@ -1502,7 +1456,6 @@ f.deathTracker:SetScript("OnUpdate", function()
                         local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
                         if zData.x and zData.y then
                             cX = zData.x + ((corpsePos.x - 0.5) * zoneW)
-                            -- FIX: Divide zoneW by 1.5
                             cY = zData.y + ((0.5 - corpsePos.y) * (zoneW / 1.5))
                             hasCorpse = true
                         end
@@ -1524,6 +1477,7 @@ f.deathTracker:SetScript("OnUpdate", function()
         end
         f.corpseFrame:Show()
         f.corpseFrame:SetSize(12 / f.zoomLevel, 12 / f.zoomLevel)
+        if f.corpseFrame.SetScale then f.corpseFrame:SetScale(1) end
         f.corpseFrame:ClearAllPoints()
         f.corpseFrame:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * contentW, -drawUI_Y * contentH)
     else
@@ -1541,9 +1495,7 @@ f.flagHoverTracker:SetScript("OnUpdate", function()
 
     local pctX = ((rawX / mapScale) - left) / f.mapContent:GetWidth()
     local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
-
     local logicalMouseX, logicalMouseY = UIPercentToLogical(pctX, pctY)
-
     local CLICK_RADIUS_SQ = 0.0005 / (f.zoomLevel * f.zoomLevel)
 
     for key, flagObj in pairs(f.cityFlags) do
@@ -1562,7 +1514,6 @@ end)
 -- ==========================================
 -- Init & Slash Commands
 -- ==========================================
-
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
 
@@ -1576,15 +1527,7 @@ _G.func_ToggleT1Window = function(mapID)
             f:Hide()
         else
             local playerMap = C_Map.GetBestMapForUnit("player")
-            local capitalCities = {
-                [1416] = true,
-                [1453] = true,
-                [1454] = true,
-                [1455] = true,
-                [1456] = true,
-                [1457] = true,
-                [1458] = true
-            }
+            local capitalCities = { [1416] = true, [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true, [1458] = true }
             local defaultMap = (playerMap and capitalCities[playerMap]) and playerMap or 947
 
             if defaultMap ~= 947 then
@@ -1628,15 +1571,7 @@ end)
 f:SetScript("OnShow", function(self)
     if not self.currentMapID then
         local playerMap = C_Map.GetBestMapForUnit("player")
-        local capitalCities = {
-            [1416] = true,
-            [1453] = true,
-            [1454] = true,
-            [1455] = true,
-            [1456] = true,
-            [1457] = true,
-            [1458] = true
-        }
+        local capitalCities = { [1416] = true, [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true, [1458] = true }
         local defaultMap = (playerMap and capitalCities[playerMap]) and playerMap or 947
         self:LoadMap(defaultMap)
         if defaultMap == 947 and playerMap then self:ZoomToZone(playerMap) end
@@ -1651,7 +1586,6 @@ f.explorationTracker = CreateFrame("Frame")
 f.explorationTracker:RegisterEvent("ZONE_CHANGED")
 f.explorationTracker:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 f.explorationTracker:RegisterEvent("ZONE_CHANGED_INDOORS")
-
 pcall(function() f.explorationTracker:RegisterEvent("MAP_EXPLORATION_UPDATED") end)
 
 f.explorationTracker:SetScript("OnEvent", function(self, event, ...)
@@ -1661,7 +1595,6 @@ f.explorationTracker:SetScript("OnEvent", function(self, event, ...)
         end
     end
 end)
-
 
 -- ==========================================
 -- Auto-Switch Map on Zone Change
@@ -1673,24 +1606,15 @@ f.zoneTracker:RegisterEvent("ZONE_CHANGED_INDOORS")
 f.zoneTracker:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 f.lastPlayerZone = nil
-
 f.zoneTracker:SetScript("OnEvent", function()
     local currentPlayerZone = C_Map.GetBestMapForUnit("player")
     if not currentPlayerZone then return end
-
     if f.lastPlayerZone == currentPlayerZone then return end
     f.lastPlayerZone = currentPlayerZone
-
     if not f:IsShown() then return end
 
     local capitalCities = {
-        [1416] = true,
-        [1453] = true,
-        [1454] = true,
-        [1455] = true,
-        [1456] = true,
-        [1457] = true,
-        [1458] = true
+        [1416] = true, [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true, [1458] = true
     }
     local MY_CUSTOM_WORLD_MAP_ID = 947
 
@@ -1698,29 +1622,25 @@ f.zoneTracker:SetScript("OnEvent", function()
         f.zoomLevel = 1
         f.mapOffsetX = 0
         f.mapOffsetY = 0
-
         f.targetOffsetX = nil
         f.targetOffsetY = nil
         f.velocityX = 0
         f.velocityY = 0
-
         f:LoadMap(currentPlayerZone)
         if f.UpdateMapTransform then f:UpdateMapTransform() end
     elseif f.currentMapID ~= MY_CUSTOM_WORLD_MAP_ID and not capitalCities[currentPlayerZone] then
         f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
-
         if f.ZoomToZone then f:ZoomToZone(currentPlayerZone) end
         if f.UpdateMapTransform then f:UpdateMapTransform() end
     end
 end)
 
 -- ==========================================
--- Merge Outlines and Pre-calculate Bounding Boxes
+-- Pre-calculate Outline Bounds (Runs Once)
 -- ==========================================
-if T1_OutlineDB and T1_ZoneDB then
+if T1_OutlineDB then
     for id, outlineData in pairs(T1_OutlineDB) do
         if outlineData.loops then
-            -- 1. Calculate the bounding box for the outline
             local minX, maxX, minY, maxY = 999, -999, 999, -999
             for _, loop in ipairs(outlineData.loops) do
                 for _, pt in ipairs(loop) do
@@ -1730,12 +1650,7 @@ if T1_OutlineDB and T1_ZoneDB then
                     if pt.y > maxY then maxY = pt.y end
                 end
             end
-
-            -- 2. Inject the loops and bounds directly into the main database in memory
-            if T1_ZoneDB[id] then
-                T1_ZoneDB[id].loops = outlineData.loops
-                T1_ZoneDB[id].bounds = { minX = minX, maxX = maxX, minY = minY, maxY = maxY }
-            end
+            outlineData.bounds = { minX = minX, maxX = maxX, minY = minY, maxY = maxY }
         end
     end
 end
