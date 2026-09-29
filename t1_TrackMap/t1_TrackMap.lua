@@ -109,14 +109,46 @@ end)
 -- City Map Data
 -- ==========================================
 local cityDataByZone = {
-    ["elwynn-forest"]     = { name = "Stormwind", id = 1453, status = "Alliance", x = 0.324, y = -0.131 },
-    ["durotar"]           = { name = "Orgrimmar", id = 1454, status = "Horde", x = -0.305, y = 0.065 },
-    ["dun-morogh"]        = { name = "Ironforge", id = 1455, status = "Alliance", x = 0.382, y = 0.012 },
-    ["mulgore"]           = { name = "Thunder Bluff", id = 1456, status = "Horde", x = -0.450, y = -0.029 },
-    ["teldrassil"]        = { name = "Darnassus", id = 1457, status = "Alliance", x = -0.540, y = 0.340 },
-    ["tirisfal-glades"]   = { name = "Undercity", id = 1458, status = "Horde", x = 0.342, y = 0.226 },
-    ["alterac-mountains"] = { name = "Dalaran", id = 1416, status = "Neutral", x = 0.3395, y = 0.1746, w = 0.0283, h = 0.0189, scale = 50 },
+    ["elwynn-forest"]     = { name = "Stormwind", id = 1453, zoneID = 1429, status = "Alliance", x = 0.324, y = -0.131, zoneX = 0.24, zoneY = 0.36 },
+    ["durotar"]           = { name = "Orgrimmar", id = 1454, zoneID = 1411, status = "Horde", x = -0.305, y = 0.065, zoneX = 0.46, zoneY = 0.16 },
+    ["dun-morogh"]        = { name = "Ironforge", id = 1455, zoneID = 1426, status = "Alliance", x = 0.382, y = 0.012, zoneX = 0.59, zoneY = 0.24 },
+    ["mulgore"]           = { name = "Thunder Bluff", id = 1456, zoneID = 1412, status = "Horde", x = -0.450, y = -0.029, zoneX = 0.41, zoneY = 0.33 },
+    ["teldrassil"]        = { name = "Darnassus", id = 1457, zoneID = 1438, status = "Alliance", x = -0.540, y = 0.340, zoneX = 0.26, zoneY = 0.55 },
+    ["tirisfal-glades"]   = { name = "Undercity", id = 1458, zoneID = 1420, status = "Horde", x = 0.342, y = 0.226, zoneX = 0.62, zoneY = 0.75 },
+
+    ["alterac-mountains"] = {
+        name = "Dalaran",
+        id = -1416,
+        zoneID = 1416,
+        status = "Neutral",
+        x = 0.3395,
+        y = 0.1746,
+        w = 0.0283,
+        zoneX = 0.17,
+        zoneY = 0.68,
+        cityScaleX = 7.5,
+        cityScaleY = 7.5
+    },
+
 }
+
+
+local function GetCityDataForZone(zoneMapID)
+    if not zoneMapID or zoneMapID == 947 or zoneMapID <= 0 then return nil, nil end
+    for key, data in pairs(cityDataByZone) do
+        if data.zoneID == zoneMapID then return key, data end
+    end
+    return nil, nil
+end
+
+local function GetCityLocalCoords(data, zoneMapID)
+    -- Simply return the exact coordinates you defined in the table
+    if data and data.zoneX and data.zoneY then
+        return data.zoneX, data.zoneY
+    end
+    return nil, nil
+end
+
 
 -- ==========================================
 -- Map Toggle & Return Button
@@ -217,8 +249,9 @@ f.ResizeGrip:SetScript("OnUpdate", function(self)
         local newWidth = self.startW + dx
         if newWidth < 304 then newWidth = 304 end
         if newWidth > 1216 then newWidth = 1216 end
+
         local canvasW = newWidth - 16
-        local newHeight = (canvasW / MAP_ASPECT_RATIO) + 40
+        local newHeight = (canvasW / 1.5) + 36 -- CORRECTED from 40 to 36
         f:SetSize(newWidth, newHeight)
     end
 end)
@@ -227,12 +260,18 @@ f:SetScript("OnSizeChanged", function(self)
     if self.mapContent and self.mapCanvas then
         local w, h = self.mapCanvas:GetSize()
         if w and h and w > 1 and h > 1 then
-            self.mapContent:SetSize(w, h)
+            local targetRatio = 1.5
+            local currentRatio = w / h
+            if currentRatio > targetRatio then
+                self.mapContent:SetSize(h * targetRatio, h) -- Canvas is too wide, fit to height
+            else
+                self.mapContent:SetSize(w, w / targetRatio) -- Canvas is too tall, fit to width
+            end
         end
     end
     if self.zoomSlider then
         local currentMin, _ = self.zoomSlider:GetMinMaxValues()
-        self.zoomSlider:SetMinMaxValues(currentMin, self:GetDynamicMaxZoom())
+        self.zoomSlider:SetMinMaxValues(currentMin, self.GetDynamicMaxZoom and self:GetDynamicMaxZoom() or 20)
     end
 end)
 
@@ -275,7 +314,7 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
     if dragDistance < 25 then
         if button == "RightButton" then
             local targetMapID = (f.currentMapID == MY_CUSTOM_WORLD_MAP_ID) and self.hoveredMapID or f.currentMapID
-            if targetMapID and targetMapID > 0 then
+            if targetMapID and targetMapID ~= 0 then -- Changed from > 0
                 if _G.func_ToggleT2Window then
                     _G.func_ToggleT2Window(targetMapID)
                 else
@@ -302,22 +341,22 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                 self.lastMiddleClickTime = currentTime
                 local playerMap = C_Map.GetBestMapForUnit("player")
                 if playerMap and playerMap > 0 then
-                    f.zoomLevel = 1
-                    f.mapOffsetX = 0
-                    f.mapOffsetY = 0
+                    f.savedWorldZoom = nil -- ADD THIS LINE to force a fresh reset
                     f:LoadMap(playerMap)
                 end
             end
             if f.UpdateMapTransform then f:UpdateMapTransform() end
 
             -- UNIFIED CLICK LOGIC: Loads exactly what the tooltip was showing
-        elseif button == "LeftButton" and f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-            local targetMapID = self.hoveredMapID
-            if targetMapID and targetMapID > 0 then
-                f.zoomLevel = 1
-                f.mapOffsetX = 0
-                f.mapOffsetY = 0
-                f:LoadMap(targetMapID)
+        elseif button == "LeftButton" then
+            if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
+                local targetMapID = self.hoveredMapID
+                if targetMapID and targetMapID ~= 0 then
+                    f:LoadMap(targetMapID)
+                    if f.UpdateMapTransform then f:UpdateMapTransform() end
+                end
+            elseif self.hoveredCityID then
+                f:LoadMap(self.hoveredCityID)
                 if f.UpdateMapTransform then f:UpdateMapTransform() end
             end
         end
@@ -381,8 +420,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                     local isHoveringCity = false
                     local hoverCityStatus = nil
 
-                    -- PRECISE CITY DETECTION: Tight radius perfectly matches the visual 24x24 flag icon
-                    local CLICK_RADIUS_SQ = 0.00015 / (f.zoomLevel * f.zoomLevel)
+                    local CLICK_RADIUS_SQ = 0.0006 / (f.zoomLevel * f.zoomLevel)
 
                     for _, data in pairs(cityDataByZone) do
                         if data.x and data.y then
@@ -398,7 +436,6 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                         end
                     end
 
-                    -- If we aren't exactly on a flag, detect the general zone polygon underneath
                     if not isHoveringCity then
                         if T1_OutlineDB then
                             for id, outlineData in pairs(T1_OutlineDB) do
@@ -467,7 +504,6 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                         end
                     end
 
-                    -- Fix color bleeding: Only colorize the tooltip if we specifically targeted a city flag
                     local colorCode = "|cffffffff"
                     if isHoveringCity then
                         if hoverCityStatus == "Alliance" then
@@ -499,36 +535,68 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
 
                     f.cursorTooltip.text:SetFontObject("SystemFont_Small")
                 else
+                    self.hoveredCityID = nil
                     local mapName = "Unknown Map"
                     local colorCode = "|cffffffff"
                     local isCity = false
 
-                    for key, data in pairs(cityDataByZone) do
-                        if data.id == f.currentMapID then
-                            isCity = true
-                            mapName = data.name
-                            if data.status == "Alliance" then
-                                colorCode = "|cff003399"
-                            elseif data.status == "Horde" then
-                                colorCode = "|cffff2020"
-                            elseif data.status == "Neutral" then
-                                colorCode = "|cffffcc00"
+                    local cityKey, cityData = GetCityDataForZone(f.currentMapID)
+                    local isHoveringZoneCity = false
+
+                    if cityData then
+                        local clX, clY = GetCityLocalCoords(cityData, f.currentMapID)
+                        if clX and clY then
+                            local contentW = f.mapContent:GetWidth()
+                            local contentH = f.mapContent:GetHeight()
+                            local dx = (pctX - clX) * contentW
+                            local dy = (pctY - clY) * contentH
+                            local CLICK_RADIUS = 14 / f.zoomLevel
+                            if (dx * dx) + (dy * dy) <= (CLICK_RADIUS * CLICK_RADIUS) then
+                                isHoveringZoneCity = true
+                                self.hoveredCityID = cityData.id
+                                mapName = cityData.name
+                                isCity = true
+                                if cityData.status == "Alliance" then
+                                    colorCode = "|cff003399"
+                                elseif cityData.status == "Horde" then
+                                    colorCode = "|cffff2020"
+                                elseif cityData.status == "Neutral" then
+                                    colorCode = "|cffffcc00"
+                                end
                             end
-                            break
                         end
                     end
 
-                    if not isCity and C_Map and C_Map.GetMapInfo then
-                        local mapInfo = C_Map.GetMapInfo(f.currentMapID)
-                        if mapInfo and mapInfo.name then mapName = mapInfo.name end
+                    if not isHoveringZoneCity then
+                        for key, data in pairs(cityDataByZone) do
+                            if data.id == f.currentMapID then
+                                isCity = true
+                                mapName = data.name
+                                if data.status == "Alliance" then
+                                    colorCode = "|cff003399"
+                                elseif data.status == "Horde" then
+                                    colorCode = "|cffff2020"
+                                elseif data.status == "Neutral" then
+                                    colorCode = "|cffffcc00"
+                                end
+                                break
+                            end
+                        end
+                        if not isCity and f.currentMapID > 0 and C_Map and C_Map.GetMapInfo then
+                            local mapInfo = C_Map.GetMapInfo(f.currentMapID)
+                            if mapInfo and mapInfo.name then mapName = mapInfo.name end
+                        end
+
+                        if f.currentMapID == -1416 and not isCity then
+                            mapName = "Dalaran"
+                            colorCode = "|cffffcc00"
+                        end
                     end
 
-                    if f.currentMapID == 1416 and not isCity then
-                        mapName = "Dalaran"
-                        colorCode = "|cffffcc00"
-                    end
+                    local targetID = self.hoveredCityID or f.currentMapID or "???"
+                    local coordText = string.format(" (%.0f, %.0f)", pctX * 100, pctY * 100)
+                    local headerText = string.format("|cffaaaaaa#%s%s|r", targetID, coordText)
 
-                    local headerText = string.format("|cffaaaaaa#%s|r", f.currentMapID or "???")
                     f.cursorTooltip.text:SetFormattedText("%s\n%s%s\n%.3f, %.3f|r", headerText, colorCode,
                         mapName:upper(), pctX, pctY)
 
@@ -645,15 +713,46 @@ end
 f.mapTiles = {}
 
 function f:LoadMap(mapID)
-    if not mapID or mapID <= 0 then return end
+    if not mapID or (mapID <= 0 and mapID ~= -1416) then return end
 
-    local targetZoomZone = nil
-    if mapID ~= 947 and mapID ~= 1416 and T1_ZoneDB and not T1_ZoneDB[mapID] and not C_Map.GetMapArtLayers(mapID) then
-        targetZoomZone = mapID
-        mapID = 947
+    --local targetZoomZone = nil
+    if mapID ~= 947 and mapID ~= -1416 and not C_Map.GetMapArtLayers(mapID) then
+        return
     end
 
+    -- 1. Save state if leaving the world map
+    if f.currentMapID == 947 and mapID ~= 947 then
+        f.savedWorldZoom = f.zoomLevel
+        f.savedWorldOffsetX = f.mapOffsetX
+        f.savedWorldOffsetY = f.mapOffsetY
+        f.savedTargetZoom = f.targetZoom
+    end
+
+    -- 2. Restore state or reset depending on destination
+    if mapID == 947 then
+        if f.savedWorldZoom then
+            f.zoomLevel = f.savedWorldZoom
+            f.mapOffsetX = f.savedWorldOffsetX
+            f.mapOffsetY = f.savedWorldOffsetY
+            f.targetZoom = f.savedTargetZoom or f.savedWorldZoom
+        end
+    else
+        -- Auto-reset when entering any zone/city map
+        f.zoomLevel = 1
+        f.mapOffsetX = 0
+        f.mapOffsetY = 0
+        f.targetZoom = 1
+    end
+
+    -- Clear lingering mouse friction/motion
+    f.targetOffsetX = nil
+    f.targetOffsetY = nil
+    f.velocityX = 0
+    f.velocityY = 0
+
     f.currentMapID = mapID
+
+
     for _, tile in ipairs(f.mapTiles) do tile:Hide() end
     wipe(f.mapTiles)
 
@@ -672,7 +771,7 @@ function f:LoadMap(mapID)
 
         f.worldMapTile = customTile
         table.insert(f.mapTiles, customTile)
-    elseif mapID == 1416 then
+    elseif mapID == -1416 then
         local customTile = f.mapContent:CreateTexture(nil, "BACKGROUND")
         customTile:SetAllPoints(f.mapContent)
         customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\dalaran.tga")
@@ -714,13 +813,6 @@ function f:LoadMap(mapID)
     end
 
     if f.RefreshFogOfWar then f:RefreshFogOfWar() end
-
-    if targetZoomZone and targetZoomZone > 0 then
-        f.zoomLevel = 1
-        f.mapOffsetX = 0
-        f.mapOffsetY = 0
-        f:ZoomToZone(targetZoomZone)
-    end
 end
 
 if not f.exploredTexturePool then
@@ -902,7 +994,7 @@ function f:RefreshFogOfWar()
         end
     end
 
-    if f.currentMapID ~= 947 and f.currentMapID ~= 1416 then
+    if f.currentMapID ~= 947 and f.currentMapID ~= -1416 then
         for _, tile in ipairs(f.mapTiles) do
             tile:SetDesaturated(false)
             tile:SetVertexColor(1, 1, 1)
@@ -917,7 +1009,7 @@ function f:RefreshFogOfWar()
                 end
             end
         end
-    elseif f.currentMapID ~= 1416 and f.currentMapID > 0 then
+    elseif f.currentMapID ~= -1416 and f.currentMapID > 0 then
         f:DrawExploredZone(f.currentMapID)
     end
 end
@@ -956,10 +1048,21 @@ function f:UpdateMapTransform()
     local currentVisualX = self.mapOffsetX * self.zoomLevel
     local currentVisualY = self.mapOffsetY * self.zoomLevel
 
-    if currentVisualX > visualMaxX then currentVisualX = visualMaxX end
-    if currentVisualX < visualMinX then currentVisualX = visualMinX end
-    if currentVisualY < visualMinY then currentVisualY = visualMinY end
-    if currentVisualY > visualMaxY then currentVisualY = visualMaxY end
+    -- X-Axis Clamp & Auto-Center
+    if visualMinX > visualMaxX then
+        currentVisualX = (canvasW - effW) / 2
+    else
+        if currentVisualX > visualMaxX then currentVisualX = visualMaxX end
+        if currentVisualX < visualMinX then currentVisualX = visualMinX end
+    end
+
+    -- Y-Axis Clamp & Auto-Center
+    if visualMinY > visualMaxY then
+        currentVisualY = (effH - canvasH) / 2
+    else
+        if currentVisualY < visualMinY then currentVisualY = visualMinY end
+        if currentVisualY > visualMaxY then currentVisualY = visualMaxY end
+    end
 
     self.mapOffsetX = currentVisualX / self.zoomLevel
     self.mapOffsetY = currentVisualY / self.zoomLevel
@@ -974,73 +1077,73 @@ function f:UpdateMapTransform()
     end
 
     local MY_CUSTOM_WORLD_MAP_ID = 947
-    if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
-        if not f.cityFlags then
-            f.cityFlags = {}
-            for key, data in pairs(cityDataByZone) do
-                local flagFrame = CreateFrame("Frame", nil, self.mapContent)
-                flagFrame:SetFrameLevel(self.mapContent:GetFrameLevel() + 50)
-                local tex = flagFrame:CreateTexture(nil, "BACKGROUND")
-                tex:SetAllPoints()
 
-                if data.status == "Alliance" then
-                    tex:SetTexture("Interface\\TargetingFrame\\UI-PVP-Alliance")
-                elseif data.status == "Horde" then
-                    tex:SetTexture("Interface\\TargetingFrame\\UI-PVP-Horde")
-                else
-                    tex:SetTexture("Interface\\TargetingFrame\\UI-PVP-FFA")
-                end
-
-                tex:SetTexCoord(10 / 64, 54 / 64, 10 / 64, 54 / 64)
-                f.cityFlags[key] = {
-                    frame = flagFrame,
-                    tex = tex,
-                    x = data.x or 0,
-                    y = data.y or 0,
-                    status = data.status
-                }
-            end
-        end
-
-        local playerMap = C_Map.GetBestMapForUnit("player")
-        local playerInCityID = nil
+    -- 1. Ensure flag frames exist (Runs unconditionally)
+    if not f.cityFlags then
+        f.cityFlags = {}
         for key, data in pairs(cityDataByZone) do
-            if data.id == playerMap then
-                playerInCityID = playerMap; break
-            end
-        end
+            local flagFrame = CreateFrame("Frame", nil, self.mapContent)
+            flagFrame:SetFrameLevel(self.mapContent:GetFrameLevel() + 50)
+            local tex = flagFrame:CreateTexture(nil, "BACKGROUND")
+            tex:SetAllPoints()
 
-        for key, flagObj in pairs(f.cityFlags) do
-            flagObj.frame:Show()
-
-            if playerInCityID and cityDataByZone[key].id ~= playerInCityID then
-                flagObj.baseOpacity = 0.3
+            if data.status == "Alliance" then
+                tex:SetTexture("Interface\\TargetingFrame\\UI-PVP-Alliance")
+            elseif data.status == "Horde" then
+                tex:SetTexture("Interface\\TargetingFrame\\UI-PVP-Horde")
             else
-                flagObj.baseOpacity = 1.0
+                tex:SetTexture("Interface\\TargetingFrame\\UI-PVP-FFA")
             end
-
-            flagObj.tex:SetDesaturated(false)
-            flagObj.tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity)
-
-            local baseWidth = 24
-            local baseHeight = 24
-            if cityDataByZone[key] and cityDataByZone[key].status == "Alliance" then
-                baseWidth = baseWidth * 1.15
-            end
-
-            flagObj.frame:SetSize(baseWidth / self.zoomLevel, baseHeight / self.zoomLevel)
-            if flagObj.frame.SetScale then flagObj.frame:SetScale(1) end
-
-            flagObj.frame:ClearAllPoints()
-            local uiX, uiY = LogicalToUIPercent(flagObj.x, flagObj.y)
-            flagObj.frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", uiX * contentW, -uiY * contentH)
-        end
-    else
-        if f.cityFlags then
-            for key, flagObj in pairs(f.cityFlags) do flagObj.frame:Hide() end
+            tex:SetTexCoord(10 / 64, 54 / 64, 10 / 64, 54 / 64)
+            f.cityFlags[key] = { frame = flagFrame, tex = tex }
         end
     end
 
+    -- 2. Figure out what map we're on and update visibility
+    local activeCityKey, activeCityData = GetCityDataForZone(f.currentMapID)
+
+    local playerMap = C_Map.GetBestMapForUnit("player")
+    local playerInCityID = nil
+    for k, d in pairs(cityDataByZone) do
+        if d.id == playerMap then
+            playerInCityID = playerMap; break
+        end
+    end
+
+    for key, flagObj in pairs(f.cityFlags) do
+        local data = cityDataByZone[key]
+
+        if f.currentMapID == 947 then
+            -- LOGIC A: We are on the world map -> Show all flags
+            flagObj.frame:Show()
+            flagObj.baseOpacity = (playerInCityID and data.id ~= playerInCityID) and 0.3 or 1.0
+            flagObj.tex:SetDesaturated(false)
+            flagObj.tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity)
+
+            local baseWidth = (data.status == "Alliance") and (24 * 1.15) or 24
+            flagObj.frame:SetSize(baseWidth / self.zoomLevel, 24 / self.zoomLevel)
+            flagObj.frame:ClearAllPoints()
+
+            local uiX, uiY = LogicalToUIPercent(data.x, data.y)
+            flagObj.frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", uiX * contentW, -uiY * contentH)
+        elseif key == activeCityKey and data.zoneX and data.zoneY then
+            -- LOGIC B: We are on a zone map, and this specific city belongs here -> Show local flag
+            flagObj.frame:Show()
+            flagObj.baseOpacity = 1.0
+            flagObj.tex:SetDesaturated(false)
+            flagObj.tex:SetVertexColor(1, 1, 1, 1.0)
+
+            local baseWidth = (data.status == "Alliance") and (24 * 1.15) or 24
+            flagObj.frame:SetSize(baseWidth / self.zoomLevel, 24 / self.zoomLevel)
+            flagObj.frame:ClearAllPoints()
+            flagObj.frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", data.zoneX * contentW, -data.zoneY * contentH)
+        else
+            -- LOGIC C: Hide for all other scenarios
+            flagObj.frame:Hide()
+        end
+    end
+
+    -- 3. Custom Pins
     if not f.pinFrames then f.pinFrames = {} end
     if not f.customPins then f.customPins = {} end
     local maxIndex = math.max(#f.customPins, #f.pinFrames)
@@ -1094,6 +1197,7 @@ function f:UpdateMapTransform()
         end
     end
 
+    -- 4. Fog of War / Debug Dots
     if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID and T1_ZoneDB and f.showFogOfWar then
         if not f.debugDots then f.debugDots = {} end
 
@@ -1109,9 +1213,6 @@ function f:UpdateMapTransform()
                     dotBtn.tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_2")
 
                     dotBtn:SetScript("OnClick", function()
-                        f.zoomLevel = 1
-                        f.mapOffsetX = 0
-                        f.mapOffsetY = 0
                         f:LoadMap(zoneID)
                         if f.UpdateMapTransform then f:UpdateMapTransform() end
                     end)
@@ -1260,6 +1361,26 @@ function f:ZoomToZone(zoneID)
     end
 end
 
+local function GetDalaranLocalCoords(rawX, rawY)
+    -- 1. Convert Alterac (1416) local coords to World coords using the addon's zone math
+    local wX, wY = rawX, rawY
+    if T1_ZoneDB and T1_ZoneDB[1416] then
+        local zData = T1_ZoneDB[1416]
+        local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
+        if zData.x and zData.y then
+            wX = zData.x + ((rawX - 0.5) * zoneW)
+            wY = zData.y + ((0.5 - rawY) * (zoneW / 1.5))
+        end
+    end
+
+    -- 2. Apply the precise Affine Matrix (World -> Dalaran)
+    -- Solved exactly from your 3 coordinate pairs
+    local localX = (14.6444 * wX) - (32.8666 * wY) + 1.2725
+    local localY = (-33.2444 * wX) - (18.5333 * wY) + 15.0464
+
+    return localX, localY
+end
+
 function f:ZoomFitPlayerAndPin()
     if f.currentMapID ~= 947 then return end
 
@@ -1337,57 +1458,61 @@ end
 -- Live Trackers
 -- ==========================================
 local function IsCustomCityMap(mapID)
-    if not mapID or mapID <= 0 then return false end
+    if not mapID or mapID == 0 then return false end
     for _, data in pairs(cityDataByZone) do
-        if data.id == mapID and data.w and data.h then return true end
+        if data.id == mapID then return true end
     end
     return false
 end
 
 local function ConvertToCitySpace(unitMapID, rawX, rawY, targetCityID)
-    if not unitMapID or unitMapID <= 0 or not targetCityID or targetCityID <= 0 then return false, 0, 0 end
+    if not unitMapID or unitMapID <= 0 or not targetCityID or targetCityID == 0 then return false, 0, 0 end
+
     local cityData = nil
     for _, data in pairs(cityDataByZone) do
-        if data.id == targetCityID and data.w and data.h then
+        if data.id == targetCityID then
             cityData = data; break
         end
     end
     if not cityData then return false, 0, 0 end
 
+    local dx, dy = 0, 0
+
+    -- METHOD A: Player is inside the parent zone map (e.g. Alterac 1416)
+    if cityData.zoneID == unitMapID and cityData.zoneX and cityData.zoneY then
+        -- Get offset from the city flag center (Invert Y to standard Cartesian math)
+        dx = rawX - cityData.zoneX
+        dy = cityData.zoneY - rawY
+
+        -- Scale to the Dalaran texture dimensions using your tuning variables
+        local sX = cityData.cityScaleX or 5.0
+        local sY = cityData.cityScaleY or 5.0
+
+        return true, (dx * sX) + 0.5, 0.5 - (dy * sY)
+    end
+
+    -- METHOD B: Fallback if player is outside the zone but we need world-space translation
     if T1_ZoneDB and T1_ZoneDB[unitMapID] then
         local zData = T1_ZoneDB[unitMapID]
         local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
-
         if zData.x and zData.y then
             local worldX = zData.x + ((rawX - 0.5) * zoneW)
             local worldY = zData.y + ((0.5 - rawY) * (zoneW / 1.5))
 
-            local dx = (worldX - cityData.x)
-            local dy = (worldY - cityData.y)
-
-            local customScale = cityData.scale or 1
-            dx = dx * customScale
-            dy = dy * customScale
-
-            if targetCityID == 1416 then
-                local angle = math.rad(-66)
-                local cosA, sinA = math.cos(angle), math.sin(angle)
-                local rotX = (dx * cosA) - (dy * sinA)
-                local rotY = (dx * sinA) + (dy * cosA)
-                dx, dy = rotX, rotY
-            end
+            -- Removed the old 'scale' multiplier logic
+            dx = worldX - (cityData.x or 0)
+            dy = worldY - (cityData.y or 0)
 
             local cityW = (cityData.w and cityData.w > 0) and cityData.w or 0.14
-            local cityH = (cityData.h and cityData.h > 0) and cityData.h or cityW
+            local cityH = cityW / 1.5 -- Automatically compute height based on 1.5 map ratio
 
-            local localCityX = (dx / cityW) + 0.5
-            local localCityY = 0.5 - (dy / cityH)
-
-            return true, localCityX, localCityY
+            return true, (dx / cityW) + 0.5, 0.5 - (dy / cityH)
         end
     end
+
     return false, 0, 0
 end
+
 
 f.playerArrow = f.mapContent:CreateTexture(nil, "OVERLAY")
 f.playerArrow:SetTexture("Interface\\Minimap\\MinimapArrow")
@@ -1397,9 +1522,41 @@ f.playerArrowTracker = CreateFrame("Frame", nil, f.mapCanvas)
 f.playerArrowTracker:SetScript("OnUpdate", function()
     local hasValidData, pX, pY = false, 0, 0
     local currentZoneID = C_Map.GetBestMapForUnit("player")
+    
     if currentZoneID and currentZoneID > 0 then
         local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
         if pos and pos.x and pos.y then
+            
+            -- ==========================================
+            -- CONTINUOUS BOUNDARY AUTO-SWITCH LOGIC
+            -- ==========================================
+            if currentZoneID == 1416 then
+                local dalX, dalY = GetDalaranLocalCoords(pos.x, pos.y)
+                
+                -- Custom Bounding Box (X: 0.10 to 0.82, Y: 0.03 to 0.93)
+                local isInside = (dalX >= 0.10 and dalX <= 0.82 and dalY >= 0.03 and dalY <= 0.93)
+                
+                if f.lastDalaranState == nil then
+                    f.lastDalaranState = isInside
+                elseif f.lastDalaranState ~= isInside then
+                    f.lastDalaranState = isInside
+                    if f:IsShown() then
+                       if isInside and f.currentMapID ~= -1416 then
+                            -- Walked INTO Dalaran bounds -> Force open Dalaran
+                            f:LoadMap(-1416)
+                            if f.UpdateMapTransform then f:UpdateMapTransform() end
+                        elseif not isInside and f.currentMapID == -1416 then
+                            -- Walked OUT of Dalaran bounds -> Return directly to World Map
+                            f:LoadMap(947) 
+                            if f.UpdateMapTransform then f:UpdateMapTransform() end
+                        end
+                    end
+                end
+            else
+                f.lastDalaranState = nil
+            end
+            -- ==========================================
+
             if f.currentMapID == 947 then
                 if T1_ZoneDB and T1_ZoneDB[currentZoneID] then
                     local zoneData = T1_ZoneDB[currentZoneID]
@@ -1410,6 +1567,9 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
                         hasValidData = true
                     end
                 end
+            elseif f.currentMapID == -1416 and currentZoneID == 1416 then
+                pX, pY = GetDalaranLocalCoords(pos.x, pos.y)
+                hasValidData = true
             elseif IsCustomCityMap(f.currentMapID) then
                 hasValidData, pX, pY = ConvertToCitySpace(currentZoneID, pos.x, pos.y, f.currentMapID)
             elseif f.currentMapID == currentZoneID then
@@ -1421,9 +1581,12 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
     if hasValidData then
         f.playerArrow:Show()
         f.playerArrow:SetSize(32 / f.zoomLevel, 32 / f.zoomLevel)
+        
         local facing = GetPlayerFacing()
         if facing then
-            if f.currentMapID == 1416 then facing = facing - math.rad(-66) end
+            if f.currentMapID == -1416 then 
+                facing = facing + math.rad(61.5) 
+            end
             f.playerArrow:SetRotation(facing)
         end
         f.playerArrow.pX, f.playerArrow.pY = pX, pY
@@ -1433,13 +1596,120 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
             drawUI_X, drawUI_Y = LogicalToUIPercent(pX, pY)
         end
 
-        f.playerArrow:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * f.mapContent:GetWidth(),
-            -drawUI_Y * f.mapContent:GetHeight())
+        f.playerArrow:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * f.mapContent:GetWidth(), -drawUI_Y * f.mapContent:GetHeight())
     else
         f.playerArrow:Hide()
         f.playerArrow.pX, f.playerArrow.pY = nil, nil
     end
 end)
+
+
+if not f.partyTracker then f.partyTracker = CreateFrame("Frame", nil, f.mapCanvas) end
+
+f.partyTracker:SetScript("OnUpdate", function()
+    local contentW, contentH = f.mapContent:GetWidth(), f.mapContent:GetHeight()
+    for i = 1, 4 do
+        local unit, pf, showPartyMember, drawX, drawY = "party" .. i, f.partyFrames[i], false, 0, 0
+        if UnitExists(unit) and UnitIsConnected(unit) then
+            local unitMapID = C_Map.GetBestMapForUnit(unit)
+            if unitMapID and unitMapID > 0 then
+                local pos = C_Map.GetPlayerMapPosition(unitMapID, unit)
+                if pos and pos.x and pos.y then
+                    if f.currentMapID == 947 then
+                        if T1_ZoneDB and T1_ZoneDB[unitMapID] then
+                            local zData = T1_ZoneDB[unitMapID]
+                            local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
+                            if zData.x and zData.y then
+                                drawX = zData.x + ((pos.x - 0.5) * zoneW)
+                                drawY = zData.y + ((0.5 - pos.y) * (zoneW / 1.5))
+                                showPartyMember = true
+                            end
+                        end
+                    elseif f.currentMapID == -1416 and unitMapID == 1416 then
+                        drawX, drawY = GetDalaranLocalCoords(pos.x, pos.y)
+                        showPartyMember = true
+                    elseif IsCustomCityMap(f.currentMapID) then
+                        showPartyMember, drawX, drawY = ConvertToCitySpace(unitMapID, pos.x, pos.y, f.currentMapID)
+                    elseif f.currentMapID == unitMapID then
+                        drawX, drawY, showPartyMember = pos.x, pos.y, true
+                    end
+                end
+            end
+        end
+        if showPartyMember then
+            local _, classFilename = UnitClass(unit)
+            if classFilename and RAID_CLASS_COLORS[classFilename] then
+                local c = RAID_CLASS_COLORS[classFilename]
+                pf.tex:SetVertexColor(c.r, c.g, c.b, 1)
+            else
+                pf.tex:SetVertexColor(0.5, 0.5, 1, 1)
+            end
+            pf.pX, pf.pY = drawX, drawY
+
+            local drawUI_X, drawUI_Y = drawX, drawY
+            if f.currentMapID == 947 then
+                drawUI_X, drawUI_Y = LogicalToUIPercent(drawX, drawY)
+            end
+
+            pf:Show()
+            pf:SetSize(16 / f.zoomLevel, 16 / f.zoomLevel)
+            if pf.SetScale then pf:SetScale(1) end
+            pf:ClearAllPoints()
+            pf:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * contentW, -drawUI_Y * contentH)
+        else
+            pf:Hide()
+            pf.pX, pf.pY = nil, nil
+        end
+    end
+end)
+
+if not f.deathTracker then f.deathTracker = CreateFrame("Frame", nil, f.mapCanvas) end
+f.deathTracker:SetScript("OnUpdate", function()
+    local hasCorpse, cX, cY = false, 0, 0
+
+    if UnitIsDeadOrGhost("player") then
+        local currentZoneID = C_Map.GetBestMapForUnit("player")
+        if currentZoneID and currentZoneID > 0 and C_DeathInfo then
+            local corpsePos = C_DeathInfo.GetCorpseMapPosition and C_DeathInfo.GetCorpseMapPosition(currentZoneID)
+            if corpsePos and corpsePos.x and corpsePos.y then
+                if f.currentMapID == 947 then
+                    if T1_ZoneDB and T1_ZoneDB[currentZoneID] then
+                        local zData = T1_ZoneDB[currentZoneID]
+                        local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
+                        if zData.x and zData.y then
+                            cX = zData.x + ((corpsePos.x - 0.5) * zoneW)
+                            cY = zData.y + ((0.5 - corpsePos.y) * (zoneW / 1.5))
+                            hasCorpse = true
+                        end
+                    end
+                elseif f.currentMapID == -1416 and currentZoneID == 1416 then
+                    cX, cY = GetDalaranLocalCoords(corpsePos.x, corpsePos.y)
+                    hasCorpse = true
+                elseif IsCustomCityMap(f.currentMapID) then
+                    hasCorpse, cX, cY = ConvertToCitySpace(currentZoneID, corpsePos.x, corpsePos.y, f.currentMapID)
+                elseif f.currentMapID == currentZoneID then
+                    cX, cY, hasCorpse = corpsePos.x, corpsePos.y, true
+                end
+            end
+        end
+    end
+
+    local contentW, contentH = f.mapContent:GetWidth(), f.mapContent:GetHeight()
+    if hasCorpse then
+        local drawUI_X, drawUI_Y = cX, cY
+        if f.currentMapID == 947 then
+            drawUI_X, drawUI_Y = LogicalToUIPercent(cX, cY)
+        end
+        f.corpseFrame:Show()
+        f.corpseFrame:SetSize(12 / f.zoomLevel, 12 / f.zoomLevel)
+        if f.corpseFrame.SetScale then f.corpseFrame:SetScale(1) end
+        f.corpseFrame:ClearAllPoints()
+        f.corpseFrame:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * contentW, -drawUI_Y * contentH)
+    else
+        f.corpseFrame:Hide()
+    end
+end)
+
 
 if not f.partyFrames then
     f.partyFrames = {}
@@ -1464,6 +1734,9 @@ if not f.partyFrames then
 end
 
 f.partyTracker = CreateFrame("Frame", nil, f.mapCanvas)
+
+
+if not f.partyTracker then f.partyTracker = CreateFrame("Frame", nil, f.mapCanvas) end
 f.partyTracker:SetScript("OnUpdate", function()
     local contentW, contentH = f.mapContent:GetWidth(), f.mapContent:GetHeight()
     for i = 1, 4 do
@@ -1525,6 +1798,8 @@ f.corpseTex:SetAllPoints()
 f.corpseTex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
 
 f.deathTracker = CreateFrame("Frame", nil, f.mapCanvas)
+
+if not f.deathTracker then f.deathTracker = CreateFrame("Frame", nil, f.mapCanvas) end
 f.deathTracker:SetScript("OnUpdate", function()
     local hasCorpse, cX, cY = false, 0, 0
 
@@ -1570,30 +1845,42 @@ end)
 
 if not f.flagHoverTracker then f.flagHoverTracker = CreateFrame("Frame", nil, f.mapCanvas) end
 f.flagHoverTracker:SetScript("OnUpdate", function()
-    if f.currentMapID ~= 947 or not f.cityFlags then return end
-    local rawX, rawY = GetCursorPosition()
-    local mapScale = f.mapContent:GetEffectiveScale()
-    local left, top = f.mapContent:GetLeft(), f.mapContent:GetTop()
-    if not left or not top then return end
+    if not f.cityFlags then return end
 
-    local pctX = ((rawX / mapScale) - left) / f.mapContent:GetWidth()
-    local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
-    local logicalMouseX, logicalMouseY = UIPercentToLogical(pctX, pctY)
+    if f.currentMapID == 947 then
+        local rawX, rawY = GetCursorPosition()
+        local mapScale = f.mapContent:GetEffectiveScale()
+        local left, top = f.mapContent:GetLeft(), f.mapContent:GetTop()
+        if not left or not top then return end
 
-    local CLICK_RADIUS_SQ = 0.00015 / (f.zoomLevel * f.zoomLevel)
+        local pctX = ((rawX / mapScale) - left) / f.mapContent:GetWidth()
+        local pctY = (top - (rawY / mapScale)) / f.mapContent:GetHeight()
+        local logicalMouseX, logicalMouseY = UIPercentToLogical(pctX, pctY)
+        local CLICK_RADIUS_SQ = 0.0006 / (f.zoomLevel * f.zoomLevel)
 
-    for key, flagObj in pairs(f.cityFlags) do
-        if cityDataByZone[key] then
-            local dx = (cityDataByZone[key].x or 0) - logicalMouseX
-            local dy = (cityDataByZone[key].y or 0) - logicalMouseY
-            if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
-                flagObj.tex:SetVertexColor(1, 1, 1, 0.7)
+        for key, flagObj in pairs(f.cityFlags) do
+            if cityDataByZone[key] then
+                local dx = (cityDataByZone[key].x or 0) - logicalMouseX
+                local dy = (cityDataByZone[key].y or 0) - logicalMouseY
+                if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
+                    flagObj.tex:SetVertexColor(1, 1, 1, 0.7)
+                else
+                    flagObj.tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity or 1)
+                end
+            end
+        end
+    else
+        local cityKey = GetCityDataForZone(f.currentMapID)
+        if cityKey and f.cityFlags[cityKey] then
+            if f.mapCanvas.hoveredCityID then
+                f.cityFlags[cityKey].tex:SetVertexColor(1, 1, 1, 0.7)
             else
-                flagObj.tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity or 1)
+                f.cityFlags[cityKey].tex:SetVertexColor(1, 1, 1, 1.0)
             end
         end
     end
 end)
+
 
 -- ==========================================
 -- Init & Slash Commands
@@ -1612,7 +1899,7 @@ _G.func_ToggleT1Window = function(mapID)
             f:Hide()
         else
             local playerMap = C_Map.GetBestMapForUnit("player")
-            local defaultMap = (playerMap and playerMap == 1416) and 1416 or 947
+            local defaultMap = (playerMap and playerMap == 1416) and -1416 or 947
 
             f:LoadMap(defaultMap)
             if defaultMap == 947 and playerMap and playerMap > 0 then
@@ -1653,6 +1940,7 @@ f:SetScript("OnShow", function(self)
     if self.UpdateMapTransform then self:UpdateMapTransform() end
 end)
 
+
 -- ==========================================
 -- Auto-Refresh Mist Maps on Exploration
 -- ==========================================
@@ -1680,6 +1968,7 @@ f.zoneTracker:RegisterEvent("ZONE_CHANGED_INDOORS")
 f.zoneTracker:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 f.lastPlayerZone = nil
+
 f.zoneTracker:SetScript("OnEvent", function()
     local currentPlayerZone = C_Map.GetBestMapForUnit("player")
     if not currentPlayerZone or currentPlayerZone <= 0 then return end
@@ -1688,16 +1977,20 @@ f.zoneTracker:SetScript("OnEvent", function()
     if not f:IsShown() then return end
 
     local MY_CUSTOM_WORLD_MAP_ID = 947
+    
     if currentPlayerZone == 1416 then
-        f.zoomLevel = 1
-        f.mapOffsetX = 0
-        f.mapOffsetY = 0
-        f.targetOffsetX = nil
-        f.targetOffsetY = nil
-        f.velocityX = 0
-        f.velocityY = 0
-        f:LoadMap(currentPlayerZone)
-        if f.UpdateMapTransform then f:UpdateMapTransform() end
+        local pos = C_Map.GetPlayerMapPosition(1416, "player")
+        if pos and pos.x and pos.y then
+            local dalX, dalY = GetDalaranLocalCoords(pos.x, pos.y)
+            local isInside = (dalX >= 0.10 and dalX <= 0.82 and dalY >= 0.03 and dalY <= 0.93)
+            
+            if isInside then
+                f:LoadMap(-1416)
+            else
+                f:LoadMap(MY_CUSTOM_WORLD_MAP_ID) -- Opens World Map if outside Dalaran in Alterac
+            end
+            if f.UpdateMapTransform then f:UpdateMapTransform() end
+        end
     elseif f.currentMapID ~= MY_CUSTOM_WORLD_MAP_ID then
         f:LoadMap(MY_CUSTOM_WORLD_MAP_ID)
         if f.ZoomToZone then f:ZoomToZone(currentPlayerZone) end
