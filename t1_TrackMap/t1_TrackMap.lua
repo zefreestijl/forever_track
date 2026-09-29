@@ -487,7 +487,6 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
             local pctY = (top - mapY) / f.mapContent:GetHeight()
 
             if pctX >= 0 and pctX <= 1 and pctY >= 0 and pctY <= 1 then
-                
                 if f.currentMapID == 947 then
                     local logicalX, logicalY = UIPercentToLogical(pctX, pctY)
 
@@ -501,20 +500,19 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                             -- STRICT SHAPE HOVERING: Only check zones with polygon data
                             if data.loops and data.bounds then
                                 -- 1. Fast Bounding Box Check
-                                if logicalX >= data.bounds.minX and logicalX <= data.bounds.maxX and 
-                                   logicalY >= data.bounds.minY and logicalY <= data.bounds.maxY then
-                                   
+                                if logicalX >= data.bounds.minX and logicalX <= data.bounds.maxX and
+                                    logicalY >= data.bounds.minY and logicalY <= data.bounds.maxY then
                                     -- 2. Pixel-perfect Ray-casting Check
                                     if IsPointInPolygon(logicalX, logicalY, data.loops) then
                                         closestZone = data.zone
                                         closestComment = data.comment or ""
                                         closestID = id
-                                        
+
                                         -- Calculate relative coordinates for the tooltip display
                                         local zoneW = (data.w and data.w > 0) and data.w or 0.05
                                         hoverLocalX = ((logicalX - data.x) / zoneW) + 0.5
                                         hoverLocalY = ((data.y - logicalY) / (zoneW / 1.5)) + 0.5
-                                        
+
                                         foundPolygonZone = true
                                         break -- We found the hovered zone, stop searching!
                                     end
@@ -551,7 +549,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                     if not self.isDragging then ResetCursor() end
 
                     local headerText = (closestID == "???") and "|cffaaaaaa#???|r" or
-                    string.format("|cffaaaaaa#%s (%.0f, %.0f)|r", closestID, hoverLocalX * 100, hoverLocalY * 100)
+                        string.format("|cffaaaaaa#%s (%.0f, %.0f)|r", closestID, hoverLocalX * 100, hoverLocalY * 100)
 
                     if closestComment ~= "" then
                         f.cursorTooltip.text:SetFormattedText("%s\n%s%s\n%s\n%.3f, %.3f|r", headerText, colorCode,
@@ -637,7 +635,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
             else
                 f.cursorTooltip:Hide()
                 if not self.isDragging then ResetCursor() end
-                
+
                 -- NEW: Clear outline when mouse leaves valid map bounds
                 if self.hoveredMapID ~= nil then
                     self.hoveredMapID = nil
@@ -649,7 +647,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
     else
         f.cursorTooltip:Hide()
         if not self.isDragging then ResetCursor() end
-        
+
         -- NEW: Clear outline when mouse leaves canvas entirely
         if self.hoveredMapID ~= nil then
             self.hoveredMapID = nil
@@ -838,7 +836,7 @@ function f:DrawHoverPolygon(zoneID)
             end
 
             line:SetThickness(2 / f.zoomLevel)
-            line:SetColorTexture(0, 0, 0, 1) -- Black stroke
+            line:SetColorTexture(0, 0, 0, 0.5) -- Black stroke
 
             local uiX1, uiY1 = LogicalToUIPercent(pt1.x, pt1.y)
             local uiX2, uiY2 = LogicalToUIPercent(pt2.x, pt2.y)
@@ -944,7 +942,6 @@ function f:UpdateMapTransform()
                 playerInCityID = playerMap; break
             end
         end
-
         for key, flagObj in pairs(f.cityFlags) do
             flagObj.frame:Show()
 
@@ -967,7 +964,9 @@ function f:UpdateMapTransform()
             flagObj.frame:ClearAllPoints()
 
             local uiX, uiY = LogicalToUIPercent(flagObj.x, flagObj.y)
-            flagObj.frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", uiX * contentW, -uiY * contentH)
+
+            -- FIX: Change "CENTER" to "BOTTOM" to lock the base of the flag to the map point
+            flagObj.frame:SetPoint("BOTTOM", self.mapContent, "TOPLEFT", uiX * contentW, -uiY * contentH)
         end
     else
         if f.cityFlags then
