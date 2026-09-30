@@ -273,6 +273,24 @@ f:SetScript("OnSizeChanged", function(self)
         local currentMin, _ = self.zoomSlider:GetMinMaxValues()
         self.zoomSlider:SetMinMaxValues(currentMin, self.GetDynamicMaxZoom and self:GetDynamicMaxZoom() or 20)
     end
+    if self.currentMapID == 947 and self.worldMapTiles then
+        local numCols, numRows = 3, 3
+        local tileW = self.mapContent:GetWidth() / numCols
+        local tileH = self.mapContent:GetHeight() / numRows
+        local tileIndex = 1
+        
+        for r = 0, numRows - 1 do
+            for c = 0, numCols - 1 do
+                local tile = self.worldMapTiles[tileIndex]
+                if tile then
+                    tile:SetSize(tileW, tileH)
+                    tile:ClearAllPoints()
+                    tile:SetPoint("TOPLEFT", self.mapContent, "TOPLEFT", c * tileW, -(r * tileH))
+                end
+                tileIndex = tileIndex + 1
+            end
+        end
+    end
 end)
 
 -- ==========================================
@@ -324,30 +342,63 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
         elseif button == "MiddleButton" then
             local currentTime = GetTime()
             if self.lastMiddleClickTime and (currentTime - self.lastMiddleClickTime < 0.3) then
+                -- ==========================================
+                -- DOUBLE CLICK: Fit to whole world map
+                -- ==========================================
                 self.lastMiddleClickTime = 0
+
+                f.savedWorldZoom = nil
+                if f.currentMapID ~= 947 then
+                    f:LoadMap(947)
+                end
+
                 local canvasW, canvasH = self:GetSize()
                 local contentW, contentH = f.mapContent:GetSize()
                 if canvasW and canvasH and contentW and contentH then
-                    local fitScale = math.min(canvasW / contentW, canvasH / contentH)
-                    if fitScale < 1 then fitScale = 1 end
-                    local maxZ = f.GetDynamicMaxZoom and f:GetDynamicMaxZoom() or 10
-                    if fitScale > maxZ then fitScale = maxZ end
+                    local fitScale = math.max(canvasW / contentW, canvasH / contentH)
+
                     f.targetZoom = fitScale
                     f.targetOffsetX = ((canvasW - (contentW * fitScale)) / 2) / fitScale
                     f.targetOffsetY = (-(canvasH - (contentH * fitScale)) / 2) / fitScale
                     if f.zoomSmoother then f.zoomSmoother:Show() end
                 end
             else
+                -- ==========================================
+                -- SINGLE CLICK: Center on player on world map
+                -- ==========================================
                 self.lastMiddleClickTime = currentTime
-                local playerMap = C_Map.GetBestMapForUnit("player")
-                if playerMap and playerMap > 0 then
-                    f.savedWorldZoom = nil -- ADD THIS LINE to force a fresh reset
-                    f:LoadMap(playerMap)
+                local currentZoneID = C_Map.GetBestMapForUnit("player")
+
+                if currentZoneID and currentZoneID > 0 then
+                    f.savedWorldZoom = nil
+                    if f.currentMapID ~= 947 then
+                        f:LoadMap(947)
+                    end
+
+                    local wX, wY = nil, nil
+                    local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
+
+                    -- Compute World Map coordinates safely using addon's internal zone DB
+                    if pos and pos.x and pos.y and T1_ZoneDB and T1_ZoneDB[currentZoneID] then
+                        local zData = T1_ZoneDB[currentZoneID]
+                        local zW = (zData.w and zData.w > 0) and zData.w or 0.05
+                        if zData.x and zData.y then
+                            wX = zData.x + ((pos.x - 0.5) * zW)
+                            wY = zData.y + ((0.5 - pos.y) * (zW / 1.5))
+                        end
+                    end
+
+                    if wX and wY then
+                        -- Convert logical coordinates to UI percentage and smoothly zoom
+                        local uiX, uiY = LogicalToUIPercent(wX, wY)
+                        f:ZoomToPoint(uiX, uiY, 8)
+                    else
+                        -- Fallback for zones without DB data
+                        f:ZoomToZone(currentZoneID)
+                    end
                 end
             end
             if f.UpdateMapTransform then f:UpdateMapTransform() end
-
-            -- UNIFIED CLICK LOGIC: Loads exactly what the tooltip was showing
         elseif button == "LeftButton" then
             if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
                 local targetMapID = self.hoveredMapID
@@ -707,15 +758,15 @@ function f:DrawHoverPolygon(zoneID)
     end
 end
 
+
 -- ==========================================
 -- Map Loading & Fog of War Rendering
 -- ==========================================
-f.mapTiles = {}
+f.blizzardTiles = {}
 
 function f:LoadMap(mapID)
     if not mapID or (mapID <= 0 and mapID ~= -1416) then return end
 
-    --local targetZoomZone = nil
     if mapID ~= 947 and mapID ~= -1416 and not C_Map.GetMapArtLayers(mapID) then
         return
     end
@@ -737,24 +788,18 @@ function f:LoadMap(mapID)
             f.targetZoom = f.savedTargetZoom or f.savedWorldZoom
         end
     else
-        -- Auto-reset when entering any zone/city map
         f.zoomLevel = 1
         f.mapOffsetX = 0
         f.mapOffsetY = 0
         f.targetZoom = 1
     end
 
-    -- Clear lingering mouse friction/motion
     f.targetOffsetX = nil
     f.targetOffsetY = nil
     f.velocityX = 0
     f.velocityY = 0
 
     f.currentMapID = mapID
-
-
-    for _, tile in ipairs(f.mapTiles) do tile:Hide() end
-    wipe(f.mapTiles)
 
     if f.MapToggleButton then
         if mapID == 947 then
@@ -764,25 +809,60 @@ function f:LoadMap(mapID)
         end
     end
 
+    -- ==========================================
+    -- CACHED TEXTURE POOL
+    -- ==========================================
+    -- Hide all custom and standard tiles before rendering the new map
+    if f.worldMapTiles then
+        for _, tile in ipairs(f.worldMapTiles) do tile:Hide() end
+    end
+    if f.dalaranMapTile then f.dalaranMapTile:Hide() end
+    for _, tile in ipairs(f.blizzardTiles) do tile:Hide() end
+
     if mapID == 947 then
-        local customTile = f.mapContent:CreateTexture(nil, "BACKGROUND")
-        customTile:SetAllPoints(f.mapContent)
-        customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-0.0.1.tga")
+        -- Initialize the 9 tiles once
+        if not f.worldMapTiles then
+            f.worldMapTiles = {}
+            for i = 1, 9 do
+                local tile = f.mapContent:CreateTexture(nil, "BACKGROUND")
+                tile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-" .. i .. ".tga")
+                f.worldMapTiles[i] = tile
+            end
+        end
 
-        f.worldMapTile = customTile
-        table.insert(f.mapTiles, customTile)
+        -- Calculate dimensions for a 3x3 grid based on current map content size
+        local numCols, numRows = 3, 3
+        local tileW = f.mapContent:GetWidth() / numCols
+        local tileH = f.mapContent:GetHeight() / numRows
+        local tileIndex = 1
+
+        -- Position and display the grid
+        for r = 0, numRows - 1 do
+            for c = 0, numCols - 1 do
+                local tile = f.worldMapTiles[tileIndex]
+                tile:SetSize(tileW, tileH)
+                tile:ClearAllPoints()
+                tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", c * tileW, -(r * tileH))
+                tile:Show()
+                tileIndex = tileIndex + 1
+            end
+        end
+
     elseif mapID == -1416 then
-        local customTile = f.mapContent:CreateTexture(nil, "BACKGROUND")
-        customTile:SetAllPoints(f.mapContent)
-        customTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\dalaran.tga")
-        customTile:SetDesaturated(false)
-        customTile:SetVertexColor(1, 1, 1, 1)
+        if not f.dalaranMapTile then
+            f.dalaranMapTile = f.mapContent:CreateTexture(nil, "BACKGROUND")
+            f.dalaranMapTile:SetAllPoints(f.mapContent)
+            f.dalaranMapTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\dalaran.tga")
+        end
+        f.dalaranMapTile:SetDesaturated(false)
+        f.dalaranMapTile:SetVertexColor(1, 1, 1, 1)
+        f.dalaranMapTile:Show()
 
-        f.dalaranMapTile = customTile
-        table.insert(f.mapTiles, customTile)
     else
+        -- Pool and reuse standard Blizzard map layers
         local layers = C_Map.GetMapArtLayers(mapID)
         if layers and #layers > 0 then
+            local textureIndex = 1
             for layerIndex, layerInfo in ipairs(layers) do
                 local textures = C_Map.GetMapArtLayerTextures(mapID, layerIndex)
                 if textures then
@@ -791,19 +871,24 @@ function f:LoadMap(mapID)
                     local scaleX = f.mapContent:GetWidth() / layerInfo.layerWidth
                     local scaleY = f.mapContent:GetHeight() / layerInfo.layerHeight
 
-                    local textureIndex = 1
                     for row = 1, numRows do
                         for col = 1, numCols do
                             if textureIndex > #textures then break end
-                            local tile = f.mapContent:CreateTexture(nil, "BACKGROUND")
+                            
+                            local tile = f.blizzardTiles[textureIndex]
+                            if not tile then
+                                tile = f.mapContent:CreateTexture(nil, "BACKGROUND")
+                                f.blizzardTiles[textureIndex] = tile
+                            end
+
                             tile:SetDrawLayer("BACKGROUND", layerIndex - 1)
                             local tileWidth = layerInfo.tileWidth * scaleX
                             local tileHeight = layerInfo.tileHeight * scaleY
                             tile:SetSize(tileWidth, tileHeight)
-                            tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", (col - 1) * tileWidth,
-                                -(row - 1) * tileHeight)
+                            tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", (col - 1) * tileWidth, -(row - 1) * tileHeight)
                             tile:SetTexture(textures[textureIndex])
-                            table.insert(f.mapTiles, tile)
+                            tile:Show()
+
                             textureIndex = textureIndex + 1
                         end
                     end
@@ -814,6 +899,9 @@ function f:LoadMap(mapID)
 
     if f.RefreshFogOfWar then f:RefreshFogOfWar() end
 end
+
+
+
 
 if not f.exploredTexturePool then
     f.exploredTexturePool = CreateTexturePool(f.mapContent, "ARTWORK")
@@ -967,6 +1055,9 @@ function f:DrawExploredZone(zoneID)
 end
 
 function f:RefreshFogOfWar()
+    -- Clear any pending fog updates to prevent drawing over new maps
+    f.fogQueue = {}
+
     if f.exploredTexturePool then
         for tex in f.exploredTexturePool:EnumerateActive() do
             if tex.activeMask then
@@ -984,35 +1075,59 @@ function f:RefreshFogOfWar()
     end
     f.exploredMaskIndex = 1
 
-    if f.worldMapTile and f.currentMapID == 947 then
-        if f.showFogOfWar then
-            f.worldMapTile:SetDesaturated(true)
-            f.worldMapTile:SetVertexColor(0.25, 0.25, 0.25)
-        else
-            f.worldMapTile:SetDesaturated(false)
-            f.worldMapTile:SetVertexColor(1, 1, 1)
+  
+    if f.worldMapTiles and f.currentMapID == 947 then
+        for _, tile in ipairs(f.worldMapTiles) do
+            if f.showFogOfWar then
+                tile:SetDesaturated(true)
+                tile:SetVertexColor(0.25, 0.25, 0.25)
+            else
+                tile:SetDesaturated(false)
+                tile:SetVertexColor(1, 1, 1)
+            end
         end
     end
 
     if f.currentMapID ~= 947 and f.currentMapID ~= -1416 then
-        for _, tile in ipairs(f.mapTiles) do
+        for _, tile in ipairs(f.blizzardTiles) do
             tile:SetDesaturated(false)
             tile:SetVertexColor(1, 1, 1)
         end
     end
 
+
     if f.currentMapID == 947 then
         if f.showFogOfWar and T1_ZoneDB then
+            -- Instead of drawing all zones synchronously, queue them up
             for zoneID, _ in pairs(T1_ZoneDB) do
                 if tonumber(zoneID) and tonumber(zoneID) > 0 then
-                    f:DrawExploredZone(tonumber(zoneID))
+                    table.insert(f.fogQueue, tonumber(zoneID))
                 end
             end
         end
     elseif f.currentMapID ~= -1416 and f.currentMapID > 0 then
+        -- Single zone maps are fast enough to draw instantly
         f:DrawExploredZone(f.currentMapID)
     end
 end
+
+-- ==========================================
+-- Asynchronous Fog of War Loader
+-- ==========================================
+if not f.fogLoader then f.fogLoader = CreateFrame("Frame", nil, f) end
+f.fogLoader:SetScript("OnUpdate", function(self, elapsed)
+    if f.fogQueue and #f.fogQueue > 0 then
+        -- Process 3 zones per frame (you can tune this number up or down)
+        local zonesToProcess = math.min(3, #f.fogQueue)
+        for i = 1, zonesToProcess do
+            local zoneID = table.remove(f.fogQueue) -- Removes from the end of the table for O(1) speed
+            if zoneID then
+                f:DrawExploredZone(zoneID)
+            end
+        end
+    end
+end)
+
 
 -- ==========================================
 -- Zoom & Pan Logic (and Flags / Pins)
@@ -1522,32 +1637,31 @@ f.playerArrowTracker = CreateFrame("Frame", nil, f.mapCanvas)
 f.playerArrowTracker:SetScript("OnUpdate", function()
     local hasValidData, pX, pY = false, 0, 0
     local currentZoneID = C_Map.GetBestMapForUnit("player")
-    
+
     if currentZoneID and currentZoneID > 0 then
         local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
         if pos and pos.x and pos.y then
-            
             -- ==========================================
             -- CONTINUOUS BOUNDARY AUTO-SWITCH LOGIC
             -- ==========================================
             if currentZoneID == 1416 then
                 local dalX, dalY = GetDalaranLocalCoords(pos.x, pos.y)
-                
+
                 -- Custom Bounding Box (X: 0.10 to 0.82, Y: 0.03 to 0.93)
                 local isInside = (dalX >= 0.10 and dalX <= 0.82 and dalY >= 0.03 and dalY <= 0.93)
-                
+
                 if f.lastDalaranState == nil then
                     f.lastDalaranState = isInside
                 elseif f.lastDalaranState ~= isInside then
                     f.lastDalaranState = isInside
                     if f:IsShown() then
-                       if isInside and f.currentMapID ~= -1416 then
+                        if isInside and f.currentMapID ~= -1416 then
                             -- Walked INTO Dalaran bounds -> Force open Dalaran
                             f:LoadMap(-1416)
                             if f.UpdateMapTransform then f:UpdateMapTransform() end
                         elseif not isInside and f.currentMapID == -1416 then
                             -- Walked OUT of Dalaran bounds -> Return directly to World Map
-                            f:LoadMap(947) 
+                            f:LoadMap(947)
                             if f.UpdateMapTransform then f:UpdateMapTransform() end
                         end
                     end
@@ -1581,11 +1695,11 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
     if hasValidData then
         f.playerArrow:Show()
         f.playerArrow:SetSize(32 / f.zoomLevel, 32 / f.zoomLevel)
-        
+
         local facing = GetPlayerFacing()
         if facing then
-            if f.currentMapID == -1416 then 
-                facing = facing + math.rad(61.5) 
+            if f.currentMapID == -1416 then
+                facing = facing + math.rad(61.5)
             end
             f.playerArrow:SetRotation(facing)
         end
@@ -1596,7 +1710,8 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
             drawUI_X, drawUI_Y = LogicalToUIPercent(pX, pY)
         end
 
-        f.playerArrow:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * f.mapContent:GetWidth(), -drawUI_Y * f.mapContent:GetHeight())
+        f.playerArrow:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * f.mapContent:GetWidth(),
+            -drawUI_Y * f.mapContent:GetHeight())
     else
         f.playerArrow:Hide()
         f.playerArrow.pX, f.playerArrow.pY = nil, nil
@@ -1977,13 +2092,13 @@ f.zoneTracker:SetScript("OnEvent", function()
     if not f:IsShown() then return end
 
     local MY_CUSTOM_WORLD_MAP_ID = 947
-    
+
     if currentPlayerZone == 1416 then
         local pos = C_Map.GetPlayerMapPosition(1416, "player")
         if pos and pos.x and pos.y then
             local dalX, dalY = GetDalaranLocalCoords(pos.x, pos.y)
             local isInside = (dalX >= 0.10 and dalX <= 0.82 and dalY >= 0.03 and dalY <= 0.93)
-            
+
             if isInside then
                 f:LoadMap(-1416)
             else
