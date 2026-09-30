@@ -278,7 +278,7 @@ f:SetScript("OnSizeChanged", function(self)
         local tileW = self.mapContent:GetWidth() / numCols
         local tileH = self.mapContent:GetHeight() / numRows
         local tileIndex = 1
-        
+
         for r = 0, numRows - 1 do
             for c = 0, numCols - 1 do
                 local tile = self.worldMapTiles[tileIndex]
@@ -742,7 +742,8 @@ function f:DrawHoverPolygon(zoneID)
             end
 
             line:SetThickness(2 / f.zoomLevel)
-            line:SetColorTexture(0, 0, 0, .5)
+            -- RGB values set to a soft, sandy parchment color with 80% opacity
+            line:SetColorTexture(0.90, 0.82, 0.62, 0.5)
 
             local startX = (pt1.x / 1.5) * contentW
             local startY = pt1.y * contentH
@@ -758,7 +759,6 @@ function f:DrawHoverPolygon(zoneID)
     end
 end
 
-
 -- ==========================================
 -- Map Loading & Fog of War Rendering
 -- ==========================================
@@ -771,7 +771,6 @@ function f:LoadMap(mapID)
         return
     end
 
-    -- 1. Save state if leaving the world map
     if f.currentMapID == 947 and mapID ~= 947 then
         f.savedWorldZoom = f.zoomLevel
         f.savedWorldOffsetX = f.mapOffsetX
@@ -779,7 +778,6 @@ function f:LoadMap(mapID)
         f.savedTargetZoom = f.targetZoom
     end
 
-    -- 2. Restore state or reset depending on destination
     if mapID == 947 then
         if f.savedWorldZoom then
             f.zoomLevel = f.savedWorldZoom
@@ -809,9 +807,6 @@ function f:LoadMap(mapID)
         end
     end
 
-    -- ==========================================
-    -- CACHED TEXTURE POOL
-    -- ==========================================
     -- Hide all custom and standard tiles before rendering the new map
     if f.worldMapTiles then
         for _, tile in ipairs(f.worldMapTiles) do tile:Hide() end
@@ -820,33 +815,100 @@ function f:LoadMap(mapID)
     for _, tile in ipairs(f.blizzardTiles) do tile:Hide() end
 
     if mapID == 947 then
-        -- Initialize the 9 tiles once
-        if not f.worldMapTiles then
-            f.worldMapTiles = {}
-            for i = 1, 9 do
-                local tile = f.mapContent:CreateTexture(nil, "BACKGROUND")
-                tile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-" .. i .. ".tga")
-                f.worldMapTiles[i] = tile
-            end
-        end
-
-        -- Calculate dimensions for a 3x3 grid based on current map content size
         local numCols, numRows = 3, 3
-        local tileW = f.mapContent:GetWidth() / numCols
-        local tileH = f.mapContent:GetHeight() / numRows
-        local tileIndex = 1
+        if not f.worldMapTiles then f.worldMapTiles = {} end
 
-        -- Position and display the grid
+        -- 1. Queue all 9 indices without sorting them yet
+        f.baseMapQueue = {}
         for r = 0, numRows - 1 do
             for c = 0, numCols - 1 do
-                local tile = f.worldMapTiles[tileIndex]
-                tile:SetSize(tileW, tileH)
-                tile:ClearAllPoints()
-                tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", c * tileW, -(r * tileH))
-                tile:Show()
-                tileIndex = tileIndex + 1
+                local idx = r * numCols + c + 1
+                table.insert(f.baseMapQueue, { index = idx, row = r, col = c })
             end
         end
+
+        -- 2. Create the live-tracking asynchronous loader
+        if not f.baseMapLoader then
+            f.baseMapLoader = CreateFrame("Frame", nil, f)
+            f.baseMapLoader:SetScript("OnUpdate", function(self)
+                if not f.baseMapQueue or #f.baseMapQueue == 0 then
+                    self:Hide()
+                    return
+                end
+
+                -- Use native UI bounding boxes to find the true scaled map edges
+                local left = f.mapContent:GetLeft()
+                local right = f.mapContent:GetRight()
+                local top = f.mapContent:GetTop()
+                local bottom = f.mapContent:GetBottom()
+                
+                local canvasLeft = f.mapCanvas:GetLeft()
+                local canvasRight = f.mapCanvas:GetRight()
+                local canvasTop = f.mapCanvas:GetTop()
+                local canvasBottom = f.mapCanvas:GetBottom()
+                
+                -- Wait for anchors to resolve
+                if not left or not right or not top or not bottom or not canvasLeft then return end
+
+                local canvasCenterX = (canvasLeft + canvasRight) / 2
+                local canvasCenterY = (canvasTop + canvasBottom) / 2
+
+                -- Calculate the true physical dimensions of the zoomed map on screen
+                local effW = right - left
+                local effH = top - bottom
+                if effW <= 0 or effH <= 0 then return end
+
+                -- Now pctX and pctY accurately represent the camera focus on the scaled map
+                local pctX = math.max(0, math.min(1, (canvasCenterX - left) / effW))
+                local pctY = math.max(0, math.min(1, (top - canvasCenterY) / effH))
+
+                local targetCol = pctX * numCols
+                local targetRow = pctY * numRows
+
+                -- 3. Sort the remaining tiles dynamically against the live camera focus
+                table.sort(f.baseMapQueue, function(a, b)
+                    local distA = math.abs((a.row + 0.5) - targetRow) + math.abs((a.col + 0.5) - targetCol)
+                    local distB = math.abs((b.row + 0.5) - targetRow) + math.abs((b.col + 0.5) - targetCol)
+                    return distA < distB
+                end)
+
+                -- 4. Process 2 tiles per frame
+                -- Unscaled width/height must still be used to set the tile dimensions inside the container
+                local contentW = f.mapContent:GetWidth()
+                local contentH = f.mapContent:GetHeight()
+                local tileW = contentW / numCols
+                local tileH = contentH / numRows
+
+                for i = 1, 2 do
+                    if #f.baseMapQueue > 0 then
+                        local data = table.remove(f.baseMapQueue, 1) 
+                        local tile = f.worldMapTiles[data.index]
+                        
+                        if not tile then
+                            tile = f.mapContent:CreateTexture(nil, "BACKGROUND")
+                            f.worldMapTiles[data.index] = tile
+                        end
+
+                        tile:SetSize(tileW, tileH)
+                        tile:ClearAllPoints()
+                        tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", data.col * tileW, -(data.row * tileH))
+                        tile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-" .. data.index .. ".tga")
+                        
+                        if f.showFogOfWar then
+                            tile:SetDesaturated(true)
+                            tile:SetVertexColor(0.25, 0.25, 0.25)
+                        else
+                            tile:SetDesaturated(false)
+                            tile:SetVertexColor(1, 1, 1)
+                        end
+                        
+                        tile:Show()
+                    end
+                end
+            end)
+        end
+        
+        f.baseMapLoader:Show()
 
     elseif mapID == -1416 then
         if not f.dalaranMapTile then
@@ -857,9 +919,7 @@ function f:LoadMap(mapID)
         f.dalaranMapTile:SetDesaturated(false)
         f.dalaranMapTile:SetVertexColor(1, 1, 1, 1)
         f.dalaranMapTile:Show()
-
     else
-        -- Pool and reuse standard Blizzard map layers
         local layers = C_Map.GetMapArtLayers(mapID)
         if layers and #layers > 0 then
             local textureIndex = 1
@@ -874,7 +934,7 @@ function f:LoadMap(mapID)
                     for row = 1, numRows do
                         for col = 1, numCols do
                             if textureIndex > #textures then break end
-                            
+
                             local tile = f.blizzardTiles[textureIndex]
                             if not tile then
                                 tile = f.mapContent:CreateTexture(nil, "BACKGROUND")
@@ -899,9 +959,6 @@ function f:LoadMap(mapID)
 
     if f.RefreshFogOfWar then f:RefreshFogOfWar() end
 end
-
-
-
 
 if not f.exploredTexturePool then
     f.exploredTexturePool = CreateTexturePool(f.mapContent, "ARTWORK")
@@ -1075,7 +1132,7 @@ function f:RefreshFogOfWar()
     end
     f.exploredMaskIndex = 1
 
-  
+
     if f.worldMapTiles and f.currentMapID == 947 then
         for _, tile in ipairs(f.worldMapTiles) do
             if f.showFogOfWar then

@@ -2,8 +2,6 @@ T1_ZoneDB = {
     [1411] = { zone = "durotar", x = -0.2977, y = 0.0053, w = 0.1756, comment = "杜洛塔" },
     [1412] = { zone = "mulgore", x = -0.4306, y = -0.0511, w = 0.1376, comment = "莫高雷" },
     [1413] = { zone = "the-barrens", x = -0.3681, y = -0.0546, w = 0.3331, comment = "貧瘠之地" },
-    [1414] = { zone = "kalimdor", x = 0, y = 0, w = 0, comment = "" },
-    [1415] = { zone = "eastern-kingdoms", x = 0, y = 0, w = 0, comment = "" },
     [1416] = { zone = "alterac-mountains", x = 0.3716, y = 0.1859, w = 0.0955, comment = "奧特蘭克山脈" },
     [1417] = { zone = "arathi-highlands", x = 0.4406, y = 0.1209, w = 0.1216, comment = "阿拉希高地" },
     [1418] = { zone = "badlands", x = 0.4630, y = -0.0597, w = 0.0873, comment = "荒蕪之地" },
@@ -41,16 +39,9 @@ T1_ZoneDB = {
     [1450] = { zone = "moonglade", x = -0.3724, y = 0.2685, w = 0.0962, comment = "月光林地" },
     [1451] = { zone = "silithus", x = -0.4781, y = -0.2345, w = 0.1174, comment = "希利蘇斯" },
     [1452] = { zone = "winterspring", x = -0.3242, y = 0.2143, w = 0.2451, comment = "冬泉谷" },
-    [1453] = { zone = "stormwind-city", x = 0, y = 0, w = 0, comment = "" },
-    [1454] = { zone = "orgrimmar", x = 0, y = 0, w = 0, comment = "" },
-    [1455] = { zone = "ironforge", x = 0, y = 0, w = 0, comment = "" },
-    [1456] = { zone = "thunder-bluff", x = 0, y = 0, w = 0, comment = "" },
-    [1457] = { zone = "darnassus", x = 0, y = 0, w = 0, comment = "" },
-    [1458] = { zone = "undercity", x = 0, y = 0, w = 0, comment = "" },
     [2521] = { zone = "zephras-isle", x = 0.0078, y = 0.205, w = 0.2070, comment = "微風島" },
     [16601] = { zone = "hyial", x = -0.3683, y = 0.1754, w = 0.1175, comment = "海加爾山" },
     [2548] = { zone = "riverglades", x = 0.4927, y = -0.1084, w = 0.15, comment = "河川林地" },
     [16651] = { zone = "shendralas", x = -0.4868, y = -0.0815, w = 0.0705, comment = "辛德拉斯" },
-    [0] = { zone = "shimmering-flats", x = 0, y = 0, w = 0, comment = "閃光平原" },
-    
+
 }
