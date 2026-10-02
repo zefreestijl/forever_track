@@ -5,4 +5,9 @@
 ## Version: 0.1
 ## SavedVariables: T3_QST_DATA
 
+questie_db\classicQuestDB.lua
+questie_db\classicItemDB.lua
+questie_db\classicNpcDB.lua
+questie_db\classicObjectDB.lua
+
 t3_TrackQst.lua

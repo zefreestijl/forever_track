@@ -248,6 +248,13 @@ local function GetOrCreateLine(index)
     local btn = questLines[index]
     if not btn then
         btn = CreateFrame("Button", nil, content)
+
+        -- Add a tracking checkbox (hidden by default)
+        btn.trackBtn = CreateFrame("CheckButton", nil, btn, "UICheckButtonTemplate")
+        btn.trackBtn:SetSize(18, 18)
+        btn.trackBtn:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, -1)
+        btn.trackBtn:Hide()
+
         btn.text = btn:CreateFontString(nil, "OVERLAY")
         btn.text:SetPoint("TOPLEFT", btn, "TOPLEFT", 2, -2)
         btn.text:SetJustifyH("LEFT")
@@ -260,14 +267,20 @@ local function GetOrCreateLine(index)
         table.insert(questLines, btn)
     end
 
+    -- Reset state for recycled lines
     btn.bg:Hide()
     btn.bg:SetColorTexture(0.5, 0.5, 0.5, 0.25)
+    btn.trackBtn:Hide()
+    btn.trackBtn:SetScript("OnClick", nil)
+    btn.text:SetPoint("TOPLEFT", btn, "TOPLEFT", 2, -2)
+
     btn:SetScript("OnEnter", nil)
     btn:SetScript("OnLeave", nil)
     btn:SetScript("OnClick", nil)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     return btn
 end
+
 
 local function GetItemLinkSafe(typeStr, index, questID)
     if type(GetQuestLogItemLink) == "function" then
@@ -576,17 +589,76 @@ UpdateQuestList = function()
         local qBtn = GetOrCreateLine(lineIndex)
         qBtn:ClearAllPoints()
         qBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 20, yOffset)
+
+        local qBtn = GetOrCreateLine(lineIndex)
+        qBtn:ClearAllPoints()
+        qBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 0, yOffset)
+
+        -- Shift text to the right to make room for the checkbox
+        qBtn.text:SetPoint("TOPLEFT", qBtn, "TOPLEFT", 20, -2)
+        qBtn.text:SetWidth(scrollFrame:GetWidth() - 45)
+        qBtn.text:SetFontObject("GameFontHighlight")
+
+        -- Determine current tracking status
+        local isCurrentlyTracked = false
+        if type(C_QuestLog.GetQuestWatchType) == "function" then
+            isCurrentlyTracked = (C_QuestLog.GetQuestWatchType(questInfo.questID) ~= nil)
+        elseif type(IsQuestWatched) == "function" then
+            isCurrentlyTracked = IsQuestWatched(logIndex)
+        end
+
+        -- Configure Checkbox
+        qBtn.trackBtn:Show()
+        qBtn.trackBtn:SetChecked(isCurrentlyTracked)
+        qBtn.trackBtn:SetScript("OnClick", function(self)
+            local isChecked = self:GetChecked()
+            if not isChecked then
+                -- Clear SuperTrack and untrack
+                if type(C_SuperTrack) == "table" and type(C_SuperTrack.SetSuperTrackedQuestID) == "function" then
+                    if C_SuperTrack.GetSuperTrackedQuestID() == questInfo.questID then
+                        pcall(
+                            C_SuperTrack.SetSuperTrackedQuestID, 0)
+                    end
+                elseif type(SetSuperTrackedQuestID) == "function" then
+                    if GetSuperTrackedQuestID() == questInfo.questID then pcall(SetSuperTrackedQuestID, 0) end
+                end
+
+                if type(C_QuestLog.RemoveQuestWatch) == "function" then
+                    pcall(C_QuestLog.RemoveQuestWatch, questInfo.questID)
+                elseif type(RemoveQuestWatch) == "function" then
+                    pcall(RemoveQuestWatch, logIndex)
+                end
+            else
+                -- Add track
+                if type(C_QuestLog.AddQuestWatch) == "function" then
+                    pcall(C_QuestLog.AddQuestWatch, questInfo.questID)
+                elseif type(AddQuestWatch) == "function" then
+                    pcall(AddQuestWatch, logIndex)
+                end
+            end
+
+            if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
+                C_Timer.After(0.05, UpdateQuestList)
+            else
+                UpdateQuestList()
+            end
+        end)
+
         qBtn.text:SetWidth(scrollFrame:GetWidth() - 25)
         qBtn.text:SetFontObject("GameFontHighlight")
 
+
         local hexDiff = GetDifficultyColorHex(questInfo.level)
         local expandSymbol = expandedQuests[questInfo.questID] and "[-] " or "[+] "
-        local levelText = questInfo.level > 0 and ("[" .. questInfo.level .. "] ") or ""
+
+        -- Replaced the Level text with the Quest ID prefix
+        local idText = "[" .. questInfo.questID .. "] "
 
         local isReady = IsQuestReadySafe(questInfo, logIndex)
         local status = isReady and " |cFF00FF00" .. L.READY .. "|r" or ""
 
-        qBtn.text:SetText(hexDiff .. expandSymbol .. levelText .. questInfo.title .. "|r" .. status)
+        qBtn.text:SetText(hexDiff .. expandSymbol .. idText .. questInfo.title .. "|r" .. status)
+
 
         qBtn:SetScript("OnEnter", function(self)
             self.text:SetAlpha(0.7)
@@ -597,24 +669,93 @@ UpdateQuestList = function()
             -- Title & Basic Details
             GameTooltip:AddLine(questInfo.title, 1, 1, 1)
             GameTooltip:AddDoubleLine("Quest ID:", tostring(questInfo.questID), 0.7, 0.7, 0.7, 1, 0.82, 0)
+            GameTooltip:AddDoubleLine("Log Index:", tostring(logIndex), 0.7, 0.7, 0.7, 0.6, 0.6, 0.6)
 
             local questMapID = type(QuestUtils_GetQuestMapID) == "function" and
-            QuestUtils_GetQuestMapID(questInfo.questID) or nil
+                QuestUtils_GetQuestMapID(questInfo.questID) or nil
             if questMapID then
                 GameTooltip:AddDoubleLine("Map ID:", tostring(questMapID), 0.7, 0.7, 0.7, 0.3, 0.8, 1)
             end
 
-            GameTooltip:AddDoubleLine("Log Index:", tostring(logIndex), 0.7, 0.7, 0.7, 0.6, 0.6, 0.6)
 
-            -- Special Quest Action Item (if the quest provided an item to use)
-            if type(GetQuestLogSpecialItemInfo) == "function" then
-                local _, _, _, questItemID = pcall(GetQuestLogSpecialItemInfo, logIndex)
-                if questItemID then
-                    GameTooltip:AddDoubleLine("Quest Item ID:", tostring(questItemID), 0.7, 0.7, 0.7, 0.2, 1, 0.2)
+            -- ==========================================
+            -- T3_QuestDB Custom Data Hook
+            -- ==========================================
+            if T3_QuestDB and T3_QuestDB[questInfo.questID] then
+                local dbData = T3_QuestDB[questInfo.questID]
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine("T3_QuestDB Info:", 0.2, 1, 0.8)
+
+                if dbData.startedBy and #dbData.startedBy > 0 then
+                    -- Yellow ! mark
+                    GameTooltip:AddDoubleLine("|cFFFFFF00!|r Started By:", table.concat(dbData.startedBy, ", "), 1, 0.82,
+                        0, 1, 1, 1)
+                end
+
+                if dbData.finishedBy and #dbData.finishedBy > 0 then
+                    -- Yellow ? mark
+                    GameTooltip:AddDoubleLine("|cFFFFFF00?|r Finished By:", table.concat(dbData.finishedBy, ", "), 1,
+                        0.82, 0, 1, 1, 1)
+                end
+
+                if dbData.objectives and #dbData.objectives > 0 then
+                    local formattedObjs = {}
+                    local qType = dbData.type or 0
+                    local labelText = "DB Objectives:"
+
+                    -- Dynamically change the label text based on the type
+                    if qType == 1 then
+                        labelText = "DB NPC:"
+                    elseif qType == 2 then
+                        labelText = "DB Object:"
+                    elseif qType == 3 then
+                        labelText = "DB Item:"
+                    end
+
+                    for _, objID in ipairs(dbData.objectives) do
+                        local objName = nil
+
+                        -- Type 1: NPC Database
+                        if qType == 1 and T3_NpcDB and T3_NpcDB[objID] then
+                            objName = T3_NpcDB[objID][1] or T3_NpcDB[objID].name
+
+                            -- Type 2: Object Database
+                        elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
+                            objName = T3_ObjectDB[objID][1] or T3_ObjectDB[objID].name
+
+                            -- Type 3: Item Database
+                        elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
+                            objName = T3_itemDB[objID].name or T3_itemDB[objID][1]
+                        end
+
+                        if objName then
+                            table.insert(formattedObjs, "[" .. objID .. "] " .. objName)
+                        else
+                            -- Fallback if the ID isn't found in the designated DB
+                            table.insert(formattedObjs, tostring(objID))
+                        end
+                    end
+
+                    GameTooltip:AddDoubleLine("|TInterface\\MoneyFrame\\UI-GoldIcon:8:8|t " .. labelText,
+                        table.concat(formattedObjs, ", "), 1, 0.5, 0, 1, 1, 1)
                 end
             end
 
-            -- Reward Item IDs (scraped from item links)
+            -- ==========================================
+            -- Client API Item Data
+            -- ==========================================
+            GameTooltip:AddLine(" ")
+
+            -- Special Quest Action Item
+            if type(GetQuestLogSpecialItemInfo) == "function" then
+                local _, _, _, questItemID = pcall(GetQuestLogSpecialItemInfo, logIndex)
+                if questItemID then
+                    GameTooltip:AddDoubleLine(" ", tostring(questItemID), 0.7,
+                        0.7, 0.7, 0.2, 1, 0.2)
+                end
+            end
+
+            -- Reward Item IDs
             local itemIDs = {}
             local numRewards = 0
             if type(GetNumQuestLogRewards) == "function" then
@@ -632,22 +773,20 @@ UpdateQuestList = function()
             end
 
             if #itemIDs > 0 then
-                GameTooltip:AddDoubleLine("Reward Item IDs:", table.concat(itemIDs, ", "), 0.7, 0.7, 0.7, 0.9, 0.6, 1)
+                GameTooltip:AddDoubleLine("[" .. questInfo.questID .. "] Reward IDs:", table.concat(itemIDs, ", "), 0.7,
+                    0.7, 0.7, 0.9, 0.6, 1)
             end
 
             -- ==========================================
             -- Objective Metadata (Types & Strings)
             -- ==========================================
-            GameTooltip:AddLine(" ")
-            GameTooltip:AddLine("Objective Data (Scraping):", 1, 0.82, 0)
-
             if type(C_QuestLog.GetQuestObjectives) == "function" then
                 local objs = C_QuestLog.GetQuestObjectives(questInfo.questID)
                 if objs and #objs > 0 then
                     for i, obj in ipairs(objs) do
                         local oType = obj.type or "unknown"
-                        GameTooltip:AddDoubleLine("Obj " .. i .. " [" .. oType .. "]:", (obj.text or ""), 0.5, 0.8, 1,
-                            0.8, 0.8, 0.8)
+                        GameTooltip:AddDoubleLine(" ",
+                            (obj.text or ""), 0.5, 0.8, 1, 0.8, 0.8, 0.8)
                     end
                 end
             elseif type(GetNumQuestLeaderBoards) == "function" then
@@ -656,17 +795,17 @@ UpdateQuestList = function()
                     for i = 1, numObjs do
                         local text, oType = GetQuestLogLeaderBoard(i, logIndex)
                         oType = oType or "unknown"
-                        GameTooltip:AddDoubleLine("Obj " .. i .. " [" .. oType .. "]:", (text or ""), 0.5, 0.8, 1, 0.8,
-                            0.8, 0.8)
+                        GameTooltip:AddDoubleLine(" ",
+                            (text or ""), 0.5, 0.8, 1, 0.8, 0.8, 0.8)
                     end
                 end
             end
-            -- ==========================================
 
             GameTooltip:AddLine(" ")
-            GameTooltip:AddLine("|cFF808080Left-Click: Expand/Collapse | Right-Click: Track/Untrack|r", 0.5, 0.5, 0.5)
+            GameTooltip:AddLine("|cFF808080Left-Click: Expand/Collapse | Right-Click: Query POI|r", 0.5, 0.5, 0.5)
             GameTooltip:Show()
         end)
+
 
         qBtn:SetScript("OnLeave", function(self)
             self.text:SetAlpha(1.0)
@@ -675,41 +814,64 @@ UpdateQuestList = function()
 
         qBtn:SetScript("OnClick", function(self, button)
             if button == "RightButton" then
-                local isCurrentlyTracked = false
-                if type(C_QuestLog.GetQuestWatchType) == "function" then
-                    isCurrentlyTracked = (C_QuestLog.GetQuestWatchType(questInfo.questID) ~= nil)
-                elseif type(IsQuestWatched) == "function" then
-                    isCurrentlyTracked = IsQuestWatched(logIndex)
-                end
-                
-                if isCurrentlyTracked then
-                    -- Fix 1: Clear SuperTrack state before attempting to untrack
-                    if type(C_SuperTrack) == "table" and type(C_SuperTrack.SetSuperTrackedQuestID) == "function" then
-                        if C_SuperTrack.GetSuperTrackedQuestID() == questInfo.questID then pcall(C_SuperTrack.SetSuperTrackedQuestID, 0) end
-                    elseif type(SetSuperTrackedQuestID) == "function" then
-                        if GetSuperTrackedQuestID() == questInfo.questID then pcall(SetSuperTrackedQuestID, 0) end
+                if T3_QuestDB and T3_QuestDB[questInfo.questID] then
+                    local dbData = T3_QuestDB[questInfo.questID]
+                    local qType = dbData.type or 0
+                    local foundZones = {}
+
+                    if dbData.objectives and #dbData.objectives > 0 then
+                        for _, objID in ipairs(dbData.objectives) do
+                            -- Type 1: NPC (Zone is Index 2)
+                            if qType == 1 and T3_NpcDB and T3_NpcDB[objID] then
+                                local zoneID = T3_NpcDB[objID][2]
+                                if zoneID then foundZones[zoneID] = true end
+
+                                -- Type 2: Object (Zone is Index 5)
+                            elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
+                                local zoneID = T3_ObjectDB[objID][5]
+                                if zoneID then foundZones[zoneID] = true end
+
+                                -- Type 3: Item (Check npcDrops and objectDrops)
+                            elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
+                                local itemData = T3_itemDB[objID]
+
+                                -- 3a: Search NPC Drops
+                                if itemData.npcDrops and #itemData.npcDrops > 0 then
+                                    for _, dropNpcID in ipairs(itemData.npcDrops) do
+                                        if T3_NpcDB and T3_NpcDB[dropNpcID] then
+                                            local zoneID = T3_NpcDB[dropNpcID][2]
+                                            if zoneID then foundZones[zoneID] = true end
+                                        end
+                                    end
+                                end
+
+                                -- 3b: Search Object Drops
+                                if itemData.objectDrops and #itemData.objectDrops > 0 then
+                                    for _, dropObjID in ipairs(itemData.objectDrops) do
+                                        if T3_ObjectDB and T3_ObjectDB[dropObjID] then
+                                            local zoneID = T3_ObjectDB[dropObjID][5]
+                                            if zoneID then foundZones[zoneID] = true end
+                                        end
+                                    end
+                                end
+                            end
+                        end
                     end
-                    
-                    -- Remove from tracker
-                    if type(C_QuestLog.RemoveQuestWatch) == "function" then 
-                        pcall(C_QuestLog.RemoveQuestWatch, questInfo.questID)
-                    elseif type(RemoveQuestWatch) == "function" then 
-                        pcall(RemoveQuestWatch, logIndex) 
+
+                    -- Compile and output the results
+                    local zoneList = {}
+                    for zID, _ in pairs(foundZones) do
+                        table.insert(zoneList, tostring(zID))
+                    end
+
+                    if #zoneList > 0 then
+                        print("|cFFFFFF00[T3]|r Quest [" ..
+                        questInfo.questID .. "] POI Zones: " .. table.concat(zoneList, ", "))
+                    else
+                        print("|cFFFF3333[T3]|r Quest [" .. questInfo.questID .. "] No POI Zone data found.")
                     end
                 else
-                    -- Add to tracker
-                    if type(C_QuestLog.AddQuestWatch) == "function" then 
-                        pcall(C_QuestLog.AddQuestWatch, questInfo.questID)
-                    elseif type(AddQuestWatch) == "function" then 
-                        pcall(AddQuestWatch, logIndex) 
-                    end
-                end
-                
-                -- Fix 2: Defer the UI update slightly so the client has time to process the removal
-                if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
-                    C_Timer.After(0.05, UpdateQuestList)
-                else
-                    UpdateQuestList() -- Fallback for older clients without C_Timer
+                    print("|cFFFF3333[T3]|r Quest [" .. questInfo.questID .. "] Not found in T3_QuestDB.")
                 end
             else
                 -- Left-click expand/collapse
@@ -717,6 +879,7 @@ UpdateQuestList = function()
                 UpdateQuestList()
             end
         end)
+
 
 
         local qHeight = qBtn.text:GetStringHeight()
@@ -753,6 +916,48 @@ UpdateQuestList = function()
         if objLines ~= "" then
             FlushText(objLines, 32)
         end
+
+
+        -- ==========================================
+        -- Location & Map coordinates (Moved Outside)
+        -- ==========================================
+        local questMapID = type(QuestUtils_GetQuestMapID) == "function" and QuestUtils_GetQuestMapID(questInfo.questID) or
+            nil
+        local mapText = questMapID and tostring(questMapID) or "|cFF808080" .. L.UNKNOWN .. "|r"
+        local locText = "|cFFFFFF00" .. L.LOCATION .. "|r\n" .. L.MAP_ID .. mapText
+        local foundCoords = false
+
+        if type(C_QuestLog.GetNextWaypoint) == "function" then
+            local wp = C_QuestLog.GetNextWaypoint(questInfo.questID)
+            if wp and wp.x and wp.y then
+                locText = locText .. string.format("\n" .. L.WAYPOINT .. "%.1f, %.1f", wp.x * 100, wp.y * 100)
+                foundCoords = true
+            end
+        end
+
+        if not foundCoords and type(C_QuestLog.GetQuestPOIs) == "function" and questMapID then
+            local pois = C_QuestLog.GetQuestPOIs(questInfo.questID)
+            if pois and #pois > 0 then
+                locText = locText .. "\nPOIs:"
+                for _, poi in ipairs(pois) do
+                    if type(poi.GetXY) == "function" then
+                        local x, y = poi:GetXY()
+                        if x and y then
+                            locText = locText .. string.format(" [%.1f, %.1f]", x * 100, y * 100)
+                            foundCoords = true
+                        end
+                    end
+                end
+            end
+        end
+
+        if not foundCoords then locText = locText .. "\nCoords: |cFF808080" .. L.COORDS_NONE .. "|r" end
+        FlushText(locText .. "\n", 32)
+        -- ==========================================
+
+
+        -- Timers
+        local initialTimeLeft = FetchQuestTimeLeft(questInfo.questID, logIndex)
 
         -- Timers
         local initialTimeLeft = FetchQuestTimeLeft(questInfo.questID, logIndex)
@@ -907,40 +1112,6 @@ UpdateQuestList = function()
                 end
                 yOffset = yOffset - 4
             end
-
-            -- Location & Map coordinates
-            local questMapID = type(QuestUtils_GetQuestMapID) == "function" and
-                QuestUtils_GetQuestMapID(questInfo.questID) or nil
-            local mapText = questMapID and tostring(questMapID) or "|cFF808080" .. L.UNKNOWN .. "|r"
-            local locText = "|cFFFFFF00" .. L.LOCATION .. "|r\n" .. L.MAP_ID .. mapText
-            local foundCoords = false
-
-            if type(C_QuestLog.GetNextWaypoint) == "function" then
-                local wp = C_QuestLog.GetNextWaypoint(questInfo.questID)
-                if wp and wp.x and wp.y then
-                    locText = locText .. string.format("\n" .. L.WAYPOINT .. "%.1f, %.1f", wp.x * 100, wp.y * 100)
-                    foundCoords = true
-                end
-            end
-
-            if not foundCoords and type(C_QuestLog.GetQuestPOIs) == "function" and questMapID then
-                local pois = C_QuestLog.GetQuestPOIs(questInfo.questID)
-                if pois and #pois > 0 then
-                    locText = locText .. "\nPOIs:"
-                    for _, poi in ipairs(pois) do
-                        if type(poi.GetXY) == "function" then
-                            local x, y = poi:GetXY()
-                            if x and y then
-                                locText = locText .. string.format(" [%.1f, %.1f]", x * 100, y * 100)
-                                foundCoords = true
-                            end
-                        end
-                    end
-                end
-            end
-
-            if not foundCoords then locText = locText .. "\nCoords: |cFF808080" .. L.COORDS_NONE .. "|r" end
-            FlushText(locText .. "\n", 35)
         end
         yOffset = yOffset - 4
     end
@@ -1067,16 +1238,66 @@ end)
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
 
-local function ToggleT3Window()
-    if f:IsShown() then f:Hide() else f:Show() end
+
+
+-- =========================================================================
+-- Global Toggle & Focus Function
+-- =========================================================================
+_G.func_ToggleT3Window = function(questID)
+    if type(questID) == "number" then
+        -- 1. Inject into Recent cache
+        recentQuests[questID] = GetTime()
+        
+        -- 2. Switch tab to Recent
+        activeFilter = L.TAB_RECENT
+        
+        -- 3. Set to focused state (SuperTrack)
+        if type(C_SuperTrack) == "table" and type(C_SuperTrack.SetSuperTrackedQuestID) == "function" then
+            pcall(C_SuperTrack.SetSuperTrackedQuestID, questID)
+        elseif type(SetSuperTrackedQuestID) == "function" then
+            pcall(SetSuperTrackedQuestID, questID)
+        end
+        
+        -- 4. Show window or force UI refresh if already open
+        if not f:IsShown() then
+            f:Show() -- The OnShow script automatically calls UpdateQuestList()
+        else
+            UpdateQuestList()
+        end
+    else
+        -- Default toggle behavior if no valid ID is passed
+        if f:IsShown() then f:Hide() else f:Show() end
+    end
 end
 
 SLASH_T3_CMD1 = "/t3"
-SlashCmdList["T3_CMD"] = ToggleT3Window
+SlashCmdList["T3_CMD"] = function(msg)
+    -- Clean up the input string (removes leading/trailing spaces)
+    msg = msg and strtrim(msg) or ""
+    
+    if msg ~= "" then
+        local questID = tonumber(msg)
+        if questID then
+            -- Input was a valid number (e.g., /t3 1001)
+            _G.func_ToggleT3Window(questID)
+        else
+            -- Input was text instead of a number
+            print("|cFFFF3333[T3]|r Invalid quest ID. Usage: /t3 OR /t3 <QuestID>")
+        end
+    else
+        -- No input provided, standard toggle behavior
+        _G.func_ToggleT3Window()
+    end
+end
+
 
 local toggleBtn = CreateFrame("Button", "T3_UniqueKeybindButton", UIParent)
-toggleBtn:SetScript("OnClick", ToggleT3Window)
+toggleBtn:SetScript("OnClick", function() _G.func_ToggleT3Window() end)
 
+
+
+
+--
 local bindInitializer = CreateFrame("Frame")
 bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
 bindInitializer:SetScript("OnEvent", function(self, event)

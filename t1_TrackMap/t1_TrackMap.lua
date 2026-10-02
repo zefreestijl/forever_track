@@ -185,12 +185,31 @@ _G[f.zoomSlider:GetName() .. "Low"]:Hide()
 _G[f.zoomSlider:GetName() .. "High"]:Hide()
 f.zoomSlider.isUpdating = false
 
+--
+
 f.zoomSlider:SetScript("OnValueChanged", function(self, value)
     if self.isUpdating then return end
     if f.targetZoom == value then return end
     f.targetZoom = value
+    
+    -- FIX: Dragging slider to minimum forces a layout recalculation
+    if value <= 1.01 then
+        f.targetOffsetX = 0
+        f.targetOffsetY = 0
+        
+        self.isUpdating = true
+        if f.currentMapID then
+            -- Clear saved state so the loader doesn't restore the broken scale
+            f.savedWorldZoom = nil 
+            f:LoadMap(f.currentMapID)
+            if f.UpdateMapTransform then f:UpdateMapTransform() end
+        end
+        self.isUpdating = false
+    end
+
     local canvasW, canvasH = f.mapCanvas:GetSize()
     local contentW, contentH = f.mapContent:GetSize()
+    
     if canvasW and canvasH and contentW and contentH then
         if f.playerArrow and f.playerArrow:IsShown() and f.playerArrow.pX and f.playerArrow.pY then
             local uiPctX, uiPctY = LogicalToUIPercent(f.playerArrow.pX, f.playerArrow.pY)
@@ -209,14 +228,82 @@ f.zoomSlider:SetScript("OnValueChanged", function(self, value)
     if f.zoomSmoother then f.zoomSmoother:Show() end
 end)
 
+--
 f.zoomUI = CreateFrame("Frame", nil, f)
 f.zoomUI:SetAllPoints(f.mapCanvas)
 f.zoomUI:SetFrameLevel(f:GetFrameLevel() + 5)
+
 f.zoomText = f.zoomUI:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 f.zoomText:SetPoint("TOPLEFT", f.zoomUI, "TOPLEFT", 5, -5)
 f.zoomText:SetJustifyH("LEFT")
 f.zoomText:SetText("Scale: 1.00x")
 f.showFogOfWar = true
+
+-- ==========================================
+-- POI Toggle Menu
+-- ==========================================
+f.showT3Quests = true 
+
+-- Main Expand/Collapse Checkbox
+f.poiMainToggle = CreateFrame("CheckButton", nil, f.zoomUI, "UICheckButtonTemplate")
+f.poiMainToggle:SetSize(24, 24)
+f.poiMainToggle:SetPoint("TOPLEFT", f.zoomText, "BOTTOMLEFT", -4, -5)
+f.poiMainToggle:SetChecked(false) 
+
+f.poiMainText = f.poiMainToggle:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+f.poiMainText:SetPoint("LEFT", f.poiMainToggle, "RIGHT", 0, 1)
+f.poiMainText:SetText("Toggle PoI")
+
+-- Stretch the invisible click boundary over the text
+f.poiMainToggle:SetHitRectInsets(0, -f.poiMainText:GetStringWidth() - 5, 0, 0)
+
+-- Sub-Menu Container (Hidden by default)
+f.poiSubMenu = CreateFrame("Frame", nil, f.zoomUI)
+f.poiSubMenu:SetSize(100, 100)
+f.poiSubMenu:SetPoint("TOPLEFT", f.poiMainToggle, "BOTTOMLEFT", 12, 0)
+f.poiSubMenu:Hide()
+
+f.poiMainToggle:SetScript("OnClick", function(self)
+    if self:GetChecked() then
+        f.poiSubMenu:Show()
+    else
+        f.poiSubMenu:Hide()
+    end
+end)
+
+-- Helper Function for Sub-Checkboxes
+local function CreatePoICheckbox(name, label, anchorFrame, yOffset, defaultState, onClickFunc)
+    local cb = CreateFrame("CheckButton", name, f.poiSubMenu, "UICheckButtonTemplate")
+    cb:SetSize(20, 20)
+    cb:SetPoint("TOPLEFT", anchorFrame, "BOTTOMLEFT", 0, yOffset)
+    cb:SetChecked(defaultState)
+    
+    local text = cb:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    text:SetPoint("LEFT", cb, "RIGHT", 2, 1)
+    text:SetText(label)
+    
+    -- Stretch the invisible click boundary over the text
+    cb:SetHitRectInsets(0, -text:GetStringWidth() - 5, 0, 0)
+    
+    cb:SetScript("OnClick", function(self)
+        if onClickFunc then onClickFunc(self:GetChecked()) end
+    end)
+    return cb
+end
+
+-- Generate the Sub-Options
+f.chk_T2 = CreatePoICheckbox("T1_Chk_T2", "T2_NPC", f.poiSubMenu, 0, false, nil)
+f.chk_T2:ClearAllPoints()
+f.chk_T2:SetPoint("TOPLEFT", f.poiSubMenu, "TOPLEFT", 0, 0)
+
+f.chk_T3 = CreatePoICheckbox("T1_Chk_T3", "T3_Qst", f.chk_T2, -2, true, function(isChecked)
+    f.showT3Quests = isChecked
+    if f.RefreshQuestPins then f:RefreshQuestPins() end
+end)
+
+f.chk_T4 = CreatePoICheckbox("T1_Chk_T4", "T4_Res", f.chk_T3, -2, false, nil)
+f.chk_T5 = CreatePoICheckbox("T1_Chk_T5", "T5_Dgn", f.chk_T4, -2, false, nil)
+
 
 f.ResizeGrip = CreateFrame("Button", nil, f)
 f.ResizeGrip:SetSize(16, 16)
@@ -1408,6 +1495,8 @@ function f:UpdateMapTransform()
     if f.DrawHoverPolygon then
         f:DrawHoverPolygon(f.mapCanvas.hoveredMapID)
     end
+
+    if f.RefreshQuestPins then f:RefreshQuestPins() end
 end
 
 f.mapCanvas:EnableMouseWheel(true)
@@ -2139,6 +2228,8 @@ f.zoneTracker:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 f.zoneTracker:RegisterEvent("ZONE_CHANGED_INDOORS")
 f.zoneTracker:RegisterEvent("PLAYER_ENTERING_WORLD")
 
+f.zoneTracker:RegisterEvent("QUEST_LOG_UPDATE")
+
 f.lastPlayerZone = nil
 
 f.zoneTracker:SetScript("OnEvent", function()
@@ -2168,6 +2259,10 @@ f.zoneTracker:SetScript("OnEvent", function()
         if f.ZoomToZone then f:ZoomToZone(currentPlayerZone) end
         if f.UpdateMapTransform then f:UpdateMapTransform() end
     end
+
+    if event == "QUEST_LOG_UPDATE" and f:IsShown() then
+        if f.RefreshQuestPins then f:RefreshQuestPins() end
+    end
 end)
 
 -- ==========================================
@@ -2189,5 +2284,200 @@ if T1_OutlineDB then
         end
     end
 end
+
+
+-- ==========================================
+-- Quest POI Tracker
+-- ==========================================
+if not f.questPinPool then f.questPinPool = {} end
+
+function f:RefreshQuestPins()
+-- Hide all existing pins first
+    for _, pin in ipairs(f.questPinPool) do 
+        pin:Hide() 
+    end
+
+    -- Abort rendering if the T3 toggle is off or if we are on a custom/world map
+    if not f.showT3Quests then return end
+    if f.currentMapID == 947 or f.currentMapID == -1416 or f.currentMapID <= 0 then 
+        return 
+    end
+
+    local quests = C_QuestLog.GetQuestsOnMap(f.currentMapID)
+    if not quests or #quests == 0 then return end
+
+
+    local contentW = f.mapContent:GetWidth()
+    local contentH = f.mapContent:GetHeight()
+    local pinIndex = 1
+
+
+    for _, questData in ipairs(quests) do
+        if questData.x and questData.y then
+            local pin = f.questPinPool[pinIndex]
+            
+            if not pin then
+                pin = CreateFrame("Button", nil, f.mapContent)
+                pin:SetFrameLevel(f.mapContent:GetFrameLevel() + 65) 
+                
+                pin.tex = pin:CreateTexture(nil, "OVERLAY")
+                pin.tex:SetAllPoints()
+
+                pin.iconText = pin:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+                pin.iconText:SetPoint("CENTER", pin, "CENTER", 0, 0)
+
+                f.questPinPool[pinIndex] = pin
+            end
+
+            pin.questID = questData.questID
+            
+            -- Helper function to update visuals based on current state
+            local function UpdatePinVisuals()
+                local isComplete = C_QuestLog.IsComplete(pin.questID)
+                
+                local isWatched = false
+                if C_QuestLog.GetQuestWatchType then
+                    isWatched = (C_QuestLog.GetQuestWatchType(pin.questID) ~= nil)
+                elseif QuestUtils_IsQuestWatched then
+                    isWatched = QuestUtils_IsQuestWatched(pin.questID)
+                end
+                
+                local isSuperTracked = false
+                if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID then
+                    isSuperTracked = (C_SuperTrack.GetSuperTrackedQuestID() == pin.questID)
+                end
+
+                if isComplete then
+                    pin.tex:SetTexture("Interface\\GossipFrame\\ActiveQuestIcon") 
+                    pin.tex:Show()
+                    pin.iconText:Hide()
+                    
+                    if isSuperTracked then
+                        pin.tex:SetDesaturated(false)
+                        pin.tex:SetVertexColor(1, 0.6, 0.0) -- Orange Focus
+                        pin:SetSize(20 / f.zoomLevel, 20 / f.zoomLevel)
+                    elseif isWatched then
+                        pin.tex:SetDesaturated(false)
+                        pin.tex:SetVertexColor(1, 1, 1) -- Yellow
+                        pin:SetSize(20 / f.zoomLevel, 20 / f.zoomLevel)
+                    else
+                        pin.tex:SetDesaturated(true)
+                        pin.tex:SetVertexColor(0.5, 0.5, 0.5) -- Gray
+                        pin:SetSize(20 / f.zoomLevel, 20 / f.zoomLevel)
+                    end
+                else
+                    pin.tex:Hide()
+                    pin.iconText:Show()
+                    
+                    if isSuperTracked then
+                        -- Copper = Orange
+                        pin.iconText:SetText("|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t")
+                        pin:SetSize(18 / f.zoomLevel, 6 / f.zoomLevel)
+                    elseif isWatched then
+                        -- Gold = Yellow
+                        pin.iconText:SetText("|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t")
+                        pin:SetSize(18 / f.zoomLevel, 6 / f.zoomLevel)
+                    else
+                        -- Silver = Gray
+                        pin.iconText:SetText("|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t")
+                        pin:SetSize(18 / f.zoomLevel, 6 / f.zoomLevel)
+                    end
+                end
+            end
+            
+            -- 1. Apply initial visuals
+            UpdatePinVisuals()
+            
+            -- 2. Build the Detailed Tooltip
+            pin:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                local title = C_QuestLog.GetTitleForQuestID(self.questID)
+                
+                GameTooltip:SetText(title .. " (|cFF00FFFF#" .. self.questID .. "|r)", 1, 0.82, 0)
+                
+                local objectives = C_QuestLog.GetQuestObjectives(self.questID)
+                if objectives and #objectives > 0 then
+                    for _, obj in ipairs(objectives) do
+                        local color = obj.finished and "|cFF808080" or "|cFFFFFFFF"
+                        GameTooltip:AddLine(color .. "- " .. obj.text)
+                    end
+                else
+                    GameTooltip:AddLine("|cFFFFFFFFIn Progress|r")
+                end
+                
+                if C_QuestLog.IsComplete(self.questID) then
+                    GameTooltip:AddLine(" ")
+                    GameTooltip:AddLine("|cFF00FF00Ready for turn-in!|r")
+                end
+
+                local isWatched = false
+                if C_QuestLog.GetQuestWatchType then
+                    isWatched = (C_QuestLog.GetQuestWatchType(self.questID) ~= nil)
+                elseif QuestUtils_IsQuestWatched then
+                    isWatched = QuestUtils_IsQuestWatched(self.questID)
+                end
+
+                GameTooltip:AddLine(" ")
+                
+                GameTooltip:Show()
+            end)
+            
+            pin:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+            -- 3. Click Events for Tracking & Custom Window
+            pin:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            pin:SetScript("OnClick", function(self, button)
+                if button == "LeftButton" then
+                    local isWatched = false
+                    if C_QuestLog.GetQuestWatchType then
+                        isWatched = (C_QuestLog.GetQuestWatchType(self.questID) ~= nil)
+                    elseif QuestUtils_IsQuestWatched then
+                        isWatched = QuestUtils_IsQuestWatched(self.questID)
+                    end
+
+                    if isWatched then
+                        if C_QuestLog.RemoveQuestWatch then C_QuestLog.RemoveQuestWatch(self.questID) end
+                        PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+                    else
+                        if C_QuestLog.AddQuestWatch then C_QuestLog.AddQuestWatch(self.questID) end
+                        PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+                    end
+                    
+                    UpdatePinVisuals()
+                    self:GetScript("OnEnter")(self)
+                
+                elseif button == "RightButton" then
+                    -- Set as current focus before opening the window
+                    if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then
+                        C_SuperTrack.SetSuperTrackedQuestID(self.questID)
+                    end
+                    
+                    -- Globally refresh all pins so the previous focus reverts color
+                    if f.RefreshQuestPins then f:RefreshQuestPins() end
+                    
+                    if _G.func_ToggleT3Window then
+                        _G.func_ToggleT3Window(self.questID)
+                    else
+                        print("|cffff2020T1_TrackMap:|r t3_TrackQst addon is not loaded.")
+                    end
+                end
+            end)
+
+            -- 4. Font Scaling & Positioning
+            local fontScale = math.max(0.2, 1 / f.zoomLevel)
+            pin.iconText:SetScale(fontScale)
+
+            pin:ClearAllPoints()
+            pin:SetPoint("CENTER", f.mapContent, "TOPLEFT", questData.x * contentW, -questData.y * contentH)
+            pin:Show()
+            
+            pinIndex = pinIndex + 1
+        end
+    end
+
+
+end
+
+
 
 print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")

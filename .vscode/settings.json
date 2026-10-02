@@ -27,6 +27,12 @@
         "MapExplorationDataProviderMixin",
         "GroupMembersDataProviderMixin",
         "MapCanvasMixin",
-        "WorldMapFrame"
+        "WorldMapFrame",
+        "UNUSED",
+        "DELETE",
+        "Square",
+        "SOUNDKIT",
+        "UIErrorsFrame",
+        "QuestUtils_IsQuestWatched"
     ]
 }
