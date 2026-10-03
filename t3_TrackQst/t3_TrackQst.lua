@@ -669,7 +669,6 @@ UpdateQuestList = function()
             -- Title & Basic Details
             GameTooltip:AddLine(questInfo.title, 1, 1, 1)
             GameTooltip:AddDoubleLine("Quest ID:", tostring(questInfo.questID), 0.7, 0.7, 0.7, 1, 0.82, 0)
-            GameTooltip:AddDoubleLine("Log Index:", tostring(logIndex), 0.7, 0.7, 0.7, 0.6, 0.6, 0.6)
 
             local questMapID = type(QuestUtils_GetQuestMapID) == "function" and
                 QuestUtils_GetQuestMapID(questInfo.questID) or nil
@@ -772,11 +771,6 @@ UpdateQuestList = function()
                 end
             end
 
-            if #itemIDs > 0 then
-                GameTooltip:AddDoubleLine("[" .. questInfo.questID .. "] Reward IDs:", table.concat(itemIDs, ", "), 0.7,
-                    0.7, 0.7, 0.9, 0.6, 1)
-            end
-
             -- ==========================================
             -- Objective Metadata (Types & Strings)
             -- ==========================================
@@ -801,8 +795,6 @@ UpdateQuestList = function()
                 end
             end
 
-            GameTooltip:AddLine(" ")
-            GameTooltip:AddLine("|cFF808080Left-Click: Expand/Collapse | Right-Click: Query POI|r", 0.5, 0.5, 0.5)
             GameTooltip:Show()
         end)
 
@@ -814,6 +806,14 @@ UpdateQuestList = function()
 
         qBtn:SetScript("OnClick", function(self, button)
             if button == "RightButton" then
+                -- 1. Set the clicked quest as the focused (SuperTracked) quest
+                if type(C_SuperTrack) == "table" and type(C_SuperTrack.SetSuperTrackedQuestID) == "function" then
+                    pcall(C_SuperTrack.SetSuperTrackedQuestID, questInfo.questID)
+                elseif type(SetSuperTrackedQuestID) == "function" then
+                    pcall(SetSuperTrackedQuestID, questInfo.questID)
+                end
+
+                -- 2. Execute POI Map lookups
                 if T3_QuestDB and T3_QuestDB[questInfo.questID] then
                     local dbData = T3_QuestDB[questInfo.questID]
                     local qType = dbData.type or 0
@@ -821,21 +821,20 @@ UpdateQuestList = function()
 
                     if dbData.objectives and #dbData.objectives > 0 then
                         for _, objID in ipairs(dbData.objectives) do
-                            -- Type 1: NPC (Zone is Index 2)
+                            -- Type 1: NPC
                             if qType == 1 and T3_NpcDB and T3_NpcDB[objID] then
                                 local zoneID = T3_NpcDB[objID][2]
                                 if zoneID then foundZones[zoneID] = true end
-
-                                -- Type 2: Object (Zone is Index 5)
+                                
+                            -- Type 2: Object
                             elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
                                 local zoneID = T3_ObjectDB[objID][5]
                                 if zoneID then foundZones[zoneID] = true end
-
-                                -- Type 3: Item (Check npcDrops and objectDrops)
+                                
+                            -- Type 3: Item
                             elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
                                 local itemData = T3_itemDB[objID]
-
-                                -- 3a: Search NPC Drops
+                                
                                 if itemData.npcDrops and #itemData.npcDrops > 0 then
                                     for _, dropNpcID in ipairs(itemData.npcDrops) do
                                         if T3_NpcDB and T3_NpcDB[dropNpcID] then
@@ -844,8 +843,7 @@ UpdateQuestList = function()
                                         end
                                     end
                                 end
-
-                                -- 3b: Search Object Drops
+                                
                                 if itemData.objectDrops and #itemData.objectDrops > 0 then
                                     for _, dropObjID in ipairs(itemData.objectDrops) do
                                         if T3_ObjectDB and T3_ObjectDB[dropObjID] then
@@ -857,21 +855,28 @@ UpdateQuestList = function()
                             end
                         end
                     end
-
-                    -- Compile and output the results
-                    local zoneList = {}
+                    
+                    -- Extract the first found zone for mapping
+                    local targetClassicZone = nil
                     for zID, _ in pairs(foundZones) do
-                        table.insert(zoneList, tostring(zID))
+                        targetClassicZone = zID
+                        break 
                     end
-
-                    if #zoneList > 0 then
-                        print("|cFFFFFF00[T3]|r Quest [" ..
-                        questInfo.questID .. "] POI Zones: " .. table.concat(zoneList, ", "))
+                    
+                    if targetClassicZone then
+                        if _G.func_ConvertClassicIDToMapID and _G.func_OpenZoneMapByID then
+                            local modernMapID = _G.func_ConvertClassicIDToMapID(targetClassicZone)
+                            if modernMapID then
+                                _G.func_OpenZoneMapByID(modernMapID)
+                            end
+                        end
                     else
-                        print("|cFFFF3333[T3]|r Quest [" .. questInfo.questID .. "] No POI Zone data found.")
+                        -- Fallback to client API map ID if DB fails
+                        local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and QuestUtils_GetQuestMapID(questInfo.questID) or nil
+                        if fallbackMapID and _G.func_OpenZoneMapByID then
+                            _G.func_OpenZoneMapByID(fallbackMapID)
+                        end
                     end
-                else
-                    print("|cFFFF3333[T3]|r Quest [" .. questInfo.questID .. "] Not found in T3_QuestDB.")
                 end
             else
                 -- Left-click expand/collapse
@@ -879,8 +884,6 @@ UpdateQuestList = function()
                 UpdateQuestList()
             end
         end)
-
-
 
         local qHeight = qBtn.text:GetStringHeight()
         qBtn:SetSize(scrollFrame:GetWidth() - 25, qHeight + 4)
@@ -917,43 +920,137 @@ UpdateQuestList = function()
             FlushText(objLines, 32)
         end
 
-
-        -- ==========================================
+-- ==========================================
         -- Location & Map coordinates (Moved Outside)
         -- ==========================================
-        local questMapID = type(QuestUtils_GetQuestMapID) == "function" and QuestUtils_GetQuestMapID(questInfo.questID) or
-            nil
-        local mapText = questMapID and tostring(questMapID) or "|cFF808080" .. L.UNKNOWN .. "|r"
-        local locText = "|cFFFFFF00" .. L.LOCATION .. "|r\n" .. L.MAP_ID .. mapText
-        local foundCoords = false
-
-        if type(C_QuestLog.GetNextWaypoint) == "function" then
-            local wp = C_QuestLog.GetNextWaypoint(questInfo.questID)
-            if wp and wp.x and wp.y then
-                locText = locText .. string.format("\n" .. L.WAYPOINT .. "%.1f, %.1f", wp.x * 100, wp.y * 100)
-                foundCoords = true
-            end
-        end
-
-        if not foundCoords and type(C_QuestLog.GetQuestPOIs) == "function" and questMapID then
-            local pois = C_QuestLog.GetQuestPOIs(questInfo.questID)
-            if pois and #pois > 0 then
-                locText = locText .. "\nPOIs:"
-                for _, poi in ipairs(pois) do
-                    if type(poi.GetXY) == "function" then
-                        local x, y = poi:GetXY()
-                        if x and y then
-                            locText = locText .. string.format(" [%.1f, %.1f]", x * 100, y * 100)
-                            foundCoords = true
+        local dbMapIDs = {}
+        local dbCoords = {}
+        
+        if T3_QuestDB and T3_QuestDB[questInfo.questID] then
+            local dbData = T3_QuestDB[questInfo.questID]
+            local qType = dbData.type or 0
+            
+            if dbData.objectives and #dbData.objectives > 0 then
+                for _, objID in ipairs(dbData.objectives) do
+                    -- Type 1: NPC
+                    if qType == 1 and T3_NpcDB and T3_NpcDB[objID] then
+                        local zID = T3_NpcDB[objID][2]
+                        if zID then dbMapIDs[zID] = true end
+                        local coordsList = T3_NpcDB[objID][3]
+                        if coordsList and #coordsList > 0 then
+                            table.insert(dbCoords, string.format("{%.1f, %.1f}", coordsList[1][1], coordsList[1][2]))
+                        end
+                    
+                    -- Type 2: Object
+                    elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
+                        local zID = T3_ObjectDB[objID][5]
+                        if zID then dbMapIDs[zID] = true end
+                        local spawns = T3_ObjectDB[objID][4]
+                        if spawns and zID and spawns[zID] and #spawns[zID] > 0 then
+                            table.insert(dbCoords, string.format("{%.1f, %.1f}", spawns[zID][1][1], spawns[zID][1][2]))
+                        end
+                    
+                    -- Type 3: Item (Check npcDrops and objectDrops)
+                    elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
+                        local itemData = T3_itemDB[objID]
+                        
+                        -- Search NPC Drops
+                        if itemData.npcDrops and #itemData.npcDrops > 0 then
+                            for _, dropID in ipairs(itemData.npcDrops) do
+                                if T3_NpcDB and T3_NpcDB[dropID] then
+                                    local zID = T3_NpcDB[dropID][2]
+                                    if zID then dbMapIDs[zID] = true end
+                                    local coordsList = T3_NpcDB[dropID][3]
+                                    if coordsList and #coordsList > 0 then
+                                        table.insert(dbCoords, string.format("{%.1f, %.1f}", coordsList[1][1], coordsList[1][2]))
+                                    end
+                                end
+                            end
+                        end
+                        
+                        -- Search Object Drops
+                        if itemData.objectDrops and #itemData.objectDrops > 0 then
+                            for _, dropID in ipairs(itemData.objectDrops) do
+                                if T3_ObjectDB and T3_ObjectDB[dropID] then
+                                    local zID = T3_ObjectDB[dropID][5]
+                                    if zID then dbMapIDs[zID] = true end
+                                    local spawns = T3_ObjectDB[dropID][4]
+                                    if spawns and zID and spawns[zID] and #spawns[zID] > 0 then
+                                        table.insert(dbCoords, string.format("{%.1f, %.1f}", spawns[zID][1][1], spawns[zID][1][2]))
+                                    end
+                                end
+                            end
                         end
                     end
                 end
             end
         end
 
-        if not foundCoords then locText = locText .. "\nCoords: |cFF808080" .. L.COORDS_NONE .. "|r" end
-        FlushText(locText .. "\n", 32)
+        -- 1. Format Map ID output
+        local mapTextList = {}
+        for zID, _ in pairs(dbMapIDs) do table.insert(mapTextList, tostring(zID)) end
+        
+        local mapText = ""
+        if #mapTextList > 0 then
+            mapText = "[" .. table.concat(mapTextList, ", ") .. "]"
+        else
+            mapText = "Unknown"
+        end
+
+        -- 2. Format Coordinates output
+        local coordsStr = ""
+        local foundCoords = false
+
+        -- DB First
+        if #dbCoords > 0 then
+            local maxCoords = math.min(#dbCoords, 3) -- Limit to 3 visible points
+            local displayCoords = {}
+            for i = 1, maxCoords do
+                table.insert(displayCoords, dbCoords[i])
+            end
+            coordsStr = " {" .. table.concat(displayCoords, ", ")
+            if #dbCoords > 3 then coordsStr = coordsStr .. ", ..." end
+            coordsStr = coordsStr .. "}"
+            foundCoords = true
+        end
+
+        -- API Fallbacks
+        if not foundCoords and type(C_QuestLog.GetNextWaypoint) == "function" then
+            local wp = C_QuestLog.GetNextWaypoint(questInfo.questID)
+            if wp and wp.x and wp.y then
+                coordsStr = string.format(" {{%.1f, %.1f}}", wp.x * 100, wp.y * 100)
+                foundCoords = true
+            end
+        end
+
+        if not foundCoords and type(C_QuestLog.GetQuestPOIs) == "function" then
+            local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and QuestUtils_GetQuestMapID(questInfo.questID) or nil
+            if fallbackMapID then
+                local pois = C_QuestLog.GetQuestPOIs(questInfo.questID)
+                if pois and #pois > 0 then
+                    local poiList = {}
+                    local maxPois = math.min(#pois, 3)
+                    for i = 1, maxPois do
+                        local poi = pois[i]
+                        if type(poi.GetXY) == "function" then
+                            local x, y = poi:GetXY()
+                            if x and y then table.insert(poiList, string.format("{%.1f, %.1f}", x * 100, y * 100)) end
+                        end
+                    end
+                    if #poiList > 0 then
+                        coordsStr = " {" .. table.concat(poiList, ", ")
+                        if #pois > 3 then coordsStr = coordsStr .. ", ..." end
+                        coordsStr = coordsStr .. "}"
+                    end
+                end
+            end
+        end
+
+        -- 3. Render final string
+        local locText = "|cFF808080" .. mapText .. coordsStr .. "|r"
+        FlushText(locText, 32)
         -- ==========================================
+        
 
 
         -- Timers

@@ -2142,6 +2142,31 @@ f.flagHoverTracker:SetScript("OnUpdate", function()
     end
 end)
 
+-- ==========================================
+-- Map ID Converters & Openers
+-- ==========================================
+_G.func_ConvertClassicIDToMapID = function(classicID)
+    if not T1_ZoneDB then return nil end
+    local targetClassicID = tonumber(classicID)
+    if not targetClassicID then return nil end
+
+    for mapID, data in pairs(T1_ZoneDB) do
+        if data.classic == targetClassicID then
+            return tonumber(mapID)
+        end
+    end
+    return nil
+end
+
+_G.func_OpenZoneMapByID = function(mapID)
+    local targetMapID = tonumber(mapID)
+    if not targetMapID or targetMapID <= 0 then return end
+    
+    if _G.func_ToggleT1Window then
+        _G.func_ToggleT1Window(targetMapID)
+    end
+end
+
 
 -- ==========================================
 -- Init & Slash Commands
@@ -2174,7 +2199,42 @@ _G.func_ToggleT1Window = function(mapID)
 end
 
 SLASH_T1_CMD1 = "/t1"
-SlashCmdList["T1_CMD"] = function() _G.func_ToggleT1Window() end
+SlashCmdList["T1_CMD"] = function(msg)
+    -- Clean the input string
+    msg = strtrim(msg or "")
+    
+    -- If no argument provided, use the default toggle behavior
+    if msg == "" then
+        _G.func_ToggleT1Window()
+        return
+    end
+
+    local mapIDToOpen = nil
+
+    -- Check if the argument starts with 'c' or 'C' followed by digits (e.g., "c267")
+    local classicMatch = msg:match("^[cC](%d+)$")
+    if classicMatch then
+        mapIDToOpen = _G.func_ConvertClassicIDToMapID(classicMatch)
+        if not mapIDToOpen then
+            print(string.format("|cffff2020T1_TrackMap:|r Classic ID '%s' not found in T1_ZoneDB.", classicMatch))
+            return
+        end
+    else
+        -- Check if the argument is purely digits (e.g., "1424")
+        local idMatch = msg:match("^(%d+)$")
+        if idMatch then
+            mapIDToOpen = tonumber(idMatch)
+        end
+    end
+
+    -- Open the map if a valid ID was resolved
+    if mapIDToOpen then
+        _G.func_OpenZoneMapByID(mapIDToOpen)
+    else
+        print("|cffff2020T1_TrackMap:|r Invalid command format. Use '/t1', '/t1 1424', or '/t1 c267'.")
+    end
+end
+
 
 local toggleBtn = CreateFrame("Button", "T1_KeybindButton", UIParent, "SecureActionButtonTemplate")
 toggleBtn:SetAttribute("type", "macro")
