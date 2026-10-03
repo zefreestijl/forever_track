@@ -1,6 +1,5 @@
 DB_STORMWIND_CITY_GENERAL = {
-  ["region"] = "Eastern Kingdoms <Alliance>",
-  ["mapID"] = 1453,
+  ["mapID"] = 0,
   ["entries"] = {
     {
       ["category"] = "repair",

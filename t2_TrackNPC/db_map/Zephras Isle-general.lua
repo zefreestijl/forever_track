@@ -1,5 +1,4 @@
 DB_ZEPHRAS_ISLE_GENERAL = {
-  ["region"] = "Zephras Isle",
   ["mapID"] = 0,
   ["entries"] = {
     {

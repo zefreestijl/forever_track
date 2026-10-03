@@ -1,5 +1,5 @@
 DB_AZSHARA_GENERAL = {
-  ["region"] = "Kalimdor <Horde>",
+  ["region"] = "Kalimdor",
   ["mapID"] = 1447,
   ["entries"] = {
     {
