@@ -7,6 +7,7 @@
 
 
 db_map/Arathi Highlands-general.lua
+db_map/Ashenvale-general.lua
 db_map/Azshara-general.lua
 db_map/Badlands-general.lua
 db_map/Blasted Lands-general.lua
@@ -18,6 +19,8 @@ db_map/Deadwind Pass-general.lua
 db_map/Desolace-general.lua
 db_map/Dun Morogh-general.lua
 db_map/Durotar-general.lua
+db_map/Duskwood-general.lua
+db_map/Dustwallow Marsh-general.lua
 db_map/Eastern Plaguelands-general.lua
 db_map/Elwynn Forest-general.lua
 db_map/Felwood-general.lua
@@ -45,8 +48,8 @@ db_map/The Hinterlands-general.lua
 db_map/Thousand Needles-general.lua
 db_map/Thunder Bluff-general.lua
 db_map/Tirisfal Glades-general.lua
-db_map/Undercity-general.lua
 db_map/Un'Goro Crater-general.lua
+db_map/Undercity-general.lua
 db_map/Western Plaguelands-general.lua
 db_map/Westfall-general.lua
 db_map/Wetlands-general.lua

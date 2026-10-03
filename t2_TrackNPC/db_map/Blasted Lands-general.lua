@@ -37,17 +37,6 @@ DB_BLASTED_LANDS_GENERAL = {
     },
     {
       ["category"] = "vendor",
-      ["name"] = "Strumner Flintheel",
-      ["id"] = "5508",
-      ["description"] = "Armor Crafter",
-      ["comment"] = "",
-      ["mainLocation"] = "Blasted Lands",
-      ["subLocation"] = "Blasted Lands",
-      ["x"] = 0.66,
-      ["y"] = 0.172,
-    },
-    {
-      ["category"] = "vendor",
       ["name"] = "Nina Lightbrew",
       ["id"] = "8178",
       ["description"] = "Alchemy Supplies",

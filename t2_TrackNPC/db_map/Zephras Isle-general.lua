@@ -1,5 +1,5 @@
 DB_ZEPHRAS_ISLE_GENERAL = {
-  ["mapID"] = 0,
+  ["mapID"] = 2521,
   ["entries"] = {
     {
       ["category"] = "banker",

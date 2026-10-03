@@ -1,4 +1,5 @@
 DB_RIVERGLADES_GENERAL = {
+  ["region"] = "Eastern Kingdoms",
   ["mapID"] = 0,
   ["entries"] = {
     {

@@ -26,17 +26,6 @@ DB_UNGORO_CRATER_GENERAL = {
     },
     {
       ["category"] = "vendor",
-      ["name"] = "Gibbert",
-      ["id"] = "3000",
-      ["description"] = "Weapon Merchant",
-      ["comment"] = "",
-      ["mainLocation"] = "Un'Goro Crater",
-      ["subLocation"] = "Un'Goro Crater",
-      ["x"] = 0.44,
-      ["y"] = 0.07200000000000001,
-    },
-    {
-      ["category"] = "vendor",
       ["name"] = "Linken",
       ["id"] = "8737",
       ["description"] = "",

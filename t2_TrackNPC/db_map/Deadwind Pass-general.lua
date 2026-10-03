@@ -14,17 +14,6 @@ DB_DEADWIND_PASS_GENERAL = {
       ["y"] = 0.78,
     },
     {
-      ["category"] = "vendor",
-      ["name"] = "Haunted Anvil",
-      ["id"] = "240568",
-      ["description"] = "",
-      ["comment"] = "",
-      ["mainLocation"] = "Deadwind Pass",
-      ["subLocation"] = "Deadwind Pass",
-      ["x"] = 0.486,
-      ["y"] = 0.78,
-    },
-    {
       ["category"] = "spirithealer",
       ["name"] = "Spirit Healer",
       ["id"] = "6491",
