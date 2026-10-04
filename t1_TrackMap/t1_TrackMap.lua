@@ -245,10 +245,137 @@ f.showFogOfWar = true
 --
 
 -- ==========================================
+-- Flight Path & Route Tracker
+-- ==========================================
+if not f.flightPinPool then f.flightPinPool = {} end
+if not f.flightLinePool then f.flightLinePool = {} end
+
+-- FIX: Initialize the DB globally ONLY if it doesn't already exist from an external file
+if not T1_FlightRouteDB then 
+    T1_FlightRouteDB = {} 
+end
+
+function f:RefreshFlightPins()
+    -- Hide all existing pins and lines
+    for _, pin in ipairs(f.flightPinPool) do pin:Hide() end
+    for _, line in ipairs(f.flightLinePool) do line:Hide() end
+
+    if not f.showT1Fly then return end
+    if f.currentMapID == 947 or f.currentMapID == -1416 or f.currentMapID <= 0 then return end
+
+    local contentW = f.mapContent:GetWidth()
+    local contentH = f.mapContent:GetHeight()
+
+    -- ------------------------------------------
+    -- A. Draw Routes (Lines) from a Custom Database
+    -- ------------------------------------------
+    local lineIndex = 1
+    if T1_FlightRouteDB and T1_FlightRouteDB[f.currentMapID] then
+        for _, route in ipairs(T1_FlightRouteDB[f.currentMapID]) do
+            local line = f.flightLinePool[lineIndex]
+            if not line then
+                line = f.mapContent:CreateLine(nil, "OVERLAY")
+                table.insert(f.flightLinePool, line)
+            end
+
+            line:SetThickness(2 / f.zoomLevel)
+            -- A classic dotted-flight-path color (Pale Yellow/Orange)
+            line:SetColorTexture(1.0, 0.82, 0.0, 0.6)
+
+            line:SetStartPoint("CENTER", route.startX * contentW, -route.startY * contentH)
+            line:SetEndPoint("CENTER", route.endX * contentW, -route.endY * contentH)
+            line:Show()
+
+            lineIndex = lineIndex + 1
+        end
+    end
+
+    -- ------------------------------------------
+    -- B. Draw Nodes (Pins)
+    -- ------------------------------------------
+    if not C_TaxiMap or not C_TaxiMap.GetTaxiNodesForMap then return end
+
+    local nodes = C_TaxiMap.GetTaxiNodesForMap(f.currentMapID)
+    if not nodes or #nodes == 0 then return end
+
+    local pinIndex = 1
+    for _, node in ipairs(nodes) do
+        if node.position and node.position.x and node.position.y then
+            local pin = f.flightPinPool[pinIndex]
+            if not pin then
+                pin = CreateFrame("Button", nil, f.mapContent)
+                pin:SetFrameLevel(f.mapContent:GetFrameLevel() + 66) -- Above NPCs and Quests
+
+                pin.tex = pin:CreateTexture(nil, "OVERLAY")
+                pin.tex:SetAllPoints()
+                f.flightPinPool[pinIndex] = pin
+            end
+
+            if node.state == Enum.FlightPathState.Active then
+                pin.tex:SetTexture("Interface\\TaxiFrame\\UI-Taxi-Icon-Green")
+                pin.tex:SetDesaturated(false)
+            else
+                pin.tex:SetTexture("Interface\\TaxiFrame\\UI-Taxi-Icon-Gray")
+                pin.tex:SetDesaturated(true)
+            end
+
+            pin:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                local nodeName = node.name or "Unknown Flight Path"
+                GameTooltip:SetText(nodeName, 1, 0.82, 0)
+                if node.state ~= Enum.FlightPathState.Active then
+                    GameTooltip:AddLine("|cFF808080Undiscovered|r")
+                end
+                GameTooltip:Show()
+            end)
+
+            pin:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+            -- FIX: Icon size reduced from 24 to 12 (0.5x)
+            pin:SetSize(12 / f.zoomLevel, 12 / f.zoomLevel)
+            pin:ClearAllPoints()
+            pin:SetPoint("CENTER", f.mapContent, "TOPLEFT", node.position.x * contentW, -node.position.y * contentH)
+            pin:Show()
+
+            -- ==== NEW: Interactive Route Developer Tool ====
+            pin:RegisterForClicks("LeftButtonUp")
+            pin.nodeX = node.position.x
+            pin.nodeY = node.position.y
+            pin.nodeName = node.name or "Unknown"
+
+            pin:SetScript("OnClick", function(self)
+                if IsAltKeyDown() then
+                    if not f.routeStartNode then
+                        f.routeStartNode = self
+                        print(string.format("|cff00ccff[T1_Fly] Route Start:|r %s", self.nodeName))
+                    else
+                        -- Format the exact Lua table row needed for your database
+                        local mapStr = string.format(
+                            "    { startX = %.4f, startY = %.4f, endX = %.4f, endY = %.4f }, -- %s to %s",
+                            f.routeStartNode.nodeX, f.routeStartNode.nodeY, self.nodeX, self.nodeY,
+                            f.routeStartNode.nodeName, self.nodeName)
+                        print("|cff00ff00" .. mapStr .. "|r")
+                        f.routeStartNode = nil
+                    end
+                end
+            end)
+            -- ===============================================
+
+            pinIndex = pinIndex + 1
+        end
+    end
+end
+
+
+
+
+
+-- ==========================================
 -- POI Toggle Menu
 -- ==========================================
-f.showT3Quests = true
+f.showT1Fly = true
 f.showT2NPCs = false
+f.showT3Quests = true
 
 -- Main Expand/Collapse Checkbox
 f.poiMainToggle = CreateFrame("CheckButton", nil, f.zoomUI, "UICheckButtonTemplate")
@@ -275,6 +402,7 @@ f.poiMainToggle:SetScript("OnClick", function(self)
     end
 end)
 
+
 local function CreatePoICheckbox(name, label, anchorFrame, yOffset, defaultState, onClickFunc)
     local cb = CreateFrame("CheckButton", name, f.poiSubMenu, "UICheckButtonTemplate")
     cb:SetSize(20, 20)
@@ -293,22 +421,29 @@ local function CreatePoICheckbox(name, label, anchorFrame, yOffset, defaultState
     return cb
 end
 
--- 1. Create T2 (NPCs) Checkbox ONCE
-f.chk_T2 = CreatePoICheckbox("T1_Chk_T2", "T2_NPC", f.poiSubMenu, 0, false, function(isChecked)
+
+-- 1. Create T1 (Fly) Checkbox ONCE as the top anchor
+f.chk_T1 = CreatePoICheckbox("T1_Chk_T1", "T1_Fly", f.poiSubMenu, 0, false, function(isChecked)
+    f.showT1Fly = isChecked
+    if f.RefreshFlightPins then f:RefreshFlightPins() end
+end)
+f.chk_T1:ClearAllPoints()
+f.chk_T1:SetPoint("TOPLEFT", f.poiSubMenu, "TOPLEFT", 0, 0)
+
+-- 2. Create T2 (NPCs) Checkbox anchored to T1
+f.chk_T2 = CreatePoICheckbox("T1_Chk_T2", "T2_NPC", f.chk_T1, -2, false, function(isChecked)
     f.showT2NPCs = isChecked
     if f.RefreshNPCPins then f:RefreshNPCPins() end
 end)
-f.chk_T2:ClearAllPoints()
-f.chk_T2:SetPoint("TOPLEFT", f.poiSubMenu, "TOPLEFT", 0, 0)
 
--- 2. Create T3 (Quests) Checkbox anchored to T2
+-- 3. Create T3 (Quests) Checkbox anchored to T2
 f.chk_T3 = CreatePoICheckbox("T1_Chk_T3", "T3_Qst", f.chk_T2, -2, true, function(isChecked)
     f.showT3Quests = isChecked
     if f.RefreshQuestPins then f:RefreshQuestPins() end
 end)
 
 
--- 3. Create Remaining Checkboxes
+-- 4. Create Remaining Disabled Checkboxes anchored to T3
 f.chk_T4 = CreatePoICheckbox("T1_Chk_T4", "T4_Res", f.chk_T3, -2, false, nil)
 f.chk_T4:Disable()
 f.chk_T4:SetAlpha(0.5)
@@ -316,6 +451,9 @@ f.chk_T4:SetAlpha(0.5)
 f.chk_T5 = CreatePoICheckbox("T1_Chk_T5", "T5_Dgn", f.chk_T4, -2, false, nil)
 f.chk_T5:Disable()
 f.chk_T5:SetAlpha(0.5)
+
+
+
 
 
 -- ==========================================
@@ -1579,7 +1717,8 @@ function f:UpdateMapTransform()
     end
 
     if f.RefreshQuestPins then f:RefreshQuestPins() end
-    if f.RefreshNPCPins then f:RefreshNPCPins() end -- ADD THIS LINE
+    if f.RefreshNPCPins then f:RefreshNPCPins() end
+    if f.RefreshFlightPins then f:RefreshFlightPins() end -- ADD THIS LINE
 end
 
 f.mapCanvas:EnableMouseWheel(true)
@@ -1922,10 +2061,10 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
             elseif f.currentMapID == -1416 and currentZoneID == 1416 then
                 pX, pY = GetDalaranLocalCoords(pos.x, pos.y)
                 hasValidData = true
-            -- FIX: Exact match must go FIRST
+                -- FIX: Exact match must go FIRST
             elseif f.currentMapID == currentZoneID then
                 pX, pY, hasValidData = pos.x, pos.y, true
-            -- Fallback to conversion only if they are not in the exact same map
+                -- Fallback to conversion only if they are not in the exact same map
             elseif IsCustomCityMap(f.currentMapID) then
                 hasValidData, pX, pY = ConvertToCitySpace(currentZoneID, pos.x, pos.y, f.currentMapID)
             end
@@ -2004,10 +2143,10 @@ f.partyTracker:SetScript("OnUpdate", function()
                     elseif f.currentMapID == -1416 and unitMapID == 1416 then
                         drawX, drawY = GetDalaranLocalCoords(pos.x, pos.y)
                         showPartyMember = true
-                    -- FIX: Exact match must go FIRST
+                        -- FIX: Exact match must go FIRST
                     elseif f.currentMapID == unitMapID then
                         drawX, drawY, showPartyMember = pos.x, pos.y, true
-                    -- Fallback to conversion
+                        -- Fallback to conversion
                     elseif IsCustomCityMap(f.currentMapID) then
                         showPartyMember, drawX, drawY = ConvertToCitySpace(unitMapID, pos.x, pos.y, f.currentMapID)
                     end
@@ -2070,10 +2209,10 @@ f.deathTracker:SetScript("OnUpdate", function()
                 elseif f.currentMapID == -1416 and currentZoneID == 1416 then
                     cX, cY = GetDalaranLocalCoords(corpsePos.x, corpsePos.y)
                     hasCorpse = true
-                -- FIX: Exact match must go FIRST
+                    -- FIX: Exact match must go FIRST
                 elseif f.currentMapID == currentZoneID then
                     cX, cY, hasCorpse = corpsePos.x, corpsePos.y, true
-                -- Fallback to conversion
+                    -- Fallback to conversion
                 elseif IsCustomCityMap(f.currentMapID) then
                     hasCorpse, cX, cY = ConvertToCitySpace(currentZoneID, corpsePos.x, corpsePos.y, f.currentMapID)
                 end
@@ -2175,7 +2314,6 @@ _G.func_ToggleT1Window = function(mapID)
     if mapID and type(mapID) == "number" then
         if mapID < 0 then return end
 
-        -- FIX: Only load the map if we are switching to a new map ID
         if f.currentMapID ~= mapID then
             f:LoadMap(mapID)
         end
@@ -2187,9 +2325,15 @@ _G.func_ToggleT1Window = function(mapID)
             f:Hide()
         else
             local playerMap = C_Map.GetBestMapForUnit("player")
-            local defaultMap = (playerMap and playerMap == 1416) and -1416 or 947
+            local defaultMap = 947 -- Default to world map
+            
+            -- Check if player is in Dalaran or a Custom City Map
+            if playerMap == 1416 then
+                defaultMap = -1416
+            elseif IsCustomCityMap(playerMap) then
+                defaultMap = playerMap
+            end
 
-            -- FIX: Only load the map if we are switching to a new map ID
             if f.currentMapID ~= defaultMap then
                 f:LoadMap(defaultMap)
             end
@@ -2203,6 +2347,7 @@ _G.func_ToggleT1Window = function(mapID)
         end
     end
 end
+
 
 SLASH_T1_CMD1 = "/t1"
 SlashCmdList["T1_CMD"] = function(msg)
@@ -2257,15 +2402,27 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     SaveBindings(bindSet)
 end)
 
+
 f:SetScript("OnShow", function(self)
     if not self.currentMapID then
         local playerMap = C_Map.GetBestMapForUnit("player")
-        local defaultMap = (playerMap and playerMap == 1416) and 1416 or 947
+        local defaultMap = 947
+        
+        -- Check if player is in Dalaran or a Custom City Map
+        if playerMap == 1416 then
+            defaultMap = -1416
+        elseif IsCustomCityMap(playerMap) then
+            defaultMap = playerMap
+        end
+        
         self:LoadMap(defaultMap)
-        if defaultMap == 947 and playerMap and playerMap > 0 then self:ZoomToZone(playerMap) end
+        if defaultMap == 947 and playerMap and playerMap > 0 then 
+            self:ZoomToZone(playerMap) 
+        end
     end
     if self.UpdateMapTransform then self:UpdateMapTransform() end
 end)
+
 
 
 -- ==========================================
