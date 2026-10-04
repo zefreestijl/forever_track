@@ -1324,13 +1324,22 @@ f:RegisterEvent("PLAYER_LEVEL_UP")
 
 f:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
 f:RegisterEvent("QUEST_WATCH_UPDATE")
+f:RegisterEvent("QUEST_ACCEPTED") -- Add this new listener
 
-f:SetScript("OnEvent", function(self, event, unitTarget)
-    if event == "QUEST_LOG_UPDATE" or (event == "UNIT_QUEST_LOG_CHANGED" and unitTarget == "player") then
+
+f:SetScript("OnEvent", function(self, event, arg1, arg2)
+    if event == "QUEST_ACCEPTED" then
+        -- Depending on the client version, questID is usually arg2, but we check both safely
+        local questID = type(arg2) == "number" and arg2 or arg1
+        if type(questID) == "number" then
+            recentQuests[questID] = GetTime()
+        end
+    elseif event == "QUEST_LOG_UPDATE" or (event == "UNIT_QUEST_LOG_CHANGED" and arg1 == "player") then
         CheckForQuestUpdates()
     end
     UpdateQuestList()
 end)
+
 
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
