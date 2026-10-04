@@ -35,6 +35,8 @@ T1_ZoneDB = {
     [1446] = { zone = "tanaris", x = -0.3298, y = -.02696, w = 0.2276, comment = "塔納利斯", classic = 440 },
     [1447] = { zone = "azshara", x = -0.2568, y = 0.1286, w = 0.1714, comment = "艾薩拉", classic = 16 },
     [1448] = { zone = "felwood", x = -0.4120, y = 0.1813, w = 0.1933, comment = "費伍德森林", classic = 361 },
+
+    --
     [1449] = { zone = "ungoro-crater", x = -0.4058, y = -0.2331, w = 0.1357, comment = "安戈洛環形山", classic = 0 },
     [1450] = { zone = "moonglade", x = -0.3724, y = 0.2685, w = 0.0962, comment = "月光林地", classic = 493 },
     [1451] = { zone = "silithus", x = -0.4781, y = -0.2345, w = 0.1174, comment = "希利蘇斯", classic = 1377 },
@@ -44,4 +46,7 @@ T1_ZoneDB = {
     [16601] = { zone = "hyial", x = -0.3683, y = 0.1754, w = 0.1175, comment = "海加爾山", classic = 0 },
     [16651] = { zone = "shendralas", x = -0.4868, y = -0.0815, w = 0.0705, comment = "辛德拉斯", classic = 0 },
 
+    --
+    [1414] = { name = "kalimdor",  x = -.4072, y = 0.0228, w = 1.2459, comment = "" },
+    [1415] = { name = "eastern-kingdoms", x = 0.4020, y = 0.0208, w = 1.1849, comment = "" },
 }

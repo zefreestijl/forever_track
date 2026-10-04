@@ -191,28 +191,28 @@ f.zoomSlider:SetScript("OnValueChanged", function(self, value)
     if self.isUpdating then return end
     if f.targetZoom == value then return end
     f.targetZoom = value
-    
+
     -- FIX: Dragging slider to minimum forces a layout recalculation
     if value <= 1.01 then
         f.targetOffsetX = 0
         f.targetOffsetY = 0
-        
+
         self.isUpdating = true
         if f.currentMapID then
-            f.savedWorldZoom = nil 
-            
+            f.savedWorldZoom = nil
+
             -- FIX: Replace f:LoadMap with the non-destructive fog refresh
             if f.RefreshFogOfWar then f:RefreshFogOfWar() end
             if f.UpdateMapTransform then f:UpdateMapTransform() end
         end
         self.isUpdating = false
     end
-    
+
     -- ... (Keep the rest of your OnValueChanged logic below this)
 
     local canvasW, canvasH = f.mapCanvas:GetSize()
     local contentW, contentH = f.mapContent:GetSize()
-    
+
     if canvasW and canvasH and contentW and contentH then
         if f.playerArrow and f.playerArrow:IsShown() and f.playerArrow.pX and f.playerArrow.pY then
             local uiPctX, uiPctY = LogicalToUIPercent(f.playerArrow.pX, f.playerArrow.pY)
@@ -247,14 +247,14 @@ f.showFogOfWar = true
 -- ==========================================
 -- POI Toggle Menu
 -- ==========================================
-f.showT3Quests = true 
-f.showT2NPCs = false 
+f.showT3Quests = true
+f.showT2NPCs = false
 
 -- Main Expand/Collapse Checkbox
 f.poiMainToggle = CreateFrame("CheckButton", nil, f.zoomUI, "UICheckButtonTemplate")
 f.poiMainToggle:SetSize(24, 24)
 f.poiMainToggle:SetPoint("TOPLEFT", f.zoomText, "BOTTOMLEFT", -4, -5)
-f.poiMainToggle:SetChecked(false) 
+f.poiMainToggle:SetChecked(false)
 
 f.poiMainText = f.poiMainToggle:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 f.poiMainText:SetPoint("LEFT", f.poiMainToggle, "RIGHT", 0, 1)
@@ -280,13 +280,13 @@ local function CreatePoICheckbox(name, label, anchorFrame, yOffset, defaultState
     cb:SetSize(20, 20)
     cb:SetPoint("TOPLEFT", anchorFrame, "BOTTOMLEFT", 0, yOffset)
     cb:SetChecked(defaultState)
-    
+
     local text = cb:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     text:SetPoint("LEFT", cb, "RIGHT", 2, 1)
     text:SetText(label)
-    
+
     cb:SetHitRectInsets(0, -text:GetStringWidth() - 5, 0, 0)
-    
+
     cb:SetScript("OnClick", function(self)
         if onClickFunc then onClickFunc(self:GetChecked()) end
     end)
@@ -324,8 +324,8 @@ f.chk_T5:SetAlpha(0.5)
 if not f.npcPinPool then f.npcPinPool = {} end
 
 function f:RefreshNPCPins()
-    for _, pin in ipairs(f.npcPinPool) do 
-        pin:Hide() 
+    for _, pin in ipairs(f.npcPinPool) do
+        pin:Hide()
     end
 
     if not f.showT2NPCs then return end
@@ -343,17 +343,17 @@ function f:RefreshNPCPins()
         if npc.x and npc.y then
             local drawX = npc.x > 1 and npc.x / 100 or npc.x
             local drawY = npc.y > 1 and npc.y / 100 or npc.y
-            
+
             local pin = f.npcPinPool[pinIndex]
             if not pin then
                 pin = CreateFrame("Button", nil, f.mapContent)
-                pin:SetFrameLevel(f.mapContent:GetFrameLevel() + 64) 
-                
+                pin:SetFrameLevel(f.mapContent:GetFrameLevel() + 64)
+
                 pin.tex = pin:CreateTexture(nil, "OVERLAY")
                 pin.tex:SetAllPoints()
                 -- Using a purple diamond to ensure the texture exists in your client version
-                pin.tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_3") 
-                
+                pin.tex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_3")
+
                 f.npcPinPool[pinIndex] = pin
             end
 
@@ -361,22 +361,24 @@ function f:RefreshNPCPins()
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 GameTooltip:SetText(npc.name .. " (|cFF00FFFF#" .. (npc.id or "???") .. "|r)", 1, 0.82, 0)
                 if npc.description and npc.description ~= "" then GameTooltip:AddLine(npc.description, 1, 1, 1, true) end
-                if npc.comment and npc.comment ~= "" then GameTooltip:AddLine("|cFF808080" .. npc.comment .. "|r", 1, 1, 1, true) end
+                if npc.comment and npc.comment ~= "" then
+                    GameTooltip:AddLine("|cFF808080" .. npc.comment .. "|r", 1, 1,
+                        1, true)
+                end
                 GameTooltip:Show()
             end)
-            
+
             pin:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
             pin:SetSize(10 / f.zoomLevel, 10 / f.zoomLevel)
             pin:ClearAllPoints()
             pin:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawX * contentW, -drawY * contentH)
             pin:Show()
-            
+
             pinIndex = pinIndex + 1
         end
     end
 end
-
 
 --
 
@@ -398,7 +400,7 @@ end)
 
 f.ResizeGrip:SetScript("OnDragStop", function(self)
     self.isResizing = false
-    
+
     -- FIX: Do not reload the base map. Only refresh the fog of war coordinates.
     if f.RefreshFogOfWar then f:RefreshFogOfWar() end
     if f.UpdateMapTransform then f:UpdateMapTransform() end
@@ -1006,12 +1008,12 @@ function f:LoadMap(mapID)
                 local right = f.mapContent:GetRight()
                 local top = f.mapContent:GetTop()
                 local bottom = f.mapContent:GetBottom()
-                
+
                 local canvasLeft = f.mapCanvas:GetLeft()
                 local canvasRight = f.mapCanvas:GetRight()
                 local canvasTop = f.mapCanvas:GetTop()
                 local canvasBottom = f.mapCanvas:GetBottom()
-                
+
                 -- Wait for anchors to resolve
                 if not left or not right or not top or not bottom or not canvasLeft then return end
 
@@ -1046,9 +1048,9 @@ function f:LoadMap(mapID)
 
                 for i = 1, 2 do
                     if #f.baseMapQueue > 0 then
-                        local data = table.remove(f.baseMapQueue, 1) 
+                        local data = table.remove(f.baseMapQueue, 1)
                         local tile = f.worldMapTiles[data.index]
-                        
+
                         if not tile then
                             tile = f.mapContent:CreateTexture(nil, "BACKGROUND")
                             f.worldMapTiles[data.index] = tile
@@ -1057,8 +1059,9 @@ function f:LoadMap(mapID)
                         tile:SetSize(tileW, tileH)
                         tile:ClearAllPoints()
                         tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", data.col * tileW, -(data.row * tileH))
-                        tile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-" .. data.index .. ".tga")
-                        
+                        tile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-" ..
+                            data.index .. ".tga")
+
                         if f.showFogOfWar then
                             tile:SetDesaturated(true)
                             tile:SetVertexColor(0.25, 0.25, 0.25)
@@ -1066,15 +1069,14 @@ function f:LoadMap(mapID)
                             tile:SetDesaturated(false)
                             tile:SetVertexColor(1, 1, 1)
                         end
-                        
+
                         tile:Show()
                     end
                 end
             end)
         end
-        
-        f.baseMapLoader:Show()
 
+        f.baseMapLoader:Show()
     elseif mapID == -1416 then
         if not f.dalaranMapTile then
             f.dalaranMapTile = f.mapContent:CreateTexture(nil, "BACKGROUND")
@@ -1110,7 +1112,8 @@ function f:LoadMap(mapID)
                             local tileWidth = layerInfo.tileWidth * scaleX
                             local tileHeight = layerInfo.tileHeight * scaleY
                             tile:SetSize(tileWidth, tileHeight)
-                            tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", (col - 1) * tileWidth, -(row - 1) * tileHeight)
+                            tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", (col - 1) * tileWidth,
+                                -(row - 1) * tileHeight)
                             tile:SetTexture(textures[textureIndex])
                             tile:Show()
 
@@ -1570,7 +1573,7 @@ function f:UpdateMapTransform()
         end
     end
 
-  -- Place this right next to your Quest Pins refresh call at the bottom of UpdateMapTransform
+    -- Place this right next to your Quest Pins refresh call at the bottom of UpdateMapTransform
     if f.DrawHoverPolygon then
         f:DrawHoverPolygon(f.mapCanvas.hoveredMapID)
     end
@@ -1578,7 +1581,6 @@ function f:UpdateMapTransform()
     if f.RefreshQuestPins then f:RefreshQuestPins() end
     if f.RefreshNPCPins then f:RefreshNPCPins() end -- ADD THIS LINE
 end
-
 
 f.mapCanvas:EnableMouseWheel(true)
 
@@ -1781,10 +1783,10 @@ _G.func_T1_AddPin = function(mapID, localX, localY, r, g, b)
     if localX and localX > 1 then localX = localX / 100 end
     if localY and localY > 1 then localY = localY / 100 end
     table.insert(f.customPins, { mapID = mapID, x = localX, y = localY, r = r or 0, g = g or 1, b = b or 1 })
-    
+
     if f:IsShown() and f.UpdateMapTransform then f:UpdateMapTransform() end
-    
-    -- RESTORE THIS LINE: 
+
+    -- RESTORE THIS LINE:
     -- Now that the load-wiping bug is fixed, this will smoothly pan to the midpoint and zoom without refreshing the map.
     if f:IsShown() and f.ZoomFitPlayerAndPin then f:ZoomFitPlayerAndPin() end
 
@@ -1867,6 +1869,7 @@ local function ConvertToCitySpace(unitMapID, rawX, rawY, targetCityID)
     return false, 0, 0
 end
 
+--
 
 f.playerArrow = f.mapContent:CreateTexture(nil, "OVERLAY")
 f.playerArrow:SetTexture("Interface\\Minimap\\MinimapArrow")
@@ -1885,8 +1888,6 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
             -- ==========================================
             if currentZoneID == 1416 then
                 local dalX, dalY = GetDalaranLocalCoords(pos.x, pos.y)
-
-                -- Custom Bounding Box (X: 0.10 to 0.82, Y: 0.03 to 0.93)
                 local isInside = (dalX >= 0.10 and dalX <= 0.82 and dalY >= 0.03 and dalY <= 0.93)
 
                 if f.lastDalaranState == nil then
@@ -1895,11 +1896,9 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
                     f.lastDalaranState = isInside
                     if f:IsShown() then
                         if isInside and f.currentMapID ~= -1416 then
-                            -- Walked INTO Dalaran bounds -> Force open Dalaran
                             f:LoadMap(-1416)
                             if f.UpdateMapTransform then f:UpdateMapTransform() end
                         elseif not isInside and f.currentMapID == -1416 then
-                            -- Walked OUT of Dalaran bounds -> Return directly to World Map
                             f:LoadMap(947)
                             if f.UpdateMapTransform then f:UpdateMapTransform() end
                         end
@@ -1908,8 +1907,8 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
             else
                 f.lastDalaranState = nil
             end
-            -- ==========================================
 
+            -- ==========================================
             if f.currentMapID == 947 then
                 if T1_ZoneDB and T1_ZoneDB[currentZoneID] then
                     local zoneData = T1_ZoneDB[currentZoneID]
@@ -1923,10 +1922,12 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
             elseif f.currentMapID == -1416 and currentZoneID == 1416 then
                 pX, pY = GetDalaranLocalCoords(pos.x, pos.y)
                 hasValidData = true
-            elseif IsCustomCityMap(f.currentMapID) then
-                hasValidData, pX, pY = ConvertToCitySpace(currentZoneID, pos.x, pos.y, f.currentMapID)
+            -- FIX: Exact match must go FIRST
             elseif f.currentMapID == currentZoneID then
                 pX, pY, hasValidData = pos.x, pos.y, true
+            -- Fallback to conversion only if they are not in the exact same map
+            elseif IsCustomCityMap(f.currentMapID) then
+                hasValidData, pX, pY = ConvertToCitySpace(currentZoneID, pos.x, pos.y, f.currentMapID)
             end
         end
     end
@@ -1957,6 +1958,27 @@ f.playerArrowTracker:SetScript("OnUpdate", function()
     end
 end)
 
+if not f.partyFrames then
+    f.partyFrames = {}
+    for i = 1, 4 do
+        local pf = CreateFrame("Frame", nil, f.mapContent)
+        pf:SetFrameLevel(f.mapContent:GetFrameLevel() + 5)
+        pf:EnableMouse(true)
+        pf:SetScript("OnMouseDown", function(self, button)
+            if button == "LeftButton" and self.pX and self.pY then
+                local targetX, targetY = self.pX, self.pY
+                if f.currentMapID == 947 then
+                    targetX, targetY = LogicalToUIPercent(self.pX, self.pY)
+                end
+                f:ZoomToPoint(targetX, targetY, 6)
+            end
+        end)
+        pf.tex = pf:CreateTexture(nil, "OVERLAY")
+        pf.tex:SetAllPoints()
+        pf.tex:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+        f.partyFrames[i] = pf
+    end
+end
 
 if not f.partyTracker then f.partyTracker = CreateFrame("Frame", nil, f.mapCanvas) end
 
@@ -1982,138 +2004,12 @@ f.partyTracker:SetScript("OnUpdate", function()
                     elseif f.currentMapID == -1416 and unitMapID == 1416 then
                         drawX, drawY = GetDalaranLocalCoords(pos.x, pos.y)
                         showPartyMember = true
-                    elseif IsCustomCityMap(f.currentMapID) then
-                        showPartyMember, drawX, drawY = ConvertToCitySpace(unitMapID, pos.x, pos.y, f.currentMapID)
+                    -- FIX: Exact match must go FIRST
                     elseif f.currentMapID == unitMapID then
                         drawX, drawY, showPartyMember = pos.x, pos.y, true
-                    end
-                end
-            end
-        end
-        if showPartyMember then
-            local _, classFilename = UnitClass(unit)
-            if classFilename and RAID_CLASS_COLORS[classFilename] then
-                local c = RAID_CLASS_COLORS[classFilename]
-                pf.tex:SetVertexColor(c.r, c.g, c.b, 1)
-            else
-                pf.tex:SetVertexColor(0.5, 0.5, 1, 1)
-            end
-            pf.pX, pf.pY = drawX, drawY
-
-            local drawUI_X, drawUI_Y = drawX, drawY
-            if f.currentMapID == 947 then
-                drawUI_X, drawUI_Y = LogicalToUIPercent(drawX, drawY)
-            end
-
-            pf:Show()
-            pf:SetSize(16 / f.zoomLevel, 16 / f.zoomLevel)
-            if pf.SetScale then pf:SetScale(1) end
-            pf:ClearAllPoints()
-            pf:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * contentW, -drawUI_Y * contentH)
-        else
-            pf:Hide()
-            pf.pX, pf.pY = nil, nil
-        end
-    end
-end)
-
-if not f.deathTracker then f.deathTracker = CreateFrame("Frame", nil, f.mapCanvas) end
-f.deathTracker:SetScript("OnUpdate", function()
-    local hasCorpse, cX, cY = false, 0, 0
-
-    if UnitIsDeadOrGhost("player") then
-        local currentZoneID = C_Map.GetBestMapForUnit("player")
-        if currentZoneID and currentZoneID > 0 and C_DeathInfo then
-            local corpsePos = C_DeathInfo.GetCorpseMapPosition and C_DeathInfo.GetCorpseMapPosition(currentZoneID)
-            if corpsePos and corpsePos.x and corpsePos.y then
-                if f.currentMapID == 947 then
-                    if T1_ZoneDB and T1_ZoneDB[currentZoneID] then
-                        local zData = T1_ZoneDB[currentZoneID]
-                        local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
-                        if zData.x and zData.y then
-                            cX = zData.x + ((corpsePos.x - 0.5) * zoneW)
-                            cY = zData.y + ((0.5 - corpsePos.y) * (zoneW / 1.5))
-                            hasCorpse = true
-                        end
-                    end
-                elseif f.currentMapID == -1416 and currentZoneID == 1416 then
-                    cX, cY = GetDalaranLocalCoords(corpsePos.x, corpsePos.y)
-                    hasCorpse = true
-                elseif IsCustomCityMap(f.currentMapID) then
-                    hasCorpse, cX, cY = ConvertToCitySpace(currentZoneID, corpsePos.x, corpsePos.y, f.currentMapID)
-                elseif f.currentMapID == currentZoneID then
-                    cX, cY, hasCorpse = corpsePos.x, corpsePos.y, true
-                end
-            end
-        end
-    end
-
-    local contentW, contentH = f.mapContent:GetWidth(), f.mapContent:GetHeight()
-    if hasCorpse then
-        local drawUI_X, drawUI_Y = cX, cY
-        if f.currentMapID == 947 then
-            drawUI_X, drawUI_Y = LogicalToUIPercent(cX, cY)
-        end
-        f.corpseFrame:Show()
-        f.corpseFrame:SetSize(12 / f.zoomLevel, 12 / f.zoomLevel)
-        if f.corpseFrame.SetScale then f.corpseFrame:SetScale(1) end
-        f.corpseFrame:ClearAllPoints()
-        f.corpseFrame:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * contentW, -drawUI_Y * contentH)
-    else
-        f.corpseFrame:Hide()
-    end
-end)
-
-
-if not f.partyFrames then
-    f.partyFrames = {}
-    for i = 1, 4 do
-        local pf = CreateFrame("Frame", nil, f.mapContent)
-        pf:SetFrameLevel(f.mapContent:GetFrameLevel() + 5)
-        pf:EnableMouse(true)
-        pf:SetScript("OnMouseDown", function(self, button)
-            if button == "LeftButton" and self.pX and self.pY then
-                local targetX, targetY = self.pX, self.pY
-                if f.currentMapID == 947 then
-                    targetX, targetY = LogicalToUIPercent(self.pX, self.pY)
-                end
-                f:ZoomToPoint(targetX, targetY, 6)
-            end
-        end)
-        pf.tex = pf:CreateTexture(nil, "OVERLAY")
-        pf.tex:SetAllPoints()
-        pf.tex:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
-        f.partyFrames[i] = pf
-    end
-end
-
-f.partyTracker = CreateFrame("Frame", nil, f.mapCanvas)
-
-
-if not f.partyTracker then f.partyTracker = CreateFrame("Frame", nil, f.mapCanvas) end
-f.partyTracker:SetScript("OnUpdate", function()
-    local contentW, contentH = f.mapContent:GetWidth(), f.mapContent:GetHeight()
-    for i = 1, 4 do
-        local unit, pf, showPartyMember, drawX, drawY = "party" .. i, f.partyFrames[i], false, 0, 0
-        if UnitExists(unit) and UnitIsConnected(unit) then
-            local unitMapID = C_Map.GetBestMapForUnit(unit)
-            if unitMapID and unitMapID > 0 then
-                local pos = C_Map.GetPlayerMapPosition(unitMapID, unit)
-                if pos and pos.x and pos.y then
-                    if f.currentMapID == 947 then
-                        if T1_ZoneDB and T1_ZoneDB[unitMapID] then
-                            local zData = T1_ZoneDB[unitMapID]
-                            local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
-                            if zData.x and zData.y then
-                                drawX = zData.x + ((pos.x - 0.5) * zoneW)
-                                drawY = zData.y + ((0.5 - pos.y) * (zoneW / 1.5))
-                                showPartyMember = true
-                            end
-                        end
+                    -- Fallback to conversion
                     elseif IsCustomCityMap(f.currentMapID) then
                         showPartyMember, drawX, drawY = ConvertToCitySpace(unitMapID, pos.x, pos.y, f.currentMapID)
-                    elseif f.currentMapID == unitMapID then
-                        drawX, drawY, showPartyMember = pos.x, pos.y, true
                     end
                 end
             end
@@ -2150,8 +2046,7 @@ f.corpseFrame:SetFrameLevel(f.mapContent:GetFrameLevel() + 55)
 f.corpseTex = f.corpseFrame:CreateTexture(nil, "OVERLAY")
 f.corpseTex:SetAllPoints()
 f.corpseTex:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
-
-f.deathTracker = CreateFrame("Frame", nil, f.mapCanvas)
+f.corpseFrame:Hide()
 
 if not f.deathTracker then f.deathTracker = CreateFrame("Frame", nil, f.mapCanvas) end
 f.deathTracker:SetScript("OnUpdate", function()
@@ -2172,10 +2067,15 @@ f.deathTracker:SetScript("OnUpdate", function()
                             hasCorpse = true
                         end
                     end
-                elseif IsCustomCityMap(f.currentMapID) then
-                    hasCorpse, cX, cY = ConvertToCitySpace(currentZoneID, corpsePos.x, corpsePos.y, f.currentMapID)
+                elseif f.currentMapID == -1416 and currentZoneID == 1416 then
+                    cX, cY = GetDalaranLocalCoords(corpsePos.x, corpsePos.y)
+                    hasCorpse = true
+                -- FIX: Exact match must go FIRST
                 elseif f.currentMapID == currentZoneID then
                     cX, cY, hasCorpse = corpsePos.x, corpsePos.y, true
+                -- Fallback to conversion
+                elseif IsCustomCityMap(f.currentMapID) then
+                    hasCorpse, cX, cY = ConvertToCitySpace(currentZoneID, corpsePos.x, corpsePos.y, f.currentMapID)
                 end
             end
         end
@@ -2197,6 +2097,8 @@ f.deathTracker:SetScript("OnUpdate", function()
     end
 end)
 
+
+--
 if not f.flagHoverTracker then f.flagHoverTracker = CreateFrame("Frame", nil, f.mapCanvas) end
 f.flagHoverTracker:SetScript("OnUpdate", function()
     if not f.cityFlags then return end
@@ -2235,6 +2137,8 @@ f.flagHoverTracker:SetScript("OnUpdate", function()
     end
 end)
 
+
+
 -- ==========================================
 -- Map ID Converters & Openers
 -- ==========================================
@@ -2254,7 +2158,7 @@ end
 _G.func_OpenZoneMapByID = function(mapID)
     local targetMapID = tonumber(mapID)
     if not targetMapID or targetMapID <= 0 then return end
-    
+
     if _G.func_ToggleT1Window then
         _G.func_ToggleT1Window(targetMapID)
     end
@@ -2270,12 +2174,12 @@ f:Hide()
 _G.func_ToggleT1Window = function(mapID)
     if mapID and type(mapID) == "number" then
         if mapID < 0 then return end
-        
+
         -- FIX: Only load the map if we are switching to a new map ID
         if f.currentMapID ~= mapID then
             f:LoadMap(mapID)
         end
-        
+
         if f.UpdateMapTransform then f:UpdateMapTransform() end
         f:Show()
     else
@@ -2289,7 +2193,7 @@ _G.func_ToggleT1Window = function(mapID)
             if f.currentMapID ~= defaultMap then
                 f:LoadMap(defaultMap)
             end
-            
+
             if defaultMap == 947 and playerMap and playerMap > 0 then
                 f:ZoomToZone(playerMap)
             elseif f.UpdateMapTransform then
@@ -2304,7 +2208,7 @@ SLASH_T1_CMD1 = "/t1"
 SlashCmdList["T1_CMD"] = function(msg)
     -- Clean the input string
     msg = strtrim(msg or "")
-    
+
     -- If no argument provided, use the default toggle behavior
     if msg == "" then
         _G.func_ToggleT1Window()
@@ -2397,8 +2301,8 @@ f.lastPlayerZone = nil
 f.zoneTracker:SetScript("OnEvent", function(self, event, ...)
     -- 1. Handle Quest Updates Immediately
     if event == "QUEST_LOG_UPDATE" then
-        if f:IsShown() and f.RefreshQuestPins then 
-            f:RefreshQuestPins() 
+        if f:IsShown() and f.RefreshQuestPins then
+            f:RefreshQuestPins()
         end
         return -- Exit early so we don't run the zone-change logic below
     end
@@ -2408,7 +2312,7 @@ f.zoneTracker:SetScript("OnEvent", function(self, event, ...)
     if not currentPlayerZone or currentPlayerZone <= 0 then return end
     if f.lastPlayerZone == currentPlayerZone then return end
     f.lastPlayerZone = currentPlayerZone
-    
+
     if not f:IsShown() then return end
 
     local MY_CUSTOM_WORLD_MAP_ID = 947
@@ -2460,15 +2364,15 @@ end
 if not f.questPinPool then f.questPinPool = {} end
 
 function f:RefreshQuestPins()
--- Hide all existing pins first
-    for _, pin in ipairs(f.questPinPool) do 
-        pin:Hide() 
+    -- Hide all existing pins first
+    for _, pin in ipairs(f.questPinPool) do
+        pin:Hide()
     end
 
     -- Abort rendering if the T3 toggle is off or if we are on a custom/world map
     if not f.showT3Quests then return end
-    if f.currentMapID == 947 or f.currentMapID == -1416 or f.currentMapID <= 0 then 
-        return 
+    if f.currentMapID == 947 or f.currentMapID == -1416 or f.currentMapID <= 0 then
+        return
     end
 
     local quests = C_QuestLog.GetQuestsOnMap(f.currentMapID)
@@ -2483,11 +2387,11 @@ function f:RefreshQuestPins()
     for _, questData in ipairs(quests) do
         if questData.x and questData.y then
             local pin = f.questPinPool[pinIndex]
-            
+
             if not pin then
                 pin = CreateFrame("Button", nil, f.mapContent)
-                pin:SetFrameLevel(f.mapContent:GetFrameLevel() + 65) 
-                
+                pin:SetFrameLevel(f.mapContent:GetFrameLevel() + 65)
+
                 pin.tex = pin:CreateTexture(nil, "OVERLAY")
                 pin.tex:SetAllPoints()
 
@@ -2498,28 +2402,28 @@ function f:RefreshQuestPins()
             end
 
             pin.questID = questData.questID
-            
+
             -- Helper function to update visuals based on current state
             local function UpdatePinVisuals()
                 local isComplete = C_QuestLog.IsComplete(pin.questID)
-                
+
                 local isWatched = false
                 if C_QuestLog.GetQuestWatchType then
                     isWatched = (C_QuestLog.GetQuestWatchType(pin.questID) ~= nil)
                 elseif QuestUtils_IsQuestWatched then
                     isWatched = QuestUtils_IsQuestWatched(pin.questID)
                 end
-                
+
                 local isSuperTracked = false
                 if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID then
                     isSuperTracked = (C_SuperTrack.GetSuperTrackedQuestID() == pin.questID)
                 end
 
                 if isComplete then
-                    pin.tex:SetTexture("Interface\\GossipFrame\\ActiveQuestIcon") 
+                    pin.tex:SetTexture("Interface\\GossipFrame\\ActiveQuestIcon")
                     pin.tex:Show()
                     pin.iconText:Hide()
-                    
+
                     if isSuperTracked then
                         pin.tex:SetDesaturated(false)
                         pin.tex:SetVertexColor(1, 0.6, 0.0) -- Orange Focus
@@ -2536,33 +2440,36 @@ function f:RefreshQuestPins()
                 else
                     pin.tex:Hide()
                     pin.iconText:Show()
-                    
+
                     if isSuperTracked then
                         -- Copper = Orange
-                        pin.iconText:SetText("|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t")
+                        pin.iconText:SetText(
+                            "|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t")
                         pin:SetSize(18 / f.zoomLevel, 6 / f.zoomLevel)
                     elseif isWatched then
                         -- Gold = Yellow
-                        pin.iconText:SetText("|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t")
+                        pin.iconText:SetText(
+                            "|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t")
                         pin:SetSize(18 / f.zoomLevel, 6 / f.zoomLevel)
                     else
                         -- Silver = Gray
-                        pin.iconText:SetText("|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t")
+                        pin.iconText:SetText(
+                            "|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t")
                         pin:SetSize(18 / f.zoomLevel, 6 / f.zoomLevel)
                     end
                 end
             end
-            
+
             -- 1. Apply initial visuals
             UpdatePinVisuals()
-            
+
             -- 2. Build the Detailed Tooltip
             pin:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 local title = C_QuestLog.GetTitleForQuestID(self.questID)
-                
+
                 GameTooltip:SetText(title .. " (|cFF00FFFF#" .. self.questID .. "|r)", 1, 0.82, 0)
-                
+
                 local objectives = C_QuestLog.GetQuestObjectives(self.questID)
                 if objectives and #objectives > 0 then
                     for _, obj in ipairs(objectives) do
@@ -2572,7 +2479,7 @@ function f:RefreshQuestPins()
                 else
                     GameTooltip:AddLine("|cFFFFFFFFIn Progress|r")
                 end
-                
+
                 if C_QuestLog.IsComplete(self.questID) then
                     GameTooltip:AddLine(" ")
                     GameTooltip:AddLine("|cFF00FF00Ready for turn-in!|r")
@@ -2586,10 +2493,10 @@ function f:RefreshQuestPins()
                 end
 
                 GameTooltip:AddLine(" ")
-                
+
                 GameTooltip:Show()
             end)
-            
+
             pin:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
             -- 3. Click Events for Tracking & Custom Window
@@ -2610,19 +2517,18 @@ function f:RefreshQuestPins()
                         if C_QuestLog.AddQuestWatch then C_QuestLog.AddQuestWatch(self.questID) end
                         PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
                     end
-                    
+
                     UpdatePinVisuals()
                     self:GetScript("OnEnter")(self)
-                
                 elseif button == "RightButton" then
                     -- Set as current focus before opening the window
                     if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then
                         C_SuperTrack.SetSuperTrackedQuestID(self.questID)
                     end
-                    
+
                     -- Globally refresh all pins so the previous focus reverts color
                     if f.RefreshQuestPins then f:RefreshQuestPins() end
-                    
+
                     if _G.func_ToggleT3Window then
                         _G.func_ToggleT3Window(self.questID)
                     else
@@ -2638,14 +2544,10 @@ function f:RefreshQuestPins()
             pin:ClearAllPoints()
             pin:SetPoint("CENTER", f.mapContent, "TOPLEFT", questData.x * contentW, -questData.y * contentH)
             pin:Show()
-            
+
             pinIndex = pinIndex + 1
         end
     end
-
-
 end
-
-
 
 print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")
