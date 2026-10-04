@@ -385,6 +385,8 @@ end
 -- =========================================================================
 local questProgressCache = {}
 local recentQuests = {}
+local isFirstScan = true
+
 
 local function GetQuestProgressHash(questID, logIndex)
     local hash = ""
@@ -414,6 +416,8 @@ local function CheckForQuestUpdates()
         local q = C_QuestLog.GetInfo(i)
         if q and not q.isHidden and not q.isHeader then
             local hash = GetQuestProgressHash(q.questID, i)
+            
+            -- Condition 1: We already know this quest, and its progress changed
             if questProgressCache[q.questID] and questProgressCache[q.questID] ~= hash then
                 recentQuests[q.questID] = GetTime()
 
@@ -431,10 +435,26 @@ local function CheckForQuestUpdates()
                         pcall(AddQuestWatch, i)
                     end
                 end
+                
+            -- Condition 2: We have NEVER seen this quest, and it's not the initial login scan
+            elseif not questProgressCache[q.questID] and not isFirstScan then
+                -- This is a newly accepted quest!
+                recentQuests[q.questID] = GetTime()
+                
+                -- Auto-track newly accepted quests
+                if type(C_QuestLog.AddQuestWatch) == "function" then
+                    pcall(C_QuestLog.AddQuestWatch, q.questID)
+                elseif type(AddQuestWatch) == "function" then
+                    pcall(AddQuestWatch, i)
+                end
             end
+            
             questProgressCache[q.questID] = hash
         end
     end
+    
+    -- After the first login scan runs, turn off the flag
+    isFirstScan = false 
 end
 
 -- =========================================================================
