@@ -814,3 +814,34 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     SetBindingClick("CTRL-NUMPAD2", "T2_TrackNPC_KeybindButton")
     SaveBindings(GetCurrentBindingSet())
 end)
+
+-- ==========================================
+-- Global API for External Addons (e.g., T1)
+-- ==========================================
+_G.func_T2_GetNpcInfos = function(mapID)
+    local results = {}
+    
+    -- Ensure the requested mapID is a strict number for comparison
+    local targetMapID = tonumber(mapID)
+    if not targetMapID then 
+        return results 
+    end
+
+    -- Iterate through the active session list
+    if type(Session_NPC_List) == "table" then
+        for _, entry in ipairs(Session_NPC_List) do
+            if tonumber(entry.mapID) == targetMapID then
+                table.insert(results, {
+                    id = entry.id or "",
+                    name = entry.name or "Unknown",
+                    description = entry.description or "",
+                    comment = entry.comment or "",
+                    x = tonumber(entry.x),
+                    y = tonumber(entry.y)
+                })
+            end
+        end
+    end
+    
+    return results
+end
