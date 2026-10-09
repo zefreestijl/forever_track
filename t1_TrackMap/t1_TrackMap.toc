@@ -5,7 +5,13 @@
 ## Version: 0.1
 ## SavedVariables: T1_MAP_DATA
 
-map_data.lua
-map_outline.lua
+Data/map_data.lua
+Data/map_outline.lua
 
 t1_TrackMap.lua
+
+Components/c1_Fly.lua
+Components/c2_TrackNPC.lua
+Components/c3_TrackQst.lua
+Components/c4_TrackRes.lua
+Components/c5_TrackDgn.lua

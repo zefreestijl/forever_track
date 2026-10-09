@@ -35,7 +35,8 @@
         "UIErrorsFrame",
         "QuestUtils_IsQuestWatched",
         "MinimapCompassTexture",
-        "MapUtil"
+        "MapUtil",
+        "ChatEdit_GetActiveWindow"
     ],
     "Lua.type.weakUnionCheck": true
 }
