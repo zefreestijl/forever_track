@@ -1819,6 +1819,7 @@ SlashCmdList["T1_CMD"] = function(msg)
 end
 
 
+
 -- ==========================================
 -- Keyboard & Gamepad Input Handlers
 -- ==========================================
@@ -1826,10 +1827,23 @@ local toggleBtn = CreateFrame("Button", "T1_KeybindButton", UIParent)
 toggleBtn:SetSize(1, 1) 
 toggleBtn:SetAlpha(0)
 toggleBtn:SetScript("OnClick", function() 
-    _G.func_ToggleT1Window() 
+    if f:IsShown() then
+        if f.isMapFocused then
+            -- 1. Opened and Focused -> Toggle OFF
+            _G.func_ToggleT1Window() 
+        else
+            -- 2. Opened and Unfocused -> Focus the custom window
+            f:SetMapFocus(true)
+            f:Raise() -- Brings the map frame visually to the front of the screen
+        end
+    else
+        -- 3. Not Opened -> Toggle ON (Auto-focuses via the OnShow hook)
+        _G.func_ToggleT1Window() 
+    end
 end)
 
 local bindInitializer = CreateFrame("Frame")
+
 bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
 bindInitializer:SetScript("OnEvent", function(self, event)
     self:UnregisterEvent(event)
@@ -1842,25 +1856,252 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     SaveBindings(GetCurrentBindingSet() or 1)
 end)
 
+
 -- ==========================================
--- Dynamic Hardware Poller (L2 + Select)
+-- Custom Window Focus Visuals & Gamepad Blocker
+-- ==========================================
+f.focusBorder = CreateFrame("Frame", nil, f, "BackdropTemplate")
+-- Expand the border slightly outside the frame for a better glow outline
+f.focusBorder:SetPoint("TOPLEFT", f, "TOPLEFT", -1, 1)
+f.focusBorder:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 1, -1)
+f.focusBorder:SetFrameLevel(f:GetFrameLevel() + 20)
+f.focusBorder:EnableMouse(false)
+
+f.focusBorder:SetBackdrop({
+    edgeFile = "Interface\\Buttons\\WHITE8X8",
+    edgeSize = 3, -- Thicker border for a better glow
+})
+
+-- Create the smooth "Breathing" Glow Animation
+f.focusBorder.glowAnim = f.focusBorder:CreateAnimationGroup()
+f.focusBorder.glowAnim:SetLooping("BOUNCE") -- Automatically reverses back and forth
+
+local alphaPulse = f.focusBorder.glowAnim:CreateAnimation("Alpha")
+alphaPulse:SetFromAlpha(0.3) -- Dims to 30% opacity
+alphaPulse:SetToAlpha(1.0)   -- Glows to 100% opacity
+alphaPulse:SetDuration(1.0)  -- 1 second per pulse
+alphaPulse:SetSmoothing("IN_OUT")
+
+-- 1. Create the invisible pad blocker
+f.padBlocker = CreateFrame("Button", "T1_PadBlocker", UIParent)
+f.padBlocker:SetScript("OnClick", function() end) 
+
+local padKeysToBlock = {
+    "PAD1", "PAD2", "PAD3", "PAD4", 
+    "PADFORWARD", 
+    "PADLSHOULDER", "PADRSHOULDER", 
+    "PADDPADUP", "PADDPADDOWN", "PADDPADLEFT", "PADDPADRIGHT", 
+    "PADLSTICK", "PADRSTICK" 
+}
+
+f.isMapFocused = false
+function f:SetMapFocus(focused)
+    f.isMapFocused = focused
+    if focused then
+        -- Bright Gold/Yellow Border
+        f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1) 
+        f.focusBorder.glowAnim:Play() -- Start the pulsing glow effect
+        
+        if not InCombatLockdown() then
+            for _, key in ipairs(padKeysToBlock) do
+                SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadBlocker")
+                SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, "T1_PadBlocker")
+            end
+        end
+    else
+        f.focusBorder:SetBackdropBorderColor(0, 0, 0, 0) 
+        f.focusBorder.glowAnim:Stop() -- Stop the animation
+        
+        if not InCombatLockdown() then
+            ClearOverrideBindings(f.padBlocker)
+        end
+    end
+end
+
+f.focusBorder:SetBackdropBorderColor(0, 0, 0, 0)
+
+-- Auto-Focus Triggers
+f:HookScript("OnShow", function() f:SetMapFocus(true) end)
+f.mapCanvas:HookScript("OnMouseDown", function() f:SetMapFocus(true) end)
+f:HookScript("OnMouseDown", function() f:SetMapFocus(true) end)
+f:HookScript("OnHide", function() f:SetMapFocus(false) end)
+
+local focusWatcher = CreateFrame("Frame")
+focusWatcher:RegisterEvent("GLOBAL_MOUSE_DOWN")
+focusWatcher:RegisterEvent("PLAYER_REGEN_DISABLED") 
+
+focusWatcher:SetScript("OnEvent", function(self, event)
+    if event == "GLOBAL_MOUSE_DOWN" then
+        if f:IsShown() and not f:IsMouseOver() and not f.mapCanvas:IsMouseOver() then
+            f:SetMapFocus(false)
+        end
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        if f.isMapFocused then f:SetMapFocus(false) end
+    end
+end)
+
+hooksecurefunc("ShowUIPanel", function(frame)
+    if frame and frame ~= f and f.isMapFocused then f:SetMapFocus(false) end
+end)
+
+hooksecurefunc("ToggleFrame", function(frame)
+    if frame and frame ~= f and f.isMapFocused then f:SetMapFocus(false) end
+end)
+
+
+
+-- ==========================================
+-- Dynamic Hardware Poller (L2 + Select, Pan, Zoom, L3/R3)
 -- ==========================================
 local isL2Held = false
+local wasSelectPressed = false
+local wasL3Pressed = false
+local wasR3Pressed = false
 
-toggleBtn:SetScript("OnUpdate", function(self)
-    -- WoW natively supports reading gamepad states via IsKeyDown
-    local l2Down = IsKeyDown("PADLTRIGGER")
+toggleBtn:SetScript("OnUpdate", function(self, elapsed)
+    elapsed = elapsed or (1 / 60)
     
+    local l2Down = IsKeyDown("PADLTRIGGER")
+    local selectDown = IsKeyDown("PADBACK")
+    local l3Down = IsKeyDown("PADLSTICK")
+    local r3Down = IsKeyDown("PADRSTICK")
+    
+    -- 1. L2 Hijack Logic (Opening/Focusing the Map)
     if l2Down and not isL2Held then
         isL2Held = true
-        -- L2 is pressed: Hijack the Select button
         SetOverrideBindingClick(self, true, "PADBACK", "T1_KeybindButton")
-        
     elseif not l2Down and isL2Held then
         isL2Held = false
-        -- L2 was released: Instantly clear the hijack and restore default behavior
         ClearOverrideBindings(self)
     end
+
+    -- 2. Window Cycling Logic (Dropping Focus)
+    if selectDown and not wasSelectPressed then
+        if not l2Down and f:IsShown() and f.isMapFocused then
+            f:SetMapFocus(false)
+        end
+    end
+    wasSelectPressed = selectDown
+
+    -- 3. Gamepad Controls (Requires L2 + Window Focused)
+    if l2Down and f:IsShown() and f.isMapFocused then
+        
+        -- --- PANNING & ZOOMING ---
+        local panSpeed = (800 / f.zoomLevel) * elapsed 
+        local zoomSpeed = 2.5 * elapsed
+        local dx, dy, zDelta = 0, 0, 0
+
+        -- A: Read Analog Sticks
+        if C_GamePad and C_GamePad.GetActiveDeviceID then
+            local deviceID = C_GamePad.GetActiveDeviceID()
+            if deviceID then
+                local state = C_GamePad.GetDeviceMappedState(deviceID)
+                if state and state.sticks then
+                    local ls = state.sticks[1]
+                    local rs = state.sticks[2]
+                    
+                    if ls then
+                        if math.abs(ls.x) > 0.15 then dx = -ls.x * panSpeed end
+                        -- INVERTED Y-AXIS: Flipped the mathematical sign
+                        if math.abs(ls.y) > 0.15 then dy = -ls.y * panSpeed end 
+                    end
+                    
+                    if rs then
+                        if math.abs(rs.y) > 0.15 then zDelta = rs.y * zoomSpeed end
+                    end
+                end
+            end
+        end
+
+        -- B: Fallback (D-Pad & Bumpers)
+        if dx == 0 and dy == 0 then
+            if IsKeyDown("PADDPADLEFT") then dx = panSpeed end
+            if IsKeyDown("PADDPADRIGHT") then dx = -panSpeed end
+            -- Inverted fallback digital up/down as well to match analog stick
+            if IsKeyDown("PADDPADUP") then dy = panSpeed end
+            if IsKeyDown("PADDPADDOWN") then dy = -panSpeed end
+        end
+        
+        if zDelta == 0 then
+            if IsKeyDown("PADRSHOULDER") or IsKeyDown("PADRTRIGGER") then zDelta = zoomSpeed end
+            if IsKeyDown("PADLSHOULDER") then zDelta = -zoomSpeed end
+        end
+
+        -- Apply Panning
+        if dx ~= 0 or dy ~= 0 then
+            f.mapOffsetX = (f.mapOffsetX or 0) + dx
+            f.mapOffsetY = (f.mapOffsetY or 0) + dy
+            f.velocityX, f.velocityY = 0, 0
+            f.targetOffsetX, f.targetOffsetY = nil, nil
+            f:UpdateMapTransform()
+        end
+
+        -- Apply Zooming
+        if zDelta ~= 0 then
+            local maxZ = f.GetDynamicMaxZoom and f:GetDynamicMaxZoom() or 20
+            local currentTarget = f.targetZoom or f.zoomLevel
+            f.targetZoom = math.max(1, math.min(maxZ, currentTarget + zDelta))
+            
+            local canvasW, canvasH = f.mapCanvas:GetSize()
+            if canvasW and canvasH then
+                f.zoomPivotX = canvasW / 2
+                f.zoomPivotY = -canvasH / 2
+            end
+            f.targetOffsetX, f.targetOffsetY = nil, nil
+            f.velocityX, f.velocityY = 0, 0
+            if f.zoomSmoother then f.zoomSmoother:Show() end
+        end
+
+        -- --- L3: RECENTER ON PLAYER ---
+        if l3Down and not wasL3Pressed then
+            local currentZoneID = C_Map.GetBestMapForUnit("player")
+            if currentZoneID and currentZoneID > 0 then
+                f.savedWorldZoom = nil
+                if f.currentMapID ~= 947 then f:LoadMap(947) end
+                
+                local wX, wY = nil, nil
+                local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
+                
+                if pos and pos.x and pos.y and T1_ZoneDB and T1_ZoneDB[currentZoneID] then
+                    local zData = T1_ZoneDB[currentZoneID]
+                    local zW = (zData.w and zData.w > 0) and zData.w or 0.05
+                    if zData.x and zData.y then
+                        wX = zData.x + ((pos.x - 0.5) * zW)
+                        wY = zData.y + ((0.5 - pos.y) * (zW / 1.5))
+                    end
+                end
+                
+                if wX and wY then
+                    -- Inline coordinate math identical to your middle-mouse logic
+                    f:ZoomToPoint((wX / 1.5) + 0.5, 0.5 - wY, 8)
+                else
+                    if f.ZoomToZone then f:ZoomToZone(currentZoneID) end
+                end
+                if f.UpdateMapTransform then f:UpdateMapTransform() end
+            end
+        end
+
+        -- --- R3: ZOOM TO FIT MAP ---
+        if r3Down and not wasR3Pressed then
+            f.savedWorldZoom = nil
+            if f.currentMapID ~= 947 then f:LoadMap(947) end
+            
+            local canvasW, canvasH = f.mapCanvas:GetSize()
+            local contentW, contentH = f.mapContent:GetSize()
+            if canvasW and canvasH and contentW and contentH then
+                local fitScale = math.max(canvasW / contentW, canvasH / contentH)
+                f.targetZoom = fitScale
+                f.targetOffsetX = ((canvasW - (contentW * fitScale)) / 2) / fitScale
+                f.targetOffsetY = (-(canvasH - (contentH * fitScale)) / 2) / fitScale
+                if f.zoomSmoother then f.zoomSmoother:Show() end
+            end
+            if f.UpdateMapTransform then f:UpdateMapTransform() end
+        end
+    end
+    
+    -- Record state for next frame debounce
+    wasL3Pressed = l3Down
+    wasR3Pressed = r3Down
 end)
 
 
