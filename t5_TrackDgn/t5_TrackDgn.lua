@@ -17,14 +17,10 @@ else
     f:SetMaxResize(800, 800)
 end
 
--- 2. Add a Title Text and Custom Coordinate Display
+-- 2. Add a Title Text
 f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
 f.title:SetText("t5_TrackDgn - Minimap View")
-
-f.coordText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-f.coordText:SetPoint("BOTTOM", f, "BOTTOM", 0, 10)
-f.coordText:SetText("")
 
 -- 3. Create Custom Buttons (Collapse and Resize)
 local collapseBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
@@ -48,7 +44,9 @@ collapseBtn:SetScript("OnClick", function()
         Minimap:Hide()
         collapseBtn:SetText("+")
         isCollapsed = true
-        f.coordText:SetText("") 
+        if f.coordText then f.coordText:SetText("") end
+        if f.convertedText then f.convertedText:SetText("") end
+        if f.playerText then f.playerText:SetText("") end
     end
 end)
 
@@ -82,9 +80,26 @@ hoverOverlay:EnableMouse(true)
 hoverOverlay:EnableMouseWheel(true)
 hoverOverlay:Hide()
 
--- Visual Marker for the Custom Coordinate Grid
+-- NEW TEXT: White Player Coordinates (Most Bottom)
+f.playerText = hoverOverlay:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+f.playerText:SetPoint("BOTTOM", f, "BOTTOM", 0, 6)
+f.playerText:SetTextColor(1, 1, 1, 1) 
+f.playerText:SetText("")
+
+-- BASE TEXT: Grey Raw Grid Coordinates (Middle)
+f.coordText = hoverOverlay:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+f.coordText:SetPoint("BOTTOM", f.playerText, "TOP", 0, 2)
+f.coordText:SetTextColor(0.6, 0.6, 0.6, 1) 
+f.coordText:SetText("")
+
+-- CONVERTED TEXT: Pure Yellow Converted Coordinates (Top)
+f.convertedText = hoverOverlay:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+f.convertedText:SetPoint("BOTTOM", f.coordText, "TOP", 0, 2)
+f.convertedText:SetTextColor(1, 1, 0, 1)
+f.convertedText:SetText("")
+
 local hoverMarker = hoverOverlay:CreateTexture(nil, "OVERLAY")
-hoverMarker:SetColorTexture(1, 0, 0, 1) -- Pure red dot
+hoverMarker:SetColorTexture(1, 0, 0, 1) 
 hoverMarker:SetSize(6, 6)
 hoverMarker:Hide()
 
@@ -93,53 +108,63 @@ hoverOverlay:SetScript("OnEnter", function(self)
     GameTooltip:SetText(GetMinimapZoneText() or GetZoneText(), 1, 1, 1)
     GameTooltip:AddLine("Custom UI Coordinate Grid Active", 0.2, 1, 0.2, true)
     GameTooltip:Show()
-    hoverMarker:Show() -- Show the visual dot
+    hoverMarker:Show()
 end)
 
 hoverOverlay:SetScript("OnLeave", function(self)
     GameTooltip:Hide()
     f.coordText:SetText("")
-    hoverMarker:Hide() -- Hide the visual dot
+    f.convertedText:SetText("")
+    hoverMarker:Hide()
 end)
 
+-- The defined local origin point
+local ORIGIN_X = 50.0
+local ORIGIN_Y = 50.4
+
 hoverOverlay:SetScript("OnUpdate", function(self)
+    -- 1. Constantly display the Player's position based on the Minimap center (50, 50)
+    local playerConvX = 50.0 - ORIGIN_X
+    local playerConvY = 50.0 - ORIGIN_Y
+    f.playerText:SetFormattedText("Player: %.1f, %.1f", playerConvX, playerConvY)
+
+    -- 2. Update Mouse Coordinates if hovering
     if self:IsMouseOver() then
         local cursorX, cursorY = GetCursorPosition()
         local scale = self:GetEffectiveScale()
         
-        -- Convert absolute screen position to frame-relative local coordinates
         local localX = (cursorX / scale) - self:GetLeft()
         local localY = (cursorY / scale) - self:GetBottom()
         
-        -- Pin the visual red dot exactly to the mouse's local position on the overlay
         hoverMarker:ClearAllPoints()
         hoverMarker:SetPoint("CENTER", self, "BOTTOMLEFT", localX, localY)
         
-        -- Map to a custom 0-100 grid based on the overlay's exact dimensions
         local pctX = (localX / self:GetWidth()) * 100
         local pctY = (localY / self:GetHeight()) * 100
         
         pctX = math.max(0, math.min(100, pctX))
         pctY = math.max(0, math.min(100, pctY))
-        pctY = 100 - pctY -- Invert Y so Top=0, Bottom=100
+        pctY = 100 - pctY 
         
-        f.coordText:SetFormattedText("Map Grid X: %.1f   Y: %.1f", pctX, pctY)
+        -- Update the grey base text
+        f.coordText:SetFormattedText("Grid: %.1f, %.1f", pctX, pctY)
+        
+        -- Calculate and update the yellow converted coords relative to (50, 50.4)
+        local convX = pctX - ORIGIN_X
+        local convY = pctY - ORIGIN_Y
+        f.convertedText:SetFormattedText("Hover: %.1f, %.1f", convX, convY)
     end
 end)
 
 hoverOverlay:SetScript("OnMouseWheel", function(self, delta)
-    local currentZoom = Minimap:GetZoom()
-    if delta > 0 and currentZoom < (Minimap:GetZoomLevels() - 1) then
-        Minimap:SetZoom(currentZoom + 1)
-    elseif delta < 0 and currentZoom > 0 then
-        Minimap:SetZoom(currentZoom - 1)
-    end
+    -- Intentionally left blank to disable zooming
 end)
 
 -- 5. Minimap Hijack and Restore Logic
 local origMinimapParent
 local origMinimapPoints = {}
 local origWidth, origHeight
+local origZoom
 local isCaptured = false
 
 local function CaptureMinimap()
@@ -148,6 +173,7 @@ local function CaptureMinimap()
 
     origMinimapParent = Minimap:GetParent()
     origWidth, origHeight = Minimap:GetSize()
+    origZoom = Minimap:GetZoom()
     
     wipe(origMinimapPoints)
     for i = 1, Minimap:GetNumPoints() do
@@ -162,6 +188,8 @@ local function CaptureMinimap()
     local mapSize = f:GetWidth() - 32
     Minimap:SetSize(mapSize, mapSize) 
     Minimap:SetMaskTexture("Interface/BUTTONS/WHITE8X8")
+    
+    Minimap:SetZoom(0)
     
     hoverOverlay:SetAllPoints(Minimap)
     hoverOverlay:Show()
@@ -194,6 +222,8 @@ local function ReleaseMinimap()
     
     hoverOverlay:Hide()
     f.coordText:SetText("")
+    f.convertedText:SetText("")
+    f.playerText:SetText("")
     
     Minimap:SetParent(origMinimapParent)
     Minimap:ClearAllPoints()
@@ -202,6 +232,7 @@ local function ReleaseMinimap()
     end
     Minimap:SetSize(origWidth, origHeight) 
     
+    if origZoom then Minimap:SetZoom(origZoom) end
     Minimap:SetMaskTexture("Interface/CharacterFrame/TempPortraitAlphaMask")
     
     if MinimapBorder then MinimapBorder:Show() end
