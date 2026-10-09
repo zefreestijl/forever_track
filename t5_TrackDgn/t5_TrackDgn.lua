@@ -123,12 +123,47 @@ local ORIGIN_X = 50.0
 local ORIGIN_Y = 50.4
 
 hoverOverlay:SetScript("OnUpdate", function(self)
-    -- 1. Constantly display the Player's position based on the Minimap center (50, 50)
-    local playerConvX = 50.0 - ORIGIN_X
-    local playerConvY = 50.0 - ORIGIN_Y
-    f.playerText:SetFormattedText("Player: %.1f, %.1f", playerConvX, playerConvY)
+    local debugMsg = ""
+    local posFound = false
 
-    -- 2. Update Mouse Coordinates if hovering
+    -- 1. Try MapUtil as a fallback if GetBestMapForUnit fails
+    local mapID = C_Map.GetBestMapForUnit("player")
+    if not mapID and MapUtil then
+        mapID = MapUtil.GetDisplayableMapForPlayer()
+    end
+
+    if mapID then
+        local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+        if pos then
+            local x, y = pos:GetXY()
+            local playerConvX = (x * 100) - ORIGIN_X
+            local playerConvY = (y * 100) - ORIGIN_Y
+            f.playerText:SetFormattedText("Player: %.1f, %.1f", playerConvX, playerConvY)
+            posFound = true
+        else
+            debugMsg = debugMsg .. "[MapPos: blocked] "
+        end
+    else
+        debugMsg = debugMsg .. "[MapID: nil] "
+    end
+
+    -- 2. Fallback to UnitPosition if Map API fails
+    if not posFound then
+        local posY, posX, posZ, instanceID = UnitPosition("player")
+        if posX and posY then
+            f.playerText:SetFormattedText("World (Yds): %.1f, %.1f", posX, posY)
+            posFound = true
+        else
+            debugMsg = debugMsg .. "[UnitPos: blocked]"
+        end
+    end
+
+    -- 3. Print the exact failure points if neither worked
+    if not posFound then
+        f.playerText:SetText(debugMsg)
+    end
+
+    -- Update Mouse Coordinates if hovering
     if self:IsMouseOver() then
         local cursorX, cursorY = GetCursorPosition()
         local scale = self:GetEffectiveScale()
@@ -146,15 +181,17 @@ hoverOverlay:SetScript("OnUpdate", function(self)
         pctY = math.max(0, math.min(100, pctY))
         pctY = 100 - pctY 
         
-        -- Update the grey base text
         f.coordText:SetFormattedText("Grid: %.1f, %.1f", pctX, pctY)
         
-        -- Calculate and update the yellow converted coords relative to (50, 50.4)
         local convX = pctX - ORIGIN_X
         local convY = pctY - ORIGIN_Y
         f.convertedText:SetFormattedText("Hover: %.1f, %.1f", convX, convY)
     end
 end)
+
+
+
+
 
 hoverOverlay:SetScript("OnMouseWheel", function(self, delta)
     -- Intentionally left blank to disable zooming

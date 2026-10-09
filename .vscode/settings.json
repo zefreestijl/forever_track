@@ -34,7 +34,8 @@
         "SOUNDKIT",
         "UIErrorsFrame",
         "QuestUtils_IsQuestWatched",
-        "MinimapCompassTexture"
+        "MinimapCompassTexture",
+        "MapUtil"
     ],
     "Lua.type.weakUnionCheck": true
 }
