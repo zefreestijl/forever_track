@@ -1,7 +1,7 @@
 local addonName, T1 = ...
 local f = T1.MapFrame
 
-f.showT1Fly = false
+f.showT1Fly = true
 
 -- ==========================================
 -- Flight Path Component Init
