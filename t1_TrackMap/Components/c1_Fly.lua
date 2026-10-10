@@ -15,7 +15,7 @@ if not T1_FlightRouteDB then
 end
 
 -- Initialize the UI Toggle utilizing the namespace component helper
-f.chk_T1 = T1.CreatePoICheckbox("T1_Chk_T1", "T1_Fly", false, function(isChecked)
+f.chk_T1 = T1.CreatePoICheckbox("T1_Chk_T1", "T1_Fly", true, function(isChecked)
     f.showT1Fly = isChecked
     if f.RefreshFlightPins then f:RefreshFlightPins() end
 end)

@@ -252,22 +252,27 @@ f.zoomText:SetPoint("TOPLEFT", f.zoomUI, "TOPLEFT", 5, -5)
 f.zoomText:SetJustifyH("LEFT")
 f.zoomText:SetText("Scale: 1.00x")
 
+
 -- ==========================================
 -- Dynamic POI Menu Builder (For Components)
 -- ==========================================
 f.poiMainToggle = CreateFrame("CheckButton", nil, f.zoomUI, "UICheckButtonTemplate")
 f.poiMainToggle:SetSize(24, 24)
-f.poiMainToggle:SetPoint("TOPLEFT", f.zoomText, "BOTTOMLEFT", -4, -5)
+-- Anchor to the Top Right of the map canvas
+f.poiMainToggle:SetPoint("TOPRIGHT", f.zoomUI, "TOPRIGHT", 0, 0)
 f.poiMainToggle:SetChecked(false)
 
 f.poiMainText = f.poiMainToggle:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-f.poiMainText:SetPoint("LEFT", f.poiMainToggle, "RIGHT", 0, 1)
+-- Position the text on the left side of the checkbox
+f.poiMainText:SetPoint("RIGHT", f.poiMainToggle, "LEFT", -2, 1)
 f.poiMainText:SetText("Toggle PoI")
-f.poiMainToggle:SetHitRectInsets(0, -f.poiMainText:GetStringWidth() - 5, 0, 0)
+-- Expand the click hitbox to the left so clicking the text toggles the checkbox
+f.poiMainToggle:SetHitRectInsets(-f.poiMainText:GetStringWidth() - 5, 0, 0, 0)
 
 f.poiSubMenu = CreateFrame("Frame", nil, f.zoomUI)
 f.poiSubMenu:SetSize(100, 100)
-f.poiSubMenu:SetPoint("TOPLEFT", f.poiMainToggle, "BOTTOMLEFT", 12, 0)
+-- Anchor the submenu flush right with the main toggle
+f.poiSubMenu:SetPoint("TOPRIGHT", f.poiMainToggle, "BOTTOMRIGHT", 0, 0)
 f.poiSubMenu:Hide()
 
 f.poiMainToggle:SetScript("OnClick", function(self)
@@ -282,17 +287,20 @@ function T1.CreatePoICheckbox(name, label, defaultState, onClickFunc)
     local cb = CreateFrame("CheckButton", name, f.poiSubMenu, "UICheckButtonTemplate")
     cb:SetSize(20, 20)
 
+    -- Anchor child checkboxes to the right edge
     if #f.poiCheckboxes == 0 then
-        cb:SetPoint("TOPLEFT", anchorFrame, "TOPLEFT", 0, 0)
+        cb:SetPoint("TOPRIGHT", anchorFrame, "TOPRIGHT", 0, 0)
     else
-        cb:SetPoint("TOPLEFT", anchorFrame, "BOTTOMLEFT", 0, yOffset)
+        cb:SetPoint("TOPRIGHT", anchorFrame, "BOTTOMRIGHT", 0, yOffset)
     end
     cb:SetChecked(defaultState)
 
     local text = cb:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    text:SetPoint("LEFT", cb, "RIGHT", 2, 1)
+    -- Position sub-checkbox text on the left
+    text:SetPoint("RIGHT", cb, "LEFT", -2, 1)
     text:SetText(label)
-    cb:SetHitRectInsets(0, -text:GetStringWidth() - 5, 0, 0)
+    -- Expand the child click hitbox to the left
+    cb:SetHitRectInsets(-text:GetStringWidth() - 5, 0, 0, 0)
 
     cb:SetScript("OnClick", function(self)
         if onClickFunc then onClickFunc(self:GetChecked()) end
