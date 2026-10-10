@@ -11,12 +11,12 @@ f:SetScale(uiScale)
 
 
 f:SetSize(250, 250) 
-f:SetPoint("TOPRIGHT", nil,"TOPRIGHT", -5, -25)
+f:SetPoint("TOPRIGHT", nil,"TOPRIGHT", -5, -33)
 
 
 f.ResetLayout = function(self)
     self:ClearAllPoints()
-    self:SetPoint("TOPRIGHT", nil, "TOPRIGHT", -5, -25) -- T1's specific default position
+    self:SetPoint("TOPRIGHT", nil, "TOPRIGHT", -5, -33) -- T1's specific default position
     self:SetSize(250, 250)                           -- T1's specific default size
 end
 
@@ -42,7 +42,7 @@ end
 -- 2. Add a Title Text
 f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
-f.title:SetText("t5_TrackDgn - Minimap View")
+f.title:SetText("t5_TrackDgn")
 
 -- 3. Create Custom Buttons (Collapse and Resize)
 local collapseBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")

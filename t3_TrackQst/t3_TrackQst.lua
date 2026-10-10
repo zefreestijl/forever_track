@@ -69,12 +69,12 @@ f:SetScale(uiScale)
 
 
 f:SetSize(250, 400)
-f:SetPoint("BOTTOMRIGHT", nil,"BOTTOMRIGHT", -5, 50)
+f:SetPoint("BOTTOMRIGHT", nil,"BOTTOMRIGHT", -5, 70)
 
 
 f.ResetLayout = function(self)
     self:ClearAllPoints()
-    self:SetPoint("BOTTOMRIGHT", nil, "BOTTOMRIGHT", -5, 50) -- T1's specific default position
+    self:SetPoint("BOTTOMRIGHT", nil, "BOTTOMRIGHT", -5, 70) -- T1's specific default position
     self:SetSize(250, 400)                            -- T1's specific default size
 end
 
@@ -217,6 +217,8 @@ end)
 local activeFilter = L.TAB_RECENT
 local questLines = {}
 local expandedQuests = {}
+local isTabsExpanded = false -- ADD THIS LINE
+
 
 local function GetOrCreateTab(index)
     local tab = tabButtons[index]
@@ -564,7 +566,11 @@ UpdateQuestList = function()
         return a < b
     end)
 
-    local tabX, tabY = 10, -28
+    --
+    
+local tabX, tabY = 10, -28
+    local currentRow = 1
+
     for i, filterName in ipairs(sortedFilters) do
         local tab = GetOrCreateTab(i)
         tab:SetText(filterName)
@@ -575,11 +581,19 @@ UpdateQuestList = function()
         if tabX + tabWidth > f:GetWidth() - 20 then
             tabX = 10
             tabY = tabY - 24
+            currentRow = currentRow + 1
         end
 
         tab:ClearAllPoints()
         tab:SetPoint("TOPLEFT", f, "TOPLEFT", tabX, tabY)
         tabX = tabX + tabWidth + 4
+
+        -- Only show the first row unless the tab area is hovered
+        if currentRow == 1 or isTabsExpanded then
+            tab:Show()
+        else
+            tab:Hide()
+        end
 
         local isSelected = (activeFilter == filterName)
         if isSelected then
@@ -603,13 +617,17 @@ UpdateQuestList = function()
         tab:SetScript("OnClick", function()
             activeFilter = filterName; UpdateQuestList()
         end)
-        tab:Show()
     end
 
+    -- Calculate the lowest point the tabs reach depending on the hover state
+    local finalTabY = isTabsExpanded and tabY or -28
+    f.tabAreaBottom = finalTabY - 26 -- Store this for hover detection bounds
+
     scrollFrame:ClearAllPoints()
-    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 10, tabY - 26)
+    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 10, f.tabAreaBottom)
     scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -30, 35)
 
+    --
     local yOffset = -5
     local lineIndex = 1
 
@@ -1353,36 +1371,56 @@ UpdateQuestList = function()
     end
 end
 
+
 -- =========================================================================
 -- 6. Events & Keybinds
 -- =========================================================================
 f:SetScript("OnShow", function()
-    f:SetWidth(250) -- Forces the width to bypass WoW's layout cache
+    f:SetWidth(250) 
     UpdateQuestList()
 end)
+
 f:RegisterEvent("QUEST_LOG_UPDATE")
 f:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
 f:RegisterEvent("SUPER_TRACKING_CHANGED")
 f:RegisterEvent("PLAYER_LEVEL_UP")
-
 f:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
 f:RegisterEvent("QUEST_WATCH_UPDATE")
-f:RegisterEvent("QUEST_ACCEPTED") -- Add this new listener
+f:RegisterEvent("QUEST_ACCEPTED") 
 
+-- ADD NEW BAG EVENTS
+f:RegisterEvent("BAG_OPEN")
+f:RegisterEvent("BAG_CLOSED")
+
+local autoCollapsedByBags = false
 
 f:SetScript("OnEvent", function(self, event, arg1, arg2)
-    if event == "QUEST_ACCEPTED" then
-        -- Depending on the client version, questID is usually arg2, but we check both safely
+    if event == "BAG_OPEN" then
+        if not isCollapsed then
+            autoCollapsedByBags = true
+            local onClick = collapseBtn:GetScript("OnClick")
+            if onClick then onClick(collapseBtn) end
+        end
+
+    elseif event == "BAG_CLOSED" then
+        if isCollapsed and autoCollapsedByBags then
+            autoCollapsedByBags = false
+            local onClick = collapseBtn:GetScript("OnClick")
+            if onClick then onClick(collapseBtn) end
+        end
+
+    elseif event == "QUEST_ACCEPTED" then
         local questID = type(arg2) == "number" and arg2 or arg1
         if type(questID) == "number" then
             recentQuests[questID] = GetTime()
         end
+        
     elseif event == "QUEST_LOG_UPDATE" or (event == "UNIT_QUEST_LOG_CHANGED" and arg1 == "player") then
         CheckForQuestUpdates()
     end
+    
     UpdateQuestList()
 end)
-
 
 tinsert(UISpecialFrames, f:GetName())
 f:Hide()
@@ -1446,20 +1484,62 @@ toggleBtn:SetScript("OnClick", function() _G.func_ToggleT3Window() end)
 
 
 
---
-local bindInitializer = CreateFrame("Frame")
-bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
-bindInitializer:SetScript("OnEvent", function(self, event)
-    self:UnregisterEvent(event)
-    SetBindingClick("CTRL-NUMPAD3", "T3_UniqueKeybindButton")
-    SaveBindings(GetCurrentBindingSet())
-end)
-
 -- =========================================================================
--- LIVE TIMER TICKER (Runs only when window is open)
+-- LIVE TIMER TICKER, TAB HOVER & MODERN BAG CHECK
 -- =========================================================================
 local timerUpdateAccumulator = 0
+local autoCollapsedByBags = false
+
 f:SetScript("OnUpdate", function(self, elapsed)
+    -- 1. Modern & Classic Bag Visibility Check
+    local isAnyBagOpen = false
+    
+    -- Check Modern Combined Bag Frame (Dragonflight+)
+    if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
+        isAnyBagOpen = true
+    else
+        -- Check Classic Individual Bag Frames
+        local maxBags = NUM_CONTAINER_FRAMES or 13
+        for i = 1, maxBags do
+            local cFrame = _G["ContainerFrame" .. i]
+            if cFrame and cFrame:IsShown() then
+                isAnyBagOpen = true
+                break
+            end
+        end
+    end
+
+    -- Trigger the Collapse/Expand logic based on what we found
+    if isAnyBagOpen and not isCollapsed then
+        autoCollapsedByBags = true
+        local onClick = collapseBtn:GetScript("OnClick")
+        if onClick then onClick(collapseBtn) end
+    elseif not isAnyBagOpen and isCollapsed and autoCollapsedByBags then
+        autoCollapsedByBags = false
+        local onClick = collapseBtn:GetScript("OnClick")
+        if onClick then onClick(collapseBtn) end
+    end
+
+    -- 2. Check for hover over the dynamic tab area
+    local isOverTop = false
+    if f:IsMouseOver() then
+        local _, cursorY = GetCursorPosition()
+        local scale = f:GetEffectiveScale()
+        local top = f:GetTop()
+        if top then
+            local bottomThreshold = top + (f.tabAreaBottom or -54) - 10 
+            if (cursorY / scale) >= bottomThreshold then
+                isOverTop = true
+            end
+        end
+    end
+
+    if isOverTop ~= isTabsExpanded then
+        isTabsExpanded = isOverTop
+        UpdateQuestList()
+    end
+
+    -- 3. Timer Update Loop
     if #activeTimers == 0 then return end
 
     timerUpdateAccumulator = timerUpdateAccumulator + elapsed

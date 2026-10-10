@@ -36,7 +36,16 @@
         "QuestUtils_IsQuestWatched",
         "MinimapCompassTexture",
         "MapUtil",
-        "ChatEdit_GetActiveWindow"
+        "ChatEdit_GetActiveWindow",
+        "ContainerFrame1",
+        "ToggleBackpack",
+        "CloseBackpack",
+        "ToggleBag",
+        "OpenAllBags",
+        "CloseAllBags",
+        "ToggleAllBags",
+        "NUM_CONTAINER_FRAMES",
+        "ContainerFrameCombinedBags"
     ],
     "Lua.type.weakUnionCheck": true
 }

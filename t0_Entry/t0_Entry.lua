@@ -80,7 +80,7 @@ resetBtn:SetScript("OnClick", function()
             end
         end
     end
-    print("|cFFFFD100Forever Track:|r All UI positions and sizes reset.")
+    -- print("|cFFFFD100Forever Track:|r All UI positions and sizes reset.")
 end)
 -- ==========================================
 
@@ -234,7 +234,7 @@ for i, mod in ipairs(modules) do
     -- Subtitle (Info)
     local infoText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     infoText:SetPoint("TOPLEFT", cbText, "BOTTOMLEFT", 0, -2)
-    infoText:SetWidth(100) 
+    infoText:SetWidth(120) 
     infoText:SetJustifyH("LEFT") 
     infoText:SetWordWrap(false) 
     infoText:SetText(mod.info)
