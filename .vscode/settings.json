@@ -46,7 +46,8 @@
         "ToggleAllBags",
         "NUM_CONTAINER_FRAMES",
         "ContainerFrameCombinedBags",
-        "GetUIPanel"
+        "GetUIPanel",
+        "ToggleQuestLog"
     ],
     "Lua.type.weakUnionCheck": true
 }

@@ -55,13 +55,13 @@ end
 -- =========================================================================
 -- 1. Main Frame Setup & Resizing (Width set to 250)
 -- =========================================================================
-local f = CreateFrame("Frame", "t3_TrackQst", nil,"BasicFrameTemplateWithInset")
+local f = CreateFrame("Frame", "t3_TrackQst", nil, "BasicFrameTemplateWithInset")
 
 
 
 
 local uiScale = UIParent:GetEffectiveScale()
-if not uiScale or uiScale <= 0.1 then 
+if not uiScale or uiScale <= 0.1 then
     uiScale = 1 -- Fallback to standard 100% scale if the game hasn't loaded UIParent yet
 end
 f:SetScale(uiScale)
@@ -69,13 +69,13 @@ f:SetScale(uiScale)
 
 
 f:SetSize(250, 400)
-f:SetPoint("BOTTOMRIGHT", nil,"BOTTOMRIGHT", -5, 70)
+f:SetPoint("BOTTOMRIGHT", nil, "BOTTOMRIGHT", -5, 70)
 
 
 f.ResetLayout = function(self)
     self:ClearAllPoints()
     self:SetPoint("BOTTOMRIGHT", nil, "BOTTOMRIGHT", -5, 70) -- T1's specific default position
-    self:SetSize(250, 400)                            -- T1's specific default size
+    self:SetSize(250, 400)                                   -- T1's specific default size
 end
 
 
@@ -441,7 +441,7 @@ local function CheckForQuestUpdates()
         local q = C_QuestLog.GetInfo(i)
         if q and not q.isHidden and not q.isHeader then
             local hash = GetQuestProgressHash(q.questID, i)
-            
+
             -- Condition 1: We already know this quest, and its progress changed
             if questProgressCache[q.questID] and questProgressCache[q.questID] ~= hash then
                 recentQuests[q.questID] = GetTime()
@@ -460,12 +460,12 @@ local function CheckForQuestUpdates()
                         pcall(AddQuestWatch, i)
                     end
                 end
-                
-            -- Condition 2: We have NEVER seen this quest, and it's not the initial login scan
+
+                -- Condition 2: We have NEVER seen this quest, and it's not the initial login scan
             elseif not questProgressCache[q.questID] and not isFirstScan then
                 -- This is a newly accepted quest!
                 recentQuests[q.questID] = GetTime()
-                
+
                 -- Auto-track newly accepted quests
                 if type(C_QuestLog.AddQuestWatch) == "function" then
                     pcall(C_QuestLog.AddQuestWatch, q.questID)
@@ -473,13 +473,13 @@ local function CheckForQuestUpdates()
                     pcall(AddQuestWatch, i)
                 end
             end
-            
+
             questProgressCache[q.questID] = hash
         end
     end
-    
+
     -- After the first login scan runs, turn off the flag
-    isFirstScan = false 
+    isFirstScan = false
 end
 
 -- =========================================================================
@@ -567,8 +567,8 @@ UpdateQuestList = function()
     end)
 
     --
-    
-local tabX, tabY = 10, -28
+
+    local tabX, tabY = 10, -28
     local currentRow = 1
 
     for i, filterName in ipairs(sortedFilters) do
@@ -874,71 +874,95 @@ local tabX, tabY = 10, -28
                     pcall(SetSuperTrackedQuestID, questInfo.questID)
                 end
 
-                -- 2. Execute POI Map lookups
-                if T3_QuestDB and T3_QuestDB[questInfo.questID] then
-                    local dbData = T3_QuestDB[questInfo.questID]
-                    local qType = dbData.type or 0
-                    local foundZones = {}
-
-                    if dbData.objectives and #dbData.objectives > 0 then
-                        for _, objID in ipairs(dbData.objectives) do
-                            -- Type 1: NPC
-                            if qType == 1 and T3_NpcDB and T3_NpcDB[objID] then
-                                local zoneID = T3_NpcDB[objID][2]
-                                if zoneID then foundZones[zoneID] = true end
-                                
-                            -- Type 2: Object
-                            elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
-                                local zoneID = T3_ObjectDB[objID][5]
-                                if zoneID then foundZones[zoneID] = true end
-                                
-                            -- Type 3: Item
-                            elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
-                                local itemData = T3_itemDB[objID]
-                                
-                                if itemData.npcDrops and #itemData.npcDrops > 0 then
-                                    for _, dropNpcID in ipairs(itemData.npcDrops) do
-                                        if T3_NpcDB and T3_NpcDB[dropNpcID] then
-                                            local zoneID = T3_NpcDB[dropNpcID][2]
-                                            if zoneID then foundZones[zoneID] = true end
-                                        end
-                                    end
-                                end
-                                
-                                if itemData.objectDrops and #itemData.objectDrops > 0 then
-                                    for _, dropObjID in ipairs(itemData.objectDrops) do
-                                        if T3_ObjectDB and T3_ObjectDB[dropObjID] then
-                                            local zoneID = T3_ObjectDB[dropObjID][5]
-                                            if zoneID then foundZones[zoneID] = true end
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                    
-                    -- Extract the first found zone for mapping
-                    local targetClassicZone = nil
-                    for zID, _ in pairs(foundZones) do
-                        targetClassicZone = zID
-                        break 
-                    end
-                    
-                    if targetClassicZone then
-                        if _G.func_ConvertClassicIDToMapID and _G.func_OpenZoneMapByID then
-                            local modernMapID = _G.func_ConvertClassicIDToMapID(targetClassicZone)
-                            if modernMapID then
-                                _G.func_OpenZoneMapByID(modernMapID)
-                            end
-                        end
+                -- === NEW: SHIFT + RIGHT-CLICK opens built-in quest log ===
+                if IsShiftKeyDown() then
+                    if type(QuestLog_OpenToQuest) == "function" then
+                        -- Modern WoW Client API
+                        QuestLog_OpenToQuest(questInfo.questID)
                     else
-                        -- Fallback to client API map ID if DB fails
-                        local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and QuestUtils_GetQuestMapID(questInfo.questID) or nil
-                        if fallbackMapID and _G.func_OpenZoneMapByID then
-                            _G.func_OpenZoneMapByID(fallbackMapID)
+                        -- Classic WoW Client Fallbacks
+                        if QuestLogFrame and not QuestLogFrame:IsShown() then
+                            ToggleQuestLog()
+                        end
+                        if type(SelectQuestLogEntry) == "function" then
+                            SelectQuestLogEntry(logIndex)
+                        end
+                        if type(QuestLog_SetSelection) == "function" then
+                            QuestLog_SetSelection(logIndex)
+                        end
+                        if type(QuestLog_Update) == "function" then
+                            QuestLog_Update()
                         end
                     end
-                end
+                else
+                    -- === EXISTING MAP LOGIC: Normal Right-Click ===
+                    -- 2. Execute POI Map lookups
+                    if T3_QuestDB and T3_QuestDB[questInfo.questID] then
+                        local dbData = T3_QuestDB[questInfo.questID]
+                        local qType = dbData.type or 0
+                        local foundZones = {}
+
+                        if dbData.objectives and #dbData.objectives > 0 then
+                            for _, objID in ipairs(dbData.objectives) do
+                                -- Type 1: NPC
+                                if qType == 1 and T3_NpcDB and T3_NpcDB[objID] then
+                                    local zoneID = T3_NpcDB[objID][2]
+                                    if zoneID then foundZones[zoneID] = true end
+
+                                    -- Type 2: Object
+                                elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
+                                    local zoneID = T3_ObjectDB[objID][5]
+                                    if zoneID then foundZones[zoneID] = true end
+
+                                    -- Type 3: Item
+                                elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
+                                    local itemData = T3_itemDB[objID]
+
+                                    if itemData.npcDrops and #itemData.npcDrops > 0 then
+                                        for _, dropNpcID in ipairs(itemData.npcDrops) do
+                                            if T3_NpcDB and T3_NpcDB[dropNpcID] then
+                                                local zoneID = T3_NpcDB[dropNpcID][2]
+                                                if zoneID then foundZones[zoneID] = true end
+                                            end
+                                        end
+                                    end
+
+                                    if itemData.objectDrops and #itemData.objectDrops > 0 then
+                                        for _, dropObjID in ipairs(itemData.objectDrops) do
+                                            if T3_ObjectDB and T3_ObjectDB[dropObjID] then
+                                                local zoneID = T3_ObjectDB[dropObjID][5]
+                                                if zoneID then foundZones[zoneID] = true end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+
+                        -- Extract the first found zone for mapping
+                        local targetClassicZone = nil
+                        for zID, _ in pairs(foundZones) do
+                            targetClassicZone = zID
+                            break
+                        end
+
+                        if targetClassicZone then
+                            if _G.func_ConvertClassicIDToMapID and _G.func_OpenZoneMapByID then
+                                local modernMapID = _G.func_ConvertClassicIDToMapID(targetClassicZone)
+                                if modernMapID then
+                                    _G.func_OpenZoneMapByID(modernMapID)
+                                end
+                            end
+                        else
+                            -- Fallback to client API map ID if DB fails
+                            local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and
+                            QuestUtils_GetQuestMapID(questInfo.questID) or nil
+                            if fallbackMapID and _G.func_OpenZoneMapByID then
+                                _G.func_OpenZoneMapByID(fallbackMapID)
+                            end
+                        end
+                    end
+                end -- END OF SHIFT-CLICK IF STATEMENT
             else
                 -- Left-click expand/collapse
                 expandedQuests[questInfo.questID] = not expandedQuests[questInfo.questID]
@@ -981,16 +1005,16 @@ local tabX, tabY = 10, -28
             FlushText(objLines, 32)
         end
 
--- ==========================================
+        -- ==========================================
         -- Location & Map coordinates (Moved Outside)
         -- ==========================================
         local dbMapIDs = {}
         local dbCoords = {}
-        
+
         if T3_QuestDB and T3_QuestDB[questInfo.questID] then
             local dbData = T3_QuestDB[questInfo.questID]
             local qType = dbData.type or 0
-            
+
             if dbData.objectives and #dbData.objectives > 0 then
                 for _, objID in ipairs(dbData.objectives) do
                     -- Type 1: NPC
@@ -1001,8 +1025,8 @@ local tabX, tabY = 10, -28
                         if coordsList and #coordsList > 0 then
                             table.insert(dbCoords, string.format("{%.1f, %.1f}", coordsList[1][1], coordsList[1][2]))
                         end
-                    
-                    -- Type 2: Object
+
+                        -- Type 2: Object
                     elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
                         local zID = T3_ObjectDB[objID][5]
                         if zID then dbMapIDs[zID] = true end
@@ -1010,11 +1034,11 @@ local tabX, tabY = 10, -28
                         if spawns and zID and spawns[zID] and #spawns[zID] > 0 then
                             table.insert(dbCoords, string.format("{%.1f, %.1f}", spawns[zID][1][1], spawns[zID][1][2]))
                         end
-                    
-                    -- Type 3: Item (Check npcDrops and objectDrops)
+
+                        -- Type 3: Item (Check npcDrops and objectDrops)
                     elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
                         local itemData = T3_itemDB[objID]
-                        
+
                         -- Search NPC Drops
                         if itemData.npcDrops and #itemData.npcDrops > 0 then
                             for _, dropID in ipairs(itemData.npcDrops) do
@@ -1023,12 +1047,13 @@ local tabX, tabY = 10, -28
                                     if zID then dbMapIDs[zID] = true end
                                     local coordsList = T3_NpcDB[dropID][3]
                                     if coordsList and #coordsList > 0 then
-                                        table.insert(dbCoords, string.format("{%.1f, %.1f}", coordsList[1][1], coordsList[1][2]))
+                                        table.insert(dbCoords,
+                                            string.format("{%.1f, %.1f}", coordsList[1][1], coordsList[1][2]))
                                     end
                                 end
                             end
                         end
-                        
+
                         -- Search Object Drops
                         if itemData.objectDrops and #itemData.objectDrops > 0 then
                             for _, dropID in ipairs(itemData.objectDrops) do
@@ -1037,7 +1062,8 @@ local tabX, tabY = 10, -28
                                     if zID then dbMapIDs[zID] = true end
                                     local spawns = T3_ObjectDB[dropID][4]
                                     if spawns and zID and spawns[zID] and #spawns[zID] > 0 then
-                                        table.insert(dbCoords, string.format("{%.1f, %.1f}", spawns[zID][1][1], spawns[zID][1][2]))
+                                        table.insert(dbCoords,
+                                            string.format("{%.1f, %.1f}", spawns[zID][1][1], spawns[zID][1][2]))
                                     end
                                 end
                             end
@@ -1050,7 +1076,7 @@ local tabX, tabY = 10, -28
         -- 1. Format Map ID output
         local mapTextList = {}
         for zID, _ in pairs(dbMapIDs) do table.insert(mapTextList, tostring(zID)) end
-        
+
         local mapText = ""
         if #mapTextList > 0 then
             mapText = "[" .. table.concat(mapTextList, ", ") .. "]"
@@ -1085,7 +1111,8 @@ local tabX, tabY = 10, -28
         end
 
         if not foundCoords and type(C_QuestLog.GetQuestPOIs) == "function" then
-            local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and QuestUtils_GetQuestMapID(questInfo.questID) or nil
+            local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and
+            QuestUtils_GetQuestMapID(questInfo.questID) or nil
             if fallbackMapID then
                 local pois = C_QuestLog.GetQuestPOIs(questInfo.questID)
                 if pois and #pois > 0 then
@@ -1111,7 +1138,7 @@ local tabX, tabY = 10, -28
         local locText = "|cFF808080" .. mapText .. coordsStr .. "|r"
         FlushText(locText, 32)
         -- ==========================================
-        
+
 
 
         -- Timers
@@ -1376,7 +1403,7 @@ end
 -- 6. Events & Keybinds
 -- =========================================================================
 f:SetScript("OnShow", function()
-    f:SetWidth(250) 
+    f:SetWidth(250)
     UpdateQuestList()
 end)
 
@@ -1386,7 +1413,7 @@ f:RegisterEvent("SUPER_TRACKING_CHANGED")
 f:RegisterEvent("PLAYER_LEVEL_UP")
 f:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
 f:RegisterEvent("QUEST_WATCH_UPDATE")
-f:RegisterEvent("QUEST_ACCEPTED") 
+f:RegisterEvent("QUEST_ACCEPTED")
 
 -- ADD NEW BAG EVENTS
 f:RegisterEvent("BAG_OPEN")
@@ -1401,24 +1428,21 @@ f:SetScript("OnEvent", function(self, event, arg1, arg2)
             local onClick = collapseBtn:GetScript("OnClick")
             if onClick then onClick(collapseBtn) end
         end
-
     elseif event == "BAG_CLOSED" then
         if isCollapsed and autoCollapsedByBags then
             autoCollapsedByBags = false
             local onClick = collapseBtn:GetScript("OnClick")
             if onClick then onClick(collapseBtn) end
         end
-
     elseif event == "QUEST_ACCEPTED" then
         local questID = type(arg2) == "number" and arg2 or arg1
         if type(questID) == "number" then
             recentQuests[questID] = GetTime()
         end
-        
     elseif event == "QUEST_LOG_UPDATE" or (event == "UNIT_QUEST_LOG_CHANGED" and arg1 == "player") then
         CheckForQuestUpdates()
     end
-    
+
     UpdateQuestList()
 end)
 
@@ -1434,17 +1458,17 @@ _G.func_ToggleT3Window = function(questID)
     if type(questID) == "number" then
         -- 1. Inject into Recent cache
         recentQuests[questID] = GetTime()
-        
+
         -- 2. Switch tab to Recent
         activeFilter = L.TAB_RECENT
-        
+
         -- 3. Set to focused state (SuperTrack)
         if type(C_SuperTrack) == "table" and type(C_SuperTrack.SetSuperTrackedQuestID) == "function" then
             pcall(C_SuperTrack.SetSuperTrackedQuestID, questID)
         elseif type(SetSuperTrackedQuestID) == "function" then
             pcall(SetSuperTrackedQuestID, questID)
         end
-        
+
         -- 4. Show window or force UI refresh if already open
         if not f:IsShown() then
             f:Show() -- The OnShow script automatically calls UpdateQuestList()
@@ -1461,7 +1485,7 @@ SLASH_T3_CMD1 = "/t3"
 SlashCmdList["T3_CMD"] = function(msg)
     -- Clean up the input string (removes leading/trailing spaces)
     msg = msg and strtrim(msg) or ""
-    
+
     if msg ~= "" then
         local questID = tonumber(msg)
         if questID then
@@ -1493,7 +1517,7 @@ local autoCollapsedByBags = false
 f:SetScript("OnUpdate", function(self, elapsed)
     -- 1. Modern & Classic Bag Visibility Check
     local isAnyBagOpen = false
-    
+
     -- Check Modern Combined Bag Frame (Dragonflight+)
     if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
         isAnyBagOpen = true
@@ -1527,7 +1551,7 @@ f:SetScript("OnUpdate", function(self, elapsed)
         local scale = f:GetEffectiveScale()
         local top = f:GetTop()
         if top then
-            local bottomThreshold = top + (f.tabAreaBottom or -54) - 10 
+            local bottomThreshold = top + (f.tabAreaBottom or -54) - 10
             if (cursorY / scale) >= bottomThreshold then
                 isOverTop = true
             end

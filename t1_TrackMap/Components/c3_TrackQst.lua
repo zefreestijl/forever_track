@@ -24,6 +24,7 @@ function f:RefreshQuestPins()
     for _, questData in ipairs(quests) do
         if questData.x and questData.y then
             local pin = f.questPinPool[pinIndex]
+
             if not pin then
                 pin = CreateFrame("Button", nil, f.mapContent)
                 pin:SetFrameLevel(f.mapContent:GetFrameLevel() + 65)
@@ -31,8 +32,19 @@ function f:RefreshQuestPins()
                 pin.tex:SetAllPoints()
                 pin.iconText = pin:CreateFontString(nil, "OVERLAY", "GameFontNormal")
                 pin.iconText:SetPoint("CENTER", pin, "CENTER", 0, 0)
+
+                -- NEW: Create a looping pulse animation
+                pin.pulseAnim = pin:CreateAnimationGroup()
+                pin.pulseAnim:SetLooping("BOUNCE")
+                local alpha = pin.pulseAnim:CreateAnimation("Alpha")
+                alpha:SetFromAlpha(0.3) -- Dims to 30% opacity
+                alpha:SetToAlpha(1.0)   -- Pulses to 100% opacity
+                alpha:SetDuration(0.8)  -- Speed of the pulse (seconds)
+                alpha:SetSmoothing("IN_OUT")
+
                 f.questPinPool[pinIndex] = pin
             end
+
 
             pin.questID = questData.questID
 
@@ -68,17 +80,32 @@ function f:RefreshQuestPins()
                     pin.tex:Hide()
                     pin.iconText:Show()
                     if isSuperTracked then
-                        pin.iconText:SetText("|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t")
+                        pin.iconText:SetText(
+                            "|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t")
                         pin:SetSize(18 / f.zoomLevel, 6 / f.zoomLevel)
                     elseif isWatched then
-                        pin.iconText:SetText("|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t")
+                        pin.iconText:SetText(
+                            "|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t|TInterface\\MoneyFrame\\UI-GoldIcon:6:6|t")
                         pin:SetSize(18 / f.zoomLevel, 6 / f.zoomLevel)
                     else
-                        pin.iconText:SetText("|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t")
+                        pin.iconText:SetText(
+                            "|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t|TInterface\\MoneyFrame\\UI-SilverIcon:6:6|t")
                         pin:SetSize(18 / f.zoomLevel, 6 / f.zoomLevel)
                     end
                 end
+
+                -- UPDATED: Only play the pulse animation if the quest is NOT complete (triple dots) 
+                -- and is currently being watched or super-tracked.
+                if not isComplete and (isWatched or isSuperTracked) then
+                    if not pin.pulseAnim:IsPlaying() then 
+                        pin.pulseAnim:Play() 
+                    end
+                else
+                    pin.pulseAnim:Stop()
+                    pin:SetAlpha(1.0) -- Reset to fully visible for question marks and untracked quests
+                end
             end
+
 
             UpdatePinVisuals()
 
@@ -123,10 +150,16 @@ function f:RefreshQuestPins()
                     UpdatePinVisuals()
                     self:GetScript("OnEnter")(self)
                 elseif button == "RightButton" then
-                    if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then C_SuperTrack.SetSuperTrackedQuestID(self.questID) end
+                    if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then
+                        C_SuperTrack.SetSuperTrackedQuestID(
+                            self.questID)
+                    end
                     if f.RefreshQuestPins then f:RefreshQuestPins() end
-                    if _G.func_ToggleT3Window then _G.func_ToggleT3Window(self.questID)
-                    else print("|cffff2020T1_TrackMap:|r t3_TrackQst addon is not loaded.") end
+                    if _G.func_ToggleT3Window then
+                        _G.func_ToggleT3Window(self.questID)
+                    else
+                        print("|cffff2020T1_TrackMap:|r t3_TrackQst addon is not loaded.")
+                    end
                 end
             end)
 
@@ -138,4 +171,28 @@ function f:RefreshQuestPins()
             pinIndex = pinIndex + 1
         end
     end
+end
+
+
+-- ==========================================
+-- 3. Quest Event Tracker
+-- ==========================================
+if not f.questEventTracker then
+    f.questEventTracker = CreateFrame("Frame")
+    
+    -- Register the main events that fire when quests progress, complete, or change tracking state
+    f.questEventTracker:RegisterEvent("QUEST_LOG_UPDATE")
+    f.questEventTracker:RegisterEvent("QUEST_WATCH_UPDATE")
+    
+    -- Safely attempt to register super tracking changes (API varies by WoW client version)
+    pcall(function() f.questEventTracker:RegisterEvent("SUPER_TRACKED_QUEST_CHANGED") end)
+    pcall(function() f.questEventTracker:RegisterEvent("QUEST_ACCEPTED") end)
+    pcall(function() f.questEventTracker:RegisterEvent("QUEST_REMOVED") end)
+
+    f.questEventTracker:SetScript("OnEvent", function(self, event, ...)
+        -- Only refresh if the map is currently visible and the POI toggle is active
+        if f:IsShown() and f.showT3Quests and f.RefreshQuestPins then
+            f:RefreshQuestPins()
+        end
+    end)
 end

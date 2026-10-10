@@ -218,6 +218,9 @@ local wasSelectPressed = false
 local wasStartPressed = false
 local wasL3Pressed = false
 local wasR3Pressed = false
+local wasAPressed = false -- NEW
+local wasBPressed = false -- NEW
+
 
 toggleBtn:SetScript("OnUpdate", function(self, elapsed)
     elapsed = elapsed or (1 / 60)
@@ -227,7 +230,10 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
     local startDown = IsKeyDown("PADFORWARD")
     local l3Down = IsKeyDown("PADLSTICK")
     local r3Down = IsKeyDown("PADRSTICK")
-    
+    local aDown = IsKeyDown("PAD1") -- NEW
+    local bDown = IsKeyDown("PAD2") -- NEW
+
+
     -- 1. L2 Hijack Logic
     if l2Down and not isL2Held then
         isL2Held = true
@@ -255,6 +261,25 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
         
         -- If T1 Map is focused, route controls to it
         if f and f:IsShown() and f.isMapFocused then
+            -- --- A (PAD1): ENTER CURRENT ZONE MAP ---
+            if aDown and not wasAPressed then
+                local currentZoneID = C_Map.GetBestMapForUnit("player")
+                if currentZoneID and currentZoneID > 0 then
+                    if f.currentMapID ~= currentZoneID then
+                        f:LoadMap(currentZoneID)
+                        if f.UpdateMapTransform then f:UpdateMapTransform() end
+                    end
+                end
+            end
+
+            -- --- B (PAD2): RETURN TO WORLD MAP ---
+            if bDown and not wasBPressed then
+                if f.currentMapID ~= 947 then
+                    f:LoadMap(947)
+                    if f.UpdateMapTransform then f:UpdateMapTransform() end
+                end
+            end
+
             
             -- --- PANNING & ZOOMING ---
             local panSpeed = (800 / f.zoomLevel) * elapsed 
@@ -363,4 +388,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
     
     wasL3Pressed = l3Down
     wasR3Pressed = r3Down
+    wasAPressed = aDown -- NEW
+    wasBPressed = bDown -- NEW
+    
 end)
