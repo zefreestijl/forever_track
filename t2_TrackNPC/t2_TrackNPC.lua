@@ -1,12 +1,13 @@
 local addonName, TrackCore = ...
-TrackCore.T2_NPCFrame = CreateFrame("Frame", "t2_TrackNPC", UIParent, "BasicFrameTemplateWithInset")
+TrackCore.T2_NPCFrame = CreateFrame("Frame", "t2_TrackNPC", nil, "BasicFrameTemplateWithInset")
 
 local f = TrackCore.T2_NPCFrame
 
+f:SetScale(UIParent:GetEffectiveScale()) -- Sync scale with the user's UI settings
 
 --
 f:SetSize(320, 480)
-f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+f:SetPoint("CENTER", nil, "CENTER", 0, 0)
 f:SetMovable(true)
 f:EnableMouse(true)
 f:RegisterForDrag("LeftButton")
@@ -239,7 +240,7 @@ eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         if type(T2_NPC_DATA.windowPos) == "table" then
             local pos = T2_NPC_DATA.windowPos
             f:ClearAllPoints()
-            f:SetPoint(pos.point, UIParent, pos.relativePoint, pos.xOfs, pos.yOfs)
+            f:SetPoint(pos.point, nil, pos.relativePoint, pos.xOfs, pos.yOfs)
         end
 
         if T2_NPC_DATA.windowHeight then
@@ -805,7 +806,7 @@ SlashCmdList["T2_TRACK"] = function(msg)
     end
 end
 
-local toggleBtn = CreateFrame("Button", "T2_TrackNPC_KeybindButton", UIParent, "SecureActionButtonTemplate")
+local toggleBtn = CreateFrame("Button", "T2_TrackNPC_KeybindButton", nil, "SecureActionButtonTemplate")
 toggleBtn:SetAttribute("type", "macro")
 toggleBtn:SetAttribute("macrotext", "/t2")
 toggleBtn:SetScript("OnClick", function() _G.func_ToggleT2Window() end)

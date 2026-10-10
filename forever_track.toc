@@ -1,0 +1,85 @@
+## Interface: 16001
+## Title: Forever Track
+## Notes: Core manager and shared input controller for Forever Track modules.
+## Author: ZealZol
+## Version: 0.0.3
+## SavedVariables: ForeverTrack_DB, T1_MAP_DATA, T2_NPC_DATA, T3_QST_DATA, T4_RES_DATA, T5_DGN_DATA
+
+# --- 0. Core Entry and Input ---
+t0_Entry\Input.lua
+t0_Entry\t0_Entry.lua
+
+# --- 1. Track Map ---
+t1_TrackMap\Data\map_data.lua
+t1_TrackMap\Data\map_outline.lua
+t1_TrackMap\t1_TrackMap.lua
+t1_TrackMap\Components\c1_Fly.lua
+t1_TrackMap\Components\c2_TrackNPC.lua
+t1_TrackMap\Components\c3_TrackQst.lua
+t1_TrackMap\Components\c4_TrackRes.lua
+t1_TrackMap\Components\c5_TrackDgn.lua
+
+# --- 2. Track NPC ---
+t2_TrackNPC\db_map\Arathi Highlands-general.lua
+t2_TrackNPC\db_map\Ashenvale-general.lua
+t2_TrackNPC\db_map\Azshara-general.lua
+t2_TrackNPC\db_map\Badlands-general.lua
+t2_TrackNPC\db_map\Blasted Lands-general.lua
+t2_TrackNPC\db_map\Burning Steppes-general.lua
+t2_TrackNPC\db_map\Dalaran-general.lua
+t2_TrackNPC\db_map\Darkshore-general.lua
+t2_TrackNPC\db_map\Darnassus-general.lua
+t2_TrackNPC\db_map\Deadwind Pass-general.lua
+t2_TrackNPC\db_map\Desolace-general.lua
+t2_TrackNPC\db_map\Dun Morogh-general.lua
+t2_TrackNPC\db_map\Durotar-general.lua
+t2_TrackNPC\db_map\Duskwood-general.lua
+t2_TrackNPC\db_map\Dustwallow Marsh-general.lua
+t2_TrackNPC\db_map\Eastern Plaguelands-general.lua
+t2_TrackNPC\db_map\Elwynn Forest-general.lua
+t2_TrackNPC\db_map\Felwood-general.lua
+t2_TrackNPC\db_map\Feralas-general.lua
+t2_TrackNPC\db_map\Hillsbrad Foothills-general.lua
+t2_TrackNPC\db_map\Ironforge-general.lua
+t2_TrackNPC\db_map\Loch Modan-general.lua
+t2_TrackNPC\db_map\Moonglade-general.lua
+t2_TrackNPC\db_map\Mount Hyjal-general.lua
+t2_TrackNPC\db_map\Mulgore-general.lua
+t2_TrackNPC\db_map\Orgrimmar-general.lua
+t2_TrackNPC\db_map\Redridge Mountains-general.lua
+t2_TrackNPC\db_map\Riverglades-general.lua
+t2_TrackNPC\db_map\Searing Gorge-general.lua
+t2_TrackNPC\db_map\Silithus-general.lua
+t2_TrackNPC\db_map\Silverpine Forest-general.lua
+t2_TrackNPC\db_map\Stonetalon Mountains-general.lua
+t2_TrackNPC\db_map\Stormwind City-general.lua
+t2_TrackNPC\db_map\Stranglethorn Vale-general.lua
+t2_TrackNPC\db_map\Swamp of Sorrows-general.lua
+t2_TrackNPC\db_map\Tanaris-general.lua
+t2_TrackNPC\db_map\Teldrassil-general.lua
+t2_TrackNPC\db_map\The Barrens-general.lua
+t2_TrackNPC\db_map\The Hinterlands-general.lua
+t2_TrackNPC\db_map\Thousand Needles-general.lua
+t2_TrackNPC\db_map\Thunder Bluff-general.lua
+t2_TrackNPC\db_map\Tirisfal Glades-general.lua
+t2_TrackNPC\db_map\Un'Goro Crater-general.lua
+t2_TrackNPC\db_map\Undercity-general.lua
+t2_TrackNPC\db_map\Western Plaguelands-general.lua
+t2_TrackNPC\db_map\Westfall-general.lua
+t2_TrackNPC\db_map\Wetlands-general.lua
+t2_TrackNPC\db_map\Winterspring-general.lua
+t2_TrackNPC\db_map\Zephras Isle-general.lua
+t2_TrackNPC\t2_TrackNPC.lua
+
+# --- 3. Track Quest ---
+t3_TrackQst\questie_db\classicQuestDB.lua
+t3_TrackQst\questie_db\classicItemDB.lua
+t3_TrackQst\questie_db\classicNpcDB.lua
+t3_TrackQst\questie_db\classicObjectDB.lua
+t3_TrackQst\t3_TrackQst.lua
+
+# --- 4. Track Resources ---
+t4_TrackRes\t4_TrackRes.lua
+
+# --- 5. Track Dungeon ---
+t5_TrackDgn\t5_TrackDgn.lua

@@ -10,6 +10,85 @@ _G.ForeverTrack = {
 }
 local core = _G.ForeverTrack
 
+_G.func_ToggleT0Window = function()
+    local t0Frame = core.Modules.T0
+    if not t0Frame then 
+        print("T0 Window not found in registry.")
+        return 
+    end
+    
+    local modules = {"t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn"}
+
+    if UIParent:IsShown() then
+        -- 1. Hide all built-in HUD
+        UIParent:Hide()
+        
+        -- 2. Prompt up the t0_Entry window
+        t0Frame:Show()
+        
+        -- 3. Prompt up other enabled custom addon windows
+        if ForeverTrack_DB then
+            for _, modID in ipairs(modules) do
+                if ForeverTrack_DB[modID] and _G[modID] then
+                    _G[modID]:SetParent(nil) -- Enforce detachment
+                    _G[modID]:Show()
+                    
+                    if _G["t0_Btn_" .. modID] then
+                        _G["t0_Btn_" .. modID]:SetText("|cFFFFD100On|r")
+                    end
+                end
+            end
+        end
+    else
+        -- 1. Capture which custom windows are currently open BEFORE the HUD returns
+        local openWindows = {}
+        for _, modID in ipairs(modules) do
+            if _G[modID] and _G[modID]:IsShown() then
+                openWindows[modID] = true
+            end
+        end
+
+        -- 2. Restore the built-in HUD (This often triggers WoW's auto-hide wipe)
+        UIParent:Show()
+        
+        -- 3. Hide ONLY the t0_Entry window
+        t0Frame:Hide()
+        
+        -- 4. Force previously open windows to stay open and float above the HUD
+        for modID, _ in pairs(openWindows) do
+            if _G[modID] then
+                _G[modID]:SetParent(nil) -- Ensure it wasn't secretly attached to t0_Entry
+                _G[modID]:SetFrameStrata("HIGH") -- Prevent sinking behind the default HUD
+                _G[modID]:Show() -- Override WoW's auto-close panel manager
+            end
+        end
+    end
+end
+
+
+
+SLASH_T0_CMD1 = "/t0"
+SlashCmdList["T0_CMD"] = function()
+    _G.func_ToggleT0Window()
+end
+
+-- 6. Setup Ctrl + Numpad 1 keybinding via secure button
+local toggleBtn = CreateFrame("Button", "T0_KeybindButton", nil, "SecureActionButtonTemplate")
+toggleBtn:SetAttribute("type", "macro")
+toggleBtn:SetAttribute("macrotext", "/t0")
+
+toggleBtn:SetScript("OnClick", function()
+    _G.func_ToggleT0Window()
+end)
+
+
+
+--
+
+
+
+
+
 
 -- ==========================================
 -- Init & Slash Commands (T1)
@@ -27,6 +106,12 @@ end
 local lastToggleTime = 0
 
 _G.func_ToggleT1Window = function(mapID)
+    -- Guard clause: Do nothing if the module is disabled in t0_Entry
+    if not ForeverTrack_DB["t1_TrackMap"] then
+        return 
+    end
+
+    
     -- FIX: Debounce to prevent the gamepad from firing on both Button-Down and Button-Up
     if GetTime() - lastToggleTime < 0.2 then return end
     lastToggleTime = GetTime()
@@ -112,10 +197,18 @@ local bindInitializer = CreateFrame("Frame")
 bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
 bindInitializer:SetScript("OnEvent", function(self, event)
     self:UnregisterEvent(event)
+    
     SetBinding("PADBACK", nil)
+    
+    -- Bind T0 Entry window to Ctrl+Numpad 0
+    SetBindingClick("CTRL-NUMPAD0", "T0_KeybindButton")
+    
+    -- Bind T1 Map window (or smart default) to Ctrl+Numpad 1
     SetBindingClick("CTRL-NUMPAD1", "Entry_KeybindButton")
+    
     SaveBindings(GetCurrentBindingSet() or 1)
 end)
+
 
 -- ==========================================
 -- Dynamic Hardware Poller (L2 + Select, Pan, Zoom, L3/R3, Unfocus)

@@ -1,7 +1,11 @@
 -- 1. Create the Main Frame
-local f = CreateFrame("Frame", "t5_TrackDgn", UIParent, "BasicFrameTemplateWithInset")
+local f = CreateFrame("Frame", "t5_TrackDgn", nil,"BasicFrameTemplateWithInset")
+
+
+f:SetScale(UIParent:GetEffectiveScale()) -- Sync scale with the user's UI settings
+
 f:SetSize(400, 400) 
-f:SetPoint("CENTER", UIParent, "CENTER", 0, 0) 
+f:SetPoint("CENTER", nil,"CENTER", 0, 0) 
 f:SetMovable(true)
 f:EnableMouse(true)
 f:RegisterForDrag("LeftButton")

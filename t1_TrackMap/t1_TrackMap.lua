@@ -1,8 +1,11 @@
 local addonName, T1 = ...
 
 -- Create your main frame
-T1.MapFrame = CreateFrame("Frame", "t1_TrackMap", UIParent, "BasicFrameTemplateWithInset")
+T1.MapFrame = CreateFrame("Frame", "t1_TrackMap", nil, "BasicFrameTemplateWithInset")
 local f = T1.MapFrame
+
+
+f:SetScale(UIParent:GetEffectiveScale()) -- Sync scale with the user's UI settings
 
 -- FIX: Hide the map by default on login, and allow the ESC key to close it
 f:Hide()
@@ -15,7 +18,7 @@ end
 
 --
 f:SetSize(916, 640)
-f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+f:SetPoint("CENTER", nil, "CENTER", 0, 0)
 f:SetFrameLevel(100)
 f:SetResizable(true)
 
@@ -703,7 +706,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                 end
 
                 f.cursorTooltip:ClearAllPoints()
-                f.cursorTooltip:SetPoint(anchorPoint, UIParent, "BOTTOMLEFT", cursorX + offsetX, cursorY + offsetY)
+                f.cursorTooltip:SetPoint(anchorPoint, nil, "BOTTOMLEFT", cursorX + offsetX, cursorY + offsetY)
                 f.cursorTooltip:Show()
             else
                 f.cursorTooltip:Hide()
@@ -863,7 +866,7 @@ function f:LoadMap(mapID)
                         tile:SetSize(tileW, tileH)
                         tile:ClearAllPoints()
                         tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", data.col * tileW, -(data.row * tileH))
-                        tile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-" ..
+                        tile:SetTexture("Interface\\AddOns\\forever_track\\t1_TrackMap\\map_texture\\worldmap-forever-" ..
                             data.index .. ".tga")
                         if f.showFogOfWar then
                             tile:SetDesaturated(true)
@@ -882,7 +885,7 @@ function f:LoadMap(mapID)
         if not f.dalaranMapTile then
             f.dalaranMapTile = f.mapContent:CreateTexture(nil, "BACKGROUND")
             f.dalaranMapTile:SetAllPoints(f.mapContent)
-            f.dalaranMapTile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\dalaran.tga")
+            f.dalaranMapTile:SetTexture("Interface\\AddOns\\forever_track\\t1_TrackMap\\map_texture\\dalaran.tga")
         end
         f.dalaranMapTile:SetDesaturated(false)
         f.dalaranMapTile:SetVertexColor(1, 1, 1, 1)
@@ -1008,7 +1011,7 @@ function f:DrawExploredZone(zoneID)
                             mask:Show()
 
                             local tex = f.exploredTexturePool:Acquire()
-                            tex:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-0.0.1.tga")
+                            tex:SetTexture("Interface\\AddOns\\forever_track\\t1_TrackMap\\map_texture\\worldmap-forever-0.0.1.tga")
                             tex:SetDesaturated(false)
                             tex:SetVertexColor(1, 1, 1, 1)
                             tex:SetTexCoord(left, right, top, bottom)

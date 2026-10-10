@@ -1,7 +1,10 @@
 -- 1. Create the Main Frame using Blizzard's built-in template
-local f = CreateFrame("Frame", "t4_TrackRes", UIParent, "BasicFrameTemplateWithInset")
+local f = CreateFrame("Frame", "t4_TrackRes", nil, "BasicFrameTemplateWithInset")
+
+f:SetScale(UIParent:GetEffectiveScale()) -- Sync scale with the user's UI settings
+
 f:SetSize(400, 300) -- Width and Height
-f:SetPoint("CENTER", UIParent, "CENTER", 0, 0) -- Position in the middle of the screen
+f:SetPoint("CENTER", nil, "CENTER", 0, 0) -- Position in the middle of the screen
 
 -- Enable moving/dragging around the screen
 f:SetMovable(true)
@@ -62,7 +65,7 @@ SlashCmdList["T4_CMD"] = function()
 end
 
 -- 6. Setup Ctrl + Numpad 1 keybinding via secure button
-local toggleBtn = CreateFrame("Button", "T4_KeybindButton", UIParent, "SecureActionButtonTemplate")
+local toggleBtn = CreateFrame("Button", "T4_KeybindButton", nil, "SecureActionButtonTemplate")
 toggleBtn:SetAttribute("type", "macro")
 toggleBtn:SetAttribute("macrotext", "/t4")
 

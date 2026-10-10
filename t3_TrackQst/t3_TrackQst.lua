@@ -55,9 +55,13 @@ end
 -- =========================================================================
 -- 1. Main Frame Setup & Resizing (Width set to 250)
 -- =========================================================================
-local f = CreateFrame("Frame", "t3_TrackQst", UIParent, "BasicFrameTemplateWithInset")
+local f = CreateFrame("Frame", "t3_TrackQst", nil,"BasicFrameTemplateWithInset")
+
+
+f:SetScale(UIParent:GetEffectiveScale()) -- Sync scale with the user's UI settings
+
 f:SetSize(250, 500)
-f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+f:SetPoint("CENTER", nil,"CENTER", 0, 0)
 f:SetMovable(true)
 f:EnableMouse(true)
 f:RegisterForDrag("LeftButton")
