@@ -110,25 +110,37 @@ collapseBtn:SetSize(24, 22)
 collapseBtn:SetPoint("RIGHT", f.CloseButton, "LEFT", -2, 0)
 collapseBtn:SetText("_")
 
-local isCollapsed = false
-collapseBtn:SetScript("OnClick", function()
-    if isCollapsed then
-        f:SetHeight(f.expandedHeight or 640)
-        if f.Bg then f.Bg:Show() end
-        if f.InsetBg then f.InsetBg:Show() end
-        if f.mapCanvas then f.mapCanvas:Show() end
-        collapseBtn:SetText("_")
-        isCollapsed = false
-    else
+f.isCollapsed = false
+f.autoCollapsed = false -- Tracks if the system collapsed it, rather than the user
+
+function f:SetCollapsed(collapseState, isAuto)
+    if f.isCollapsed == collapseState then return end
+    
+    if collapseState then
         f.expandedHeight = f:GetHeight()
         f:SetHeight(32)
         if f.Bg then f.Bg:Hide() end
         if f.InsetBg then f.InsetBg:Hide() end
         if f.mapCanvas then f.mapCanvas:Hide() end
         collapseBtn:SetText("+")
-        isCollapsed = true
+        f.isCollapsed = true
+        f.autoCollapsed = isAuto or false
+    else
+        f:SetHeight(f.expandedHeight or 640)
+        if f.Bg then f.Bg:Show() end
+        if f.InsetBg then f.InsetBg:Show() end
+        if f.mapCanvas then f.mapCanvas:Show() end
+        collapseBtn:SetText("_")
+        f.isCollapsed = false
+        f.autoCollapsed = false
     end
+end
+
+collapseBtn:SetScript("OnClick", function()
+    -- Manual clicks are never "auto"
+    f:SetCollapsed(not f.isCollapsed, false)
 end)
+
 
 -- ==========================================
 -- City Map Data
@@ -1879,9 +1891,38 @@ focusWatcher:SetScript("OnEvent", function(self, event)
     end
 end)
 
+
+-- Helper function to check if any standard Blizzard panels are currently open
+local function AreAnyUIPanelsOpen()
+    return GetUIPanel("left") or GetUIPanel("center") or GetUIPanel("right") or GetUIPanel("doublewide") or GetUIPanel("fullscreen")
+end
+
 hooksecurefunc("ShowUIPanel", function(frame)
-    if frame and frame ~= f and f.isMapFocused then f:SetMapFocus(false) end
+    if frame and frame ~= f then
+        if f.isMapFocused then f:SetMapFocus(false) end
+        
+        -- Auto-collapse and mark it as an auto-action (true)
+        if f:IsShown() and not f.isCollapsed then
+            f:SetCollapsed(true, true)
+        end
+    end
 end)
+
+hooksecurefunc("HideUIPanel", function(frame)
+    if frame and frame ~= f then
+        -- Only auto-expand if it's currently collapsed AND it was collapsed automatically
+        if f:IsShown() and f.isCollapsed and f.autoCollapsed then
+            -- Make sure there aren't other panels still open
+            if not AreAnyUIPanelsOpen() then
+                f:SetCollapsed(false, true)
+            end
+        end
+    end
+end)
+
+
+
+--
 
 hooksecurefunc("ToggleFrame", function(frame)
     if frame and frame ~= f and f.isMapFocused then f:SetMapFocus(false) end

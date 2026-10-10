@@ -45,7 +45,8 @@
         "CloseAllBags",
         "ToggleAllBags",
         "NUM_CONTAINER_FRAMES",
-        "ContainerFrameCombinedBags"
+        "ContainerFrameCombinedBags",
+        "GetUIPanel"
     ],
     "Lua.type.weakUnionCheck": true
 }
