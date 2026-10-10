@@ -4,6 +4,8 @@
 ## Author: ZealZol
 ## Version: 0.1
 ## SavedVariables: T1_MAP_DATA
+## Dependencies: t0_Entry
+
 
 Data/map_data.lua
 Data/map_outline.lua

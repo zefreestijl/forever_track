@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: t0_Entry
+## Notes: Shared input controller for Forever Track addons.
+## Author: ZealZol
+## Version: 0.1
+
+Input.lua
+t0_Entry.lua

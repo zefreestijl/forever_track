@@ -1,11 +1,19 @@
 local addonName, T1 = ...
 
--- ==========================================
--- 1. Create the Main Frame
--- ==========================================
+-- Create your main frame
 T1.MapFrame = CreateFrame("Frame", "t1_TrackMap", UIParent, "BasicFrameTemplateWithInset")
 local f = T1.MapFrame
 
+-- FIX: Hide the map by default on login, and allow the ESC key to close it
+f:Hide()
+tinsert(UISpecialFrames, f:GetName())
+
+-- Register this frame to the shared Core Addon
+if _G.ForeverTrack then
+    _G.ForeverTrack.Modules.T1 = f
+end
+
+--
 f:SetSize(916, 640)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetFrameLevel(100)
@@ -593,7 +601,7 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                         coordText = string.format(" (%.0f, %.0f)", hoverLocalX * 100, hoverLocalY * 100)
                     end
                     local headerText = (closestID == "???") and "|cffaaaaaa#???|r" or
-                    string.format("|cffaaaaaa#%s%s|r", closestID, coordText)
+                        string.format("|cffaaaaaa#%s%s|r", closestID, coordText)
 
                     if closestComment ~= "" then
                         f.cursorTooltip.text:SetFormattedText("%s\n%s%s\n%s\n%.3f, %.3f|r", headerText, colorCode,
@@ -856,7 +864,7 @@ function f:LoadMap(mapID)
                         tile:ClearAllPoints()
                         tile:SetPoint("TOPLEFT", f.mapContent, "TOPLEFT", data.col * tileW, -(data.row * tileH))
                         tile:SetTexture("Interface\\AddOns\\t1_TrackMap\\map_texture\\worldmap-forever-" ..
-                        data.index .. ".tga")
+                            data.index .. ".tga")
                         if f.showFogOfWar then
                             tile:SetDesaturated(true)
                             tile:SetVertexColor(0.25, 0.25, 0.25)
@@ -1440,9 +1448,11 @@ end
 local function ConvertToCitySpace(unitMapID, rawX, rawY, targetCityID)
     if not unitMapID or unitMapID <= 0 or not targetCityID or targetCityID == 0 then return false, 0, 0 end
     local cityData = nil
-    for _, data in pairs(cityDataByZone) do if data.id == targetCityID then
+    for _, data in pairs(cityDataByZone) do
+        if data.id == targetCityID then
             cityData = data; break
-        end end
+        end
+    end
     if not cityData then return false, 0, 0 end
 
     if cityData.zoneID == unitMapID and cityData.zoneX and cityData.zoneY then
@@ -1541,7 +1551,7 @@ if not f.partyFrames then
             end
         end)
         pf.tex = pf:CreateTexture(nil, "OVERLAY"); pf.tex:SetAllPoints(); pf.tex:SetTexture(
-        "Interface\\CharacterFrame\\TempPortraitAlphaMask")
+            "Interface\\CharacterFrame\\TempPortraitAlphaMask")
         f.partyFrames[i] = pf
     end
 end
@@ -1597,7 +1607,7 @@ end)
 f.corpseFrame = CreateFrame("Frame", nil, f.mapContent)
 f.corpseFrame:SetFrameLevel(f.mapContent:GetFrameLevel() + 55)
 f.corpseTex = f.corpseFrame:CreateTexture(nil, "OVERLAY"); f.corpseTex:SetAllPoints(); f.corpseTex:SetTexture(
-"Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
+    "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8")
 f.corpseFrame:Hide()
 
 if not f.deathTracker then f.deathTracker = CreateFrame("Frame", nil, f.mapCanvas) end
@@ -1612,8 +1622,10 @@ f.deathTracker:SetScript("OnUpdate", function()
                     if T1_ZoneDB and T1_ZoneDB[currentZoneID] then
                         local zData = T1_ZoneDB[currentZoneID]
                         local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
-                        if zData.x and zData.y then cX, cY, hasCorpse = zData.x + ((corpsePos.x - 0.5) * zoneW),
-                                zData.y + ((0.5 - corpsePos.y) * (zoneW / 1.5)), true end
+                        if zData.x and zData.y then
+                            cX, cY, hasCorpse = zData.x + ((corpsePos.x - 0.5) * zoneW),
+                                zData.y + ((0.5 - corpsePos.y) * (zoneW / 1.5)), true
+                        end
                     end
                 elseif f.currentMapID == -1416 and currentZoneID == 1416 then
                     cX, cY = GetDalaranLocalCoords(corpsePos.x, corpsePos.y); hasCorpse = true
@@ -1645,21 +1657,29 @@ f.flagHoverTracker:SetScript("OnUpdate", function()
         local left, top = f.mapContent:GetLeft(), f.mapContent:GetTop()
         if not left or not top then return end
         local logicalMouseX, logicalMouseY = UIPercentToLogical(
-        ((rawX / f.mapContent:GetEffectiveScale()) - left) / f.mapContent:GetWidth(),
+            ((rawX / f.mapContent:GetEffectiveScale()) - left) / f.mapContent:GetWidth(),
             (top - (rawY / f.mapContent:GetEffectiveScale())) / f.mapContent:GetHeight())
         local CLICK_RADIUS_SQ = 0.0006 / (f.zoomLevel * f.zoomLevel)
         for key, flagObj in pairs(f.cityFlags) do
             if cityDataByZone[key] then
                 local dx, dy = (cityDataByZone[key].x or 0) - logicalMouseX, (cityDataByZone[key].y or 0) - logicalMouseY
-                if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then flagObj.tex:SetVertexColor(1, 1, 1, 0.7) else flagObj
-                        .tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity or 1) end
+                if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
+                    flagObj.tex:SetVertexColor(1, 1, 1, 0.7)
+                else
+                    flagObj
+                        .tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity or 1)
+                end
             end
         end
     else
         local cityKey = GetCityDataForZone(f.currentMapID)
         if cityKey and f.cityFlags[cityKey] then
-            if f.mapCanvas.hoveredCityID then f.cityFlags[cityKey].tex:SetVertexColor(1, 1, 1, 0.7) else f.cityFlags
-                    [cityKey].tex:SetVertexColor(1, 1, 1, 1.0) end
+            if f.mapCanvas.hoveredCityID then
+                f.cityFlags[cityKey].tex:SetVertexColor(1, 1, 1, 0.7)
+            else
+                f.cityFlags
+                    [cityKey].tex:SetVertexColor(1, 1, 1, 1.0)
+            end
         end
     end
 end)
@@ -1685,8 +1705,8 @@ f.zoneTracker:RegisterEvent("QUEST_LOG_UPDATE")
 f.lastPlayerZone = nil
 
 f.zoneTracker:SetScript("OnEvent", function(self, event, ...)
-    if event == "QUEST_LOG_UPDATE" then
-        if f:IsShown() and f.RefreshQuestPins then f:RefreshQuestPins() end
+    if event == "PLAYER_ENTERING_WORLD" then
+        f:Hide()
         return
     end
 
@@ -1732,34 +1752,6 @@ end
 
 --
 
-_G.func_ToggleT1Window = function(mapID)
-    if mapID and type(mapID) == "number" then
-        if mapID < 0 then return end
-        if f.currentMapID ~= mapID then f:LoadMap(mapID) end
-        if f.UpdateMapTransform then f:UpdateMapTransform() end
-        f:Show()
-    else
-        if f:IsShown() then
-            f:Hide()
-        else
-            local playerMap = C_Map.GetBestMapForUnit("player")
-            local defaultMap = 947
-            if playerMap == 1416 then
-                defaultMap = -1416
-            elseif T1.IsCustomCityMap(playerMap) then
-                defaultMap = playerMap
-            end
-
-            if f.currentMapID ~= defaultMap then f:LoadMap(defaultMap) end
-            if defaultMap == 947 and playerMap and playerMap > 0 then
-                f:ZoomToZone(playerMap)
-            elseif f.UpdateMapTransform then
-                f:UpdateMapTransform()
-            end
-            f:Show()
-        end
-    end
-end
 
 f:SetScript("OnShow", function(self)
     if not self.currentMapID then
@@ -1779,82 +1771,6 @@ end)
 
 
 
--- ==========================================
--- Init & Slash Commands
--- ==========================================
-_G.func_ConvertClassicIDToMapID = function(classicID)
-    if not T1_ZoneDB then return nil end
-    local targetClassicID = tonumber(classicID)
-    if not targetClassicID then return nil end
-    for mapID, data in pairs(T1_ZoneDB) do if data.classic == targetClassicID then return tonumber(mapID) end end
-    return nil
-end
-
-_G.func_OpenZoneMapByID = function(mapID)
-    local targetMapID = tonumber(mapID)
-    if not targetMapID or targetMapID <= 0 then return end
-    if _G.func_ToggleT1Window then _G.func_ToggleT1Window(targetMapID) end
-end
-
-tinsert(UISpecialFrames, f:GetName())
-f:Hide()
-
-
-SLASH_T1_CMD1 = "/t1"
-SlashCmdList["T1_CMD"] = function(msg)
-    msg = strtrim(msg or "")
-    if msg == "" then
-        _G.func_ToggleT1Window(); return
-    end
-    local mapIDToOpen = nil
-    local classicMatch = msg:match("^[cC](%d+)$")
-    if classicMatch then
-        mapIDToOpen = _G.func_ConvertClassicIDToMapID(classicMatch)
-    else
-        local idMatch = msg:match("^(%d+)$")
-        if idMatch then mapIDToOpen = tonumber(idMatch) end
-    end
-    if mapIDToOpen then _G.func_OpenZoneMapByID(mapIDToOpen) else print(
-        "|cffff2020T1_TrackMap:|r Invalid command format.") end
-end
-
-
-
--- ==========================================
--- Keyboard & Gamepad Input Handlers
--- ==========================================
-local toggleBtn = CreateFrame("Button", "T1_KeybindButton", UIParent)
-toggleBtn:SetSize(1, 1) 
-toggleBtn:SetAlpha(0)
-toggleBtn:SetScript("OnClick", function() 
-    if f:IsShown() then
-        if f.isMapFocused then
-            -- 1. Opened and Focused -> Toggle OFF
-            _G.func_ToggleT1Window() 
-        else
-            -- 2. Opened and Unfocused -> Focus the custom window
-            f:SetMapFocus(true)
-            f:Raise() -- Brings the map frame visually to the front of the screen
-        end
-    else
-        -- 3. Not Opened -> Toggle ON (Auto-focuses via the OnShow hook)
-        _G.func_ToggleT1Window() 
-    end
-end)
-
-local bindInitializer = CreateFrame("Frame")
-
-bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
-bindInitializer:SetScript("OnEvent", function(self, event)
-    self:UnregisterEvent(event)
-    
-    -- Cleanup the sticky binding from previous attempts
-    SetBinding("PADBACK", nil)
-    
-    -- Standard Keyboard Bind
-    SetBindingClick("CTRL-NUMPAD1", "T1_KeybindButton")
-    SaveBindings(GetCurrentBindingSet() or 1)
-end)
 
 
 -- ==========================================
@@ -1884,23 +1800,24 @@ alphaPulse:SetSmoothing("IN_OUT")
 
 -- 1. Create the invisible pad blocker
 f.padBlocker = CreateFrame("Button", "T1_PadBlocker", UIParent)
-f.padBlocker:SetScript("OnClick", function() end) 
+f.padBlocker:SetScript("OnClick", function() end)
 
 local padKeysToBlock = {
-    "PAD1", "PAD2", "PAD3", "PAD4", 
-    "PADFORWARD", 
-    "PADLSHOULDER", "PADRSHOULDER", 
-    "PADDPADUP", "PADDPADDOWN", "PADDPADLEFT", "PADDPADRIGHT", 
-    "PADLSTICK", "PADRSTICK" 
+    "PAD1", "PAD2", "PAD3", "PAD4",
+    "PADFORWARD",
+    "PADLSHOULDER", "PADRSHOULDER",
+    "PADDPADUP", "PADDPADDOWN", "PADDPADLEFT", "PADDPADRIGHT",
+    "PADLSTICK", "PADRSTICK"
 }
 
 f.isMapFocused = false
 function f:SetMapFocus(focused)
     f.isMapFocused = focused
     if focused then
-        -- Bright Gold/Yellow Border
+        -- Show the frame and ignite the gold color
+        f.focusBorder:Show() 
         f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1) 
-        f.focusBorder.glowAnim:Play() -- Start the pulsing glow effect
+        f.focusBorder.glowAnim:Play() 
         
         if not InCombatLockdown() then
             for _, key in ipairs(padKeysToBlock) do
@@ -1909,8 +1826,9 @@ function f:SetMapFocus(focused)
             end
         end
     else
-        f.focusBorder:SetBackdropBorderColor(0, 0, 0, 0) 
-        f.focusBorder.glowAnim:Stop() -- Stop the animation
+        -- Physically hide the frame to remove the black ghosting
+        f.focusBorder:Hide() 
+        f.focusBorder.glowAnim:Stop() 
         
         if not InCombatLockdown() then
             ClearOverrideBindings(f.padBlocker)
@@ -1918,17 +1836,20 @@ function f:SetMapFocus(focused)
     end
 end
 
+-- Ensure it starts completely hidden instead of transparent
+f.focusBorder:Hide()
+
 f.focusBorder:SetBackdropBorderColor(0, 0, 0, 0)
 
 -- Auto-Focus Triggers
-f:HookScript("OnShow", function() f:SetMapFocus(true) end)
+f:HookScript("OnShow", function() f:SetMapFocus(false) end)
 f.mapCanvas:HookScript("OnMouseDown", function() f:SetMapFocus(true) end)
 f:HookScript("OnMouseDown", function() f:SetMapFocus(true) end)
 f:HookScript("OnHide", function() f:SetMapFocus(false) end)
 
 local focusWatcher = CreateFrame("Frame")
 focusWatcher:RegisterEvent("GLOBAL_MOUSE_DOWN")
-focusWatcher:RegisterEvent("PLAYER_REGEN_DISABLED") 
+focusWatcher:RegisterEvent("PLAYER_REGEN_DISABLED")
 
 focusWatcher:SetScript("OnEvent", function(self, event)
     if event == "GLOBAL_MOUSE_DOWN" then
@@ -1950,159 +1871,5 @@ end)
 
 
 
--- ==========================================
--- Dynamic Hardware Poller (L2 + Select, Pan, Zoom, L3/R3)
--- ==========================================
-local isL2Held = false
-local wasSelectPressed = false
-local wasL3Pressed = false
-local wasR3Pressed = false
 
-toggleBtn:SetScript("OnUpdate", function(self, elapsed)
-    elapsed = elapsed or (1 / 60)
-    
-    local l2Down = IsKeyDown("PADLTRIGGER")
-    local selectDown = IsKeyDown("PADBACK")
-    local l3Down = IsKeyDown("PADLSTICK")
-    local r3Down = IsKeyDown("PADRSTICK")
-    
-    -- 1. L2 Hijack Logic (Opening/Focusing the Map)
-    if l2Down and not isL2Held then
-        isL2Held = true
-        SetOverrideBindingClick(self, true, "PADBACK", "T1_KeybindButton")
-    elseif not l2Down and isL2Held then
-        isL2Held = false
-        ClearOverrideBindings(self)
-    end
-
-    -- 2. Window Cycling Logic (Dropping Focus)
-    if selectDown and not wasSelectPressed then
-        if not l2Down and f:IsShown() and f.isMapFocused then
-            f:SetMapFocus(false)
-        end
-    end
-    wasSelectPressed = selectDown
-
-    -- 3. Gamepad Controls (Requires L2 + Window Focused)
-    if l2Down and f:IsShown() and f.isMapFocused then
-        
-        -- --- PANNING & ZOOMING ---
-        local panSpeed = (800 / f.zoomLevel) * elapsed 
-        local zoomSpeed = 2.5 * elapsed
-        local dx, dy, zDelta = 0, 0, 0
-
-        -- A: Read Analog Sticks
-        if C_GamePad and C_GamePad.GetActiveDeviceID then
-            local deviceID = C_GamePad.GetActiveDeviceID()
-            if deviceID then
-                local state = C_GamePad.GetDeviceMappedState(deviceID)
-                if state and state.sticks then
-                    local ls = state.sticks[1]
-                    local rs = state.sticks[2]
-                    
-                    if ls then
-                        if math.abs(ls.x) > 0.15 then dx = -ls.x * panSpeed end
-                        -- INVERTED Y-AXIS: Flipped the mathematical sign
-                        if math.abs(ls.y) > 0.15 then dy = -ls.y * panSpeed end 
-                    end
-                    
-                    if rs then
-                        if math.abs(rs.y) > 0.15 then zDelta = rs.y * zoomSpeed end
-                    end
-                end
-            end
-        end
-
-        -- B: Fallback (D-Pad & Bumpers)
-        if dx == 0 and dy == 0 then
-            if IsKeyDown("PADDPADLEFT") then dx = panSpeed end
-            if IsKeyDown("PADDPADRIGHT") then dx = -panSpeed end
-            -- Inverted fallback digital up/down as well to match analog stick
-            if IsKeyDown("PADDPADUP") then dy = panSpeed end
-            if IsKeyDown("PADDPADDOWN") then dy = -panSpeed end
-        end
-        
-        if zDelta == 0 then
-            if IsKeyDown("PADRSHOULDER") or IsKeyDown("PADRTRIGGER") then zDelta = zoomSpeed end
-            if IsKeyDown("PADLSHOULDER") then zDelta = -zoomSpeed end
-        end
-
-        -- Apply Panning
-        if dx ~= 0 or dy ~= 0 then
-            f.mapOffsetX = (f.mapOffsetX or 0) + dx
-            f.mapOffsetY = (f.mapOffsetY or 0) + dy
-            f.velocityX, f.velocityY = 0, 0
-            f.targetOffsetX, f.targetOffsetY = nil, nil
-            f:UpdateMapTransform()
-        end
-
-        -- Apply Zooming
-        if zDelta ~= 0 then
-            local maxZ = f.GetDynamicMaxZoom and f:GetDynamicMaxZoom() or 20
-            local currentTarget = f.targetZoom or f.zoomLevel
-            f.targetZoom = math.max(1, math.min(maxZ, currentTarget + zDelta))
-            
-            local canvasW, canvasH = f.mapCanvas:GetSize()
-            if canvasW and canvasH then
-                f.zoomPivotX = canvasW / 2
-                f.zoomPivotY = -canvasH / 2
-            end
-            f.targetOffsetX, f.targetOffsetY = nil, nil
-            f.velocityX, f.velocityY = 0, 0
-            if f.zoomSmoother then f.zoomSmoother:Show() end
-        end
-
-        -- --- L3: RECENTER ON PLAYER ---
-        if l3Down and not wasL3Pressed then
-            local currentZoneID = C_Map.GetBestMapForUnit("player")
-            if currentZoneID and currentZoneID > 0 then
-                f.savedWorldZoom = nil
-                if f.currentMapID ~= 947 then f:LoadMap(947) end
-                
-                local wX, wY = nil, nil
-                local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
-                
-                if pos and pos.x and pos.y and T1_ZoneDB and T1_ZoneDB[currentZoneID] then
-                    local zData = T1_ZoneDB[currentZoneID]
-                    local zW = (zData.w and zData.w > 0) and zData.w or 0.05
-                    if zData.x and zData.y then
-                        wX = zData.x + ((pos.x - 0.5) * zW)
-                        wY = zData.y + ((0.5 - pos.y) * (zW / 1.5))
-                    end
-                end
-                
-                if wX and wY then
-                    -- Inline coordinate math identical to your middle-mouse logic
-                    f:ZoomToPoint((wX / 1.5) + 0.5, 0.5 - wY, 8)
-                else
-                    if f.ZoomToZone then f:ZoomToZone(currentZoneID) end
-                end
-                if f.UpdateMapTransform then f:UpdateMapTransform() end
-            end
-        end
-
-        -- --- R3: ZOOM TO FIT MAP ---
-        if r3Down and not wasR3Pressed then
-            f.savedWorldZoom = nil
-            if f.currentMapID ~= 947 then f:LoadMap(947) end
-            
-            local canvasW, canvasH = f.mapCanvas:GetSize()
-            local contentW, contentH = f.mapContent:GetSize()
-            if canvasW and canvasH and contentW and contentH then
-                local fitScale = math.max(canvasW / contentW, canvasH / contentH)
-                f.targetZoom = fitScale
-                f.targetOffsetX = ((canvasW - (contentW * fitScale)) / 2) / fitScale
-                f.targetOffsetY = (-(canvasH - (contentH * fitScale)) / 2) / fitScale
-                if f.zoomSmoother then f.zoomSmoother:Show() end
-            end
-            if f.UpdateMapTransform then f:UpdateMapTransform() end
-        end
-    end
-    
-    -- Record state for next frame debounce
-    wasL3Pressed = l3Down
-    wasR3Pressed = r3Down
-end)
-
-
-print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")
+--print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")

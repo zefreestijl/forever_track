@@ -352,4 +352,4 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     SaveBindings(GetCurrentBindingSet())
 end)
 
-print("|cFF00FF00t5_TrackDgn loaded! Type /t5 or press Ctrl+Numpad 5 to toggle.|r")
+--print("|cFF00FF00t5_TrackDgn loaded! Type /t5 or press Ctrl+Numpad 5 to toggle.|r")

@@ -1,7 +1,10 @@
--- t2_TrackNPC.lua --
-local addonName = ...
+local addonName, TrackCore = ...
+TrackCore.T2_NPCFrame = CreateFrame("Frame", "t2_TrackNPC", UIParent, "BasicFrameTemplateWithInset")
 
-local f = CreateFrame("Frame", "T2_TrackNPC", UIParent, "BasicFrameTemplateWithInset")
+local f = TrackCore.T2_NPCFrame
+
+
+--
 f:SetSize(320, 480)
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetMovable(true)
@@ -244,7 +247,7 @@ eventFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         end
 
         RefreshLogDisplay()
-        print("|cFF00FF00t2_TrackNPC Loaded! Working Entries: " .. #Session_NPC_List .. "|r")
+        --print("|cFF00FF00t2_TrackNPC Loaded! Working Entries: " .. #Session_NPC_List .. "|r")
         self:UnregisterEvent("ADDON_LOADED")
     end
 end)
