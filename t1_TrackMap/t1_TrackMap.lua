@@ -5,7 +5,12 @@ T1.MapFrame = CreateFrame("Frame", "t1_TrackMap", nil, "BasicFrameTemplateWithIn
 local f = T1.MapFrame
 
 
-f:SetScale(UIParent:GetEffectiveScale()) -- Sync scale with the user's UI settings
+local uiScale = UIParent:GetEffectiveScale()
+if not uiScale or uiScale <= 0.1 then 
+    uiScale = 1 -- Fallback to standard 100% scale if the game hasn't loaded UIParent yet
+end
+f:SetScale(uiScale)
+
 
 -- FIX: Hide the map by default on login, and allow the ESC key to close it
 f:Hide()
@@ -17,15 +22,25 @@ if _G.ForeverTrack then
 end
 
 --
-f:SetSize(916, 640)
-f:SetPoint("CENTER", nil, "CENTER", 0, 0)
+f:SetSize(304, 227)
+f:SetPoint("TOPLEFT", nil, "TOPLEFT", 5, -5)
 f:SetFrameLevel(100)
 f:SetResizable(true)
 
+
+f.ResetLayout = function(self)
+    self:ClearAllPoints()
+    self:SetPoint("TOPLEFT", nil, "TOPLEFT", 5, -5) -- T1's specific default position
+    self:SetSize(304, 227)                            -- T1's specific default size
+end
+
+
+
+--
 if f.SetResizeBounds then
-    f:SetResizeBounds(304, 210, 1216, 840)
+    f:SetResizeBounds(304, 227, 1216, 840)
 else
-    f:SetMinResize(304, 210)
+    f:SetMinResize(304, 227)
     f:SetMaxResize(1216, 840)
 end
 

@@ -3,11 +3,31 @@ TrackCore.T2_NPCFrame = CreateFrame("Frame", "t2_TrackNPC", nil, "BasicFrameTemp
 
 local f = TrackCore.T2_NPCFrame
 
-f:SetScale(UIParent:GetEffectiveScale()) -- Sync scale with the user's UI settings
+
+local uiScale = UIParent:GetEffectiveScale()
+if not uiScale or uiScale <= 0.1 then 
+    uiScale = 1 -- Fallback to standard 100% scale if the game hasn't loaded UIParent yet
+end
+f:SetScale(uiScale)
+
 
 --
 f:SetSize(320, 480)
-f:SetPoint("CENTER", nil, "CENTER", 0, 0)
+f:SetPoint("TOPLEFT", nil, "TOPLEFT", 320, -5)
+
+
+
+
+
+f.ResetLayout = function(self)
+    self:ClearAllPoints()
+    self:SetPoint("TOPLEFT", nil, "TOPLEFT", 320, -5)-- T1's specific default position
+    self:SetSize(320, 480)                            -- T1's specific default size
+end
+
+
+
+--
 f:SetMovable(true)
 f:EnableMouse(true)
 f:RegisterForDrag("LeftButton")

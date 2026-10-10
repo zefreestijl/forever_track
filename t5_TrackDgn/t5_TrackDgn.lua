@@ -2,10 +2,28 @@
 local f = CreateFrame("Frame", "t5_TrackDgn", nil,"BasicFrameTemplateWithInset")
 
 
-f:SetScale(UIParent:GetEffectiveScale()) -- Sync scale with the user's UI settings
 
-f:SetSize(400, 400) 
-f:SetPoint("CENTER", nil,"CENTER", 0, 0) 
+local uiScale = UIParent:GetEffectiveScale()
+if not uiScale or uiScale <= 0.1 then 
+    uiScale = 1 -- Fallback to standard 100% scale if the game hasn't loaded UIParent yet
+end
+f:SetScale(uiScale)
+
+
+f:SetSize(250, 250) 
+f:SetPoint("TOPRIGHT", nil,"TOPRIGHT", -5, -25)
+
+
+f.ResetLayout = function(self)
+    self:ClearAllPoints()
+    self:SetPoint("TOPRIGHT", nil, "TOPRIGHT", -5, -25) -- T1's specific default position
+    self:SetSize(250, 250)                           -- T1's specific default size
+end
+
+
+
+
+--
 f:SetMovable(true)
 f:EnableMouse(true)
 f:RegisterForDrag("LeftButton")

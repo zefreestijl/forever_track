@@ -1,14 +1,24 @@
 -- Initialize the global registry if it doesn't exist yet
 _G.ForeverTrack = _G.ForeverTrack or { Modules = {} }
 
-
--- 1. Create the Main Frame using Blizzard's built-in template
+-- 1. Create the Main Frame attached to the root window (nil)
 local f = CreateFrame("Frame", "t0_Entry", nil, "BasicFrameTemplateWithInset")
+
+-- Save the frame to the global module registry for Input.lua to access
 _G.ForeverTrack.Modules.T0 = f
 
-f:SetScale(UIParent:GetEffectiveScale()) -- Sync scale with the user's UI settings
-f:SetSize(200, 300) -- Width and Height
-f:SetPoint("LEFT", nil, "LEFT", 50, 0) -- Position in the middle of the screen
+-- FIX: Prevent FLT_OVERFLOW crash by ensuring scale is never 0 during load
+local uiScale = UIParent:GetEffectiveScale()
+if not uiScale or uiScale <= 0.1 then 
+    uiScale = 1 -- Fallback to standard 100% scale if the game hasn't loaded UIParent yet
+end
+f:SetScale(uiScale)
+
+
+--
+f:SetSize(200, 300) 
+f:SetPoint("LEFT", nil, "LEFT", 50, 0)
+
 
 
 -- Enable moving/dragging around the screen
@@ -23,6 +33,107 @@ f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
 f.title:SetText("t0_Entry")
 
+-- ==========================================
+-- NEW: Create a Reload UI Button on the top left
+-- ==========================================
+local reloadBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+reloadBtn:SetSize(55, 22)
+reloadBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 10)
+reloadBtn:SetText("Reload")
+
+-- Elevate the button so it sits above the title bar background
+reloadBtn:SetFrameLevel(f:GetFrameLevel() + 5)
+
+-- Execute the /reload command when clicked
+reloadBtn:SetScript("OnClick", function()
+    ReloadUI()
+end)
+-- ==========================================
+
+-- ==========================================
+-- NEW: Create a Reset UI Button next to Reload
+-- ==========================================
+local resetBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+resetBtn:SetSize(50, 22)
+resetBtn:SetPoint("LEFT", reloadBtn, "RIGHT", 2, 0) -- Placed right next to the Reload button
+resetBtn:SetText("Reset")
+resetBtn:SetFrameLevel(f:GetFrameLevel() + 5)
+
+resetBtn:SetScript("OnClick", function()
+    -- 1. Reset t0_Entry itself
+    f:ClearAllPoints()
+    f:SetPoint("LEFT", nil, "LEFT", 5, 0)
+    f:SetSize(200, 300)
+    
+    -- 2. Reset all sub-modules
+    local mods = {"t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn"}
+    for _, modID in ipairs(mods) do
+        local targetFrame = _G[modID]
+        if targetFrame then
+            -- If the module has defined a reset rule, trigger it
+            if targetFrame.ResetLayout then
+                targetFrame:ResetLayout()
+            else
+                -- Generic fallback if you haven't added the rule to a module yet
+                targetFrame:ClearAllPoints()
+                targetFrame:SetPoint("CENTER", nil, "CENTER", 0, 0)
+            end
+        end
+    end
+    print("|cFFFFD100Forever Track:|r All UI positions and sizes reset.")
+end)
+-- ==========================================
+
+
+-- ==========================================
+-- NEW: Create a Toggle All Button next to Reset
+-- ==========================================
+local toggleAllBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+toggleAllBtn:SetSize(70, 22)
+toggleAllBtn:SetPoint("LEFT", resetBtn, "RIGHT", 2, 0) -- Place right next to the Reset button
+toggleAllBtn:SetText("Toggle All")
+toggleAllBtn:SetFrameLevel(f:GetFrameLevel() + 5)
+
+toggleAllBtn:SetScript("OnClick", function()
+    local mods = {"t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn"}
+    
+    -- Step 1: Check if any enabled windows are currently hidden
+    local anyHidden = false
+    for _, modID in ipairs(mods) do
+        if ForeverTrack_DB[modID] then
+            local targetFrame = _G[modID]
+            if targetFrame and not targetFrame:IsShown() then
+                anyHidden = true
+                break
+            end
+        end
+    end
+    
+    -- Step 2: Apply the new state to all enabled windows
+    for _, modID in ipairs(mods) do
+        if ForeverTrack_DB[modID] then
+            local targetFrame = _G[modID]
+            if targetFrame then
+                if anyHidden then
+                    targetFrame:Show()
+                else
+                    targetFrame:Hide()
+                end
+            end
+            
+            -- Step 3: Update the individual On/Off button text visuals in the t0 list
+            local btn = _G["t0_Btn_" .. modID]
+            if btn then
+                if anyHidden then
+                    btn:SetText("|cFFFFD100On|r")
+                else
+                    btn:SetText("|cFF808080Off|r")
+                end
+            end
+        end
+    end
+end)
+-- ==========================================
 
 
 
@@ -32,9 +143,24 @@ collapseBtn:SetSize(24, 22)
 collapseBtn:SetPoint("RIGHT", f.CloseButton, "LEFT", -2, 0)
 collapseBtn:SetText("_")
 
+
 -- Elevate both the default X button and the custom minimize button
 f.CloseButton:SetFrameLevel(f:GetFrameLevel() + 5)
 collapseBtn:SetFrameLevel(f:GetFrameLevel() + 5)
+
+-- ==========================================
+-- NEW: Override Close Button to behave like Ctrl+Numpad0
+-- ==========================================
+f.CloseButton:SetScript("OnClick", function()
+    -- Ensure the function from Input.lua is loaded
+    if _G.func_ToggleT0Window then
+        _G.func_ToggleT0Window()
+    else
+        f:Hide() -- Safety fallback
+    end
+end)
+-- ==========================================
+
 
 
 -- Track collapsed state

@@ -1,10 +1,27 @@
 -- 1. Create the Main Frame using Blizzard's built-in template
 local f = CreateFrame("Frame", "t4_TrackRes", nil, "BasicFrameTemplateWithInset")
 
-f:SetScale(UIParent:GetEffectiveScale()) -- Sync scale with the user's UI settings
+
+local uiScale = UIParent:GetEffectiveScale()
+if not uiScale or uiScale <= 0.1 then 
+    uiScale = 1 -- Fallback to standard 100% scale if the game hasn't loaded UIParent yet
+end
+f:SetScale(uiScale)
+
 
 f:SetSize(400, 300) -- Width and Height
-f:SetPoint("CENTER", nil, "CENTER", 0, 0) -- Position in the middle of the screen
+f:SetPoint("TOPRIGHT", nil, "TOPRIGHT", -260, -5) -- Position in the middle of the screen
+
+
+
+f.ResetLayout = function(self)
+    self:ClearAllPoints()
+    self:SetPoint("TOPRIGHT", nil, "TOPRIGHT", -260, -5) -- T1's specific default position
+    self:SetSize(400, 300)                           -- T1's specific default size
+end
+
+
+
 
 -- Enable moving/dragging around the screen
 f:SetMovable(true)
