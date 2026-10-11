@@ -12,27 +12,27 @@ local core = _G.ForeverTrack
 
 _G.func_ToggleT0Window = function()
     local t0Frame = core.Modules.T0
-    if not t0Frame then 
+    if not t0Frame then
         print("T0 Window not found in registry.")
-        return 
+        return
     end
-    
-    local modules = {"t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn"}
+
+    local modules = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
 
     if UIParent:IsShown() then
         -- 1. Hide all built-in HUD
         UIParent:Hide()
-        
+
         -- 2. Prompt up the t0_Entry window
         t0Frame:Show()
-        
+
         -- 3. Prompt up other enabled custom addon windows
         if ForeverTrack_DB then
             for _, modID in ipairs(modules) do
                 if ForeverTrack_DB[modID] and _G[modID] then
                     _G[modID]:SetParent(nil) -- Enforce detachment
                     _G[modID]:Show()
-                    
+
                     if _G["t0_Btn_" .. modID] then
                         _G["t0_Btn_" .. modID]:SetText("|cFFFFD100On|r")
                     end
@@ -50,16 +50,16 @@ _G.func_ToggleT0Window = function()
 
         -- 2. Restore the built-in HUD (This often triggers WoW's auto-hide wipe)
         UIParent:Show()
-        
+
         -- 3. Hide ONLY the t0_Entry window
         t0Frame:Hide()
-        
+
         -- 4. Force previously open windows to stay open and float above the HUD
         for modID, _ in pairs(openWindows) do
             if _G[modID] then
-                _G[modID]:SetParent(nil) -- Ensure it wasn't secretly attached to t0_Entry
+                _G[modID]:SetParent(nil)         -- Ensure it wasn't secretly attached to t0_Entry
                 _G[modID]:SetFrameStrata("HIGH") -- Prevent sinking behind the default HUD
-                _G[modID]:Show() -- Override WoW's auto-close panel manager
+                _G[modID]:Show()                 -- Override WoW's auto-close panel manager
             end
         end
     end
@@ -97,8 +97,8 @@ _G.func_ConvertClassicIDToMapID = function(classicID)
     if not T1_ZoneDB then return nil end
     local targetClassicID = tonumber(classicID)
     if not targetClassicID then return nil end
-    for mapID, data in pairs(T1_ZoneDB) do 
-        if data.classic == targetClassicID then return tonumber(mapID) end 
+    for mapID, data in pairs(T1_ZoneDB) do
+        if data.classic == targetClassicID then return tonumber(mapID) end
     end
     return nil
 end
@@ -108,16 +108,19 @@ local lastToggleTime = 0
 _G.func_ToggleT1Window = function(mapID)
     -- Guard clause: Do nothing if the module is disabled in t0_Entry
     if not ForeverTrack_DB["t1_TrackMap"] then
-        return 
+        return
     end
 
-    
+
     -- FIX: Debounce to prevent the gamepad from firing on both Button-Down and Button-Up
     if GetTime() - lastToggleTime < 0.2 then return end
     lastToggleTime = GetTime()
 
-    local f = core.Modules.T1 
-    if not f then print("t1_TrackMap is disabled or missing.") return end
+    local f = core.Modules.T1
+    if not f then
+        print("t1_TrackMap is disabled or missing.")
+        return
+    end
 
     if mapID and type(mapID) == "number" then
         if mapID < 0 then return end
@@ -132,11 +135,11 @@ _G.func_ToggleT1Window = function(mapID)
             else
                 -- 2. Opened and Unfocused -> Focus the custom window
                 f:SetMapFocus(true)
-                f:Raise() 
+                f:Raise()
             end
         else
             -- 3. Not Opened -> Toggle ON
-            f:Show() 
+            f:Show()
         end
     end
 end
@@ -162,10 +165,10 @@ SlashCmdList["T1_CMD"] = function(msg)
         local idMatch = msg:match("^(%d+)$")
         if idMatch then mapIDToOpen = tonumber(idMatch) end
     end
-    if mapIDToOpen then 
-        _G.func_OpenZoneMapByID(mapIDToOpen) 
-    else 
-        print("|cffff2020T1_TrackMap:|r Invalid command format.") 
+    if mapIDToOpen then
+        _G.func_OpenZoneMapByID(mapIDToOpen)
+    else
+        print("|cffff2020T1_TrackMap:|r Invalid command format.")
     end
 end
 
@@ -173,22 +176,44 @@ end
 SLASH_T2_CMD1 = "/t2"
 SlashCmdList["T2_CMD"] = function(msg)
     if core.Modules.T2_NPCFrame then
-        if core.Modules.T2_NPCFrame:IsShown() then core.Modules.T2_NPCFrame:Hide()
-        else core.Modules.T2_NPCFrame:Show() end
+        if core.Modules.T2_NPCFrame:IsShown() then
+            core.Modules.T2_NPCFrame:Hide()
+        else
+            core.Modules.T2_NPCFrame:Show()
+        end
     end
 end
+
+
+-- T3 Slash Command
+SLASH_T3_CMD1 = "/t3"
+SlashCmdList["T3_CMD"] = function(msg)
+    msg = msg and strtrim(msg) or ""
+
+    if msg ~= "" then
+        local questID = tonumber(msg)
+        if questID then
+            if _G.func_ToggleT3Window then _G.func_ToggleT3Window(questID) end
+        else
+            print("|cFFFF3333[T3]|r Invalid quest ID. Usage: /t3 OR /t3 <QuestID>")
+        end
+    else
+        if _G.func_ToggleT3Window then _G.func_ToggleT3Window() end
+    end
+end
+
 
 
 -- ==========================================
 -- Gamepad & Keyboard Hotkey Bindings
 -- ==========================================
 local toggleBtn = CreateFrame("Button", "Entry_KeybindButton", UIParent)
-toggleBtn:SetSize(1, 1) 
+toggleBtn:SetSize(1, 1)
 toggleBtn:SetAlpha(0)
 toggleBtn:RegisterForClicks("AnyDown") -- Add this line right here
-toggleBtn:SetScript("OnClick", function() 
+toggleBtn:SetScript("OnClick", function()
     -- Defaults to toggling T1 for now. Later we can make this smart based on context.
-    _G.func_ToggleT1Window() 
+    _G.func_ToggleT1Window()
 end)
 
 
@@ -197,16 +222,86 @@ local bindInitializer = CreateFrame("Frame")
 bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
 bindInitializer:SetScript("OnEvent", function(self, event)
     self:UnregisterEvent(event)
-    
+
     SetBinding("PADBACK", nil)
-    
+
     -- Bind T0 Entry window to Ctrl+Numpad 0
     SetBindingClick("CTRL-NUMPAD0", "T0_KeybindButton")
-    
+
     -- Bind T1 Map window (or smart default) to Ctrl+Numpad 1
     SetBindingClick("CTRL-NUMPAD1", "Entry_KeybindButton")
-    
+
     SaveBindings(GetCurrentBindingSet() or 1)
+end)
+
+--
+local t3ToggleBtn = CreateFrame("Button", "T3_KeybindButton", UIParent)
+t3ToggleBtn:SetSize(1, 1)
+t3ToggleBtn:SetAlpha(0)
+t3ToggleBtn:RegisterForClicks("AnyDown")
+t3ToggleBtn:SetScript("OnClick", function()
+    if _G.func_ToggleT3Window then _G.func_ToggleT3Window() end
+end)
+
+local bindInitializer = CreateFrame("Frame")
+bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
+bindInitializer:SetScript("OnEvent", function(self, event)
+    self:UnregisterEvent(event)
+
+    SetBinding("PADBACK", nil)
+
+    SetBindingClick("CTRL-NUMPAD0", "T0_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD1", "Entry_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD3", "T3_KeybindButton") -- NEW: T3 Keybind
+
+    SaveBindings(GetCurrentBindingSet() or 1)
+end)
+
+
+
+
+
+
+-- ==========================================
+-- Custom Window Focus Cycler
+-- ==========================================
+local cycleBtn = CreateFrame("Button", "Entry_CycleButton", UIParent)
+cycleBtn:SetScript("OnClick", function()
+    -- Safely grab the frames (fallback to _G if TOC load order missed the module assignment)
+    local f1 = core.Modules.T1 or _G["t1_TrackMap"]
+    local f3 = core.Modules.T3 or _G["t3_TrackQst"]
+
+    -- Only consider windows that are shown AND uncollapsed (Height > 100)
+    local hasT1 = f1 and f1:IsShown() and (f1:GetHeight() > 100)
+    local hasT3 = f3 and f3:IsShown() and (f3:GetHeight() > 100)
+
+    if hasT1 and hasT3 then
+        if f1.isMapFocused then
+            -- T1 is currently focused -> Switch to T3
+            f1:SetMapFocus(false)
+            f3:Raise()
+            if f3.title then f3.title:SetTextColor(1, 0.82, 0) end -- Gold Title
+            if f1.title then f1.title:SetTextColor(1, 1, 1) end    -- White Title
+        else
+            -- T3 is focused (or neither) -> Switch to T1
+            f1:SetMapFocus(true)
+            f1:Raise()
+            if f3.title then f3.title:SetTextColor(1, 1, 1) end
+            if f1.title then f1.title:SetTextColor(1, 0.82, 0) end
+        end
+    elseif hasT1 then
+        f1:SetMapFocus(not f1.isMapFocused)
+        if f1.isMapFocused then
+            f1:Raise()
+            if f1.title then f1.title:SetTextColor(1, 0.82, 0) end
+        else
+            if f1.title then f1.title:SetTextColor(1, 1, 1) end
+        end
+    elseif hasT3 then
+        -- Only T3 is open
+        f3:Raise()
+        if f3.title then f3.title:SetTextColor(1, 0.82, 0) end
+    end
 end)
 
 
@@ -218,47 +313,94 @@ local wasSelectPressed = false
 local wasStartPressed = false
 local wasL3Pressed = false
 local wasR3Pressed = false
-local wasAPressed = false -- NEW
-local wasBPressed = false -- NEW
+local wasAPressed = false
+local wasBPressed = false
 
+-- Helper to detect if standard built-in windows are open
+local function AreAnyUIPanelsOpen()
+    if GetUIPanel then
+        return GetUIPanel("left") or GetUIPanel("center") or GetUIPanel("right") or GetUIPanel("doublewide") or
+            GetUIPanel("fullscreen")
+    end
+    return false
+end
 
 toggleBtn:SetScript("OnUpdate", function(self, elapsed)
     elapsed = elapsed or (1 / 60)
-    
+
     local l2Down = IsKeyDown("PADLTRIGGER")
     local selectDown = IsKeyDown("PADBACK")
     local startDown = IsKeyDown("PADFORWARD")
     local l3Down = IsKeyDown("PADLSTICK")
     local r3Down = IsKeyDown("PADRSTICK")
-    local aDown = IsKeyDown("PAD1") -- NEW
-    local bDown = IsKeyDown("PAD2") -- NEW
+    local aDown = IsKeyDown("PAD1")
+    local bDown = IsKeyDown("PAD2")
 
-
-    -- 1. L2 Hijack Logic
-    if l2Down and not isL2Held then
-        isL2Held = true
-        SetOverrideBindingClick(self, true, "PADBACK", "Entry_KeybindButton")
-    elseif not l2Down and isL2Held then
-        isL2Held = false
-        ClearOverrideBindings(self)
-    end
-
-    -- 2. Focus Dropping Logic (Select or Pause)
-    if (selectDown and not wasSelectPressed) or (startDown and not wasStartPressed) then
-        if not l2Down then
-            if core.Modules.T1 and core.Modules.T1.isMapFocused then
-                core.Modules.T1:SetMapFocus(false)
-            end
-            -- Future T2 unfocus logic goes here
+    -- 1. L2 Modifier Hijack (Must check CombatLockdown to avoid WoW UI errors)
+    if not InCombatLockdown() then
+        if l2Down and not isL2Held then
+            isL2Held = true
+            SetOverrideBindingClick(self, true, "PADBACK", "Entry_KeybindButton")
+        elseif not l2Down and isL2Held then
+            isL2Held = false
+            ClearOverrideBindings(self)
         end
     end
+
+
+    -- 2. Custom Window Focus Cycling (Select button)
+    if selectDown and not wasSelectPressed then
+        if not l2Down then
+            -- Only cycle if WoW isn't natively trying to close a built-in window
+            if not AreAnyUIPanelsOpen() then
+                local f1 = core.Modules.T1 or _G["t1_TrackMap"]
+                local f3 = core.Modules.T3 or _G["t3_TrackQst"]
+
+                -- Ensure windows are open AND not collapsed (Height > 100)
+                local hasT1 = f1 and f1:IsShown() and (f1:GetHeight() > 100)
+                local hasT3 = f3 and f3:IsShown() and (f3:GetHeight() > 100)
+
+                if hasT1 and hasT3 then
+                    if f1.isMapFocused then
+                        -- Map is focused -> Drop T1 focus, bring T3 to front
+                        f1:SetMapFocus(false)
+                        f3:Raise()
+                        if f3.SetFocus then f3:SetFocus(true) end
+                    else
+                        -- T3 is focused -> Drop T3 focus, bring T1 to front
+                        if f3.SetFocus then f3:SetFocus(false) end
+                        f1:SetMapFocus(true)
+                        f1:Raise()
+                    end
+                elseif hasT1 then
+                    -- Only T1 is open
+                    f1:SetMapFocus(not f1.isMapFocused)
+                    if f1.isMapFocused then f1:Raise() end
+                elseif hasT3 then
+                    -- Only T3 is open
+                    if f3.SetFocus then f3:SetFocus(not f3.isFocused) end
+                    if f3.isFocused then f3:Raise() end
+                end
+            end
+        end
+    end
+
+    -- 3. Panic / Unfocus Button (Start / Pause)
+    if startDown and not wasStartPressed then
+        local f1 = core.Modules.T1 or _G["t1_TrackMap"]
+        local f3 = core.Modules.T3 or _G["t3_TrackQst"]
+
+        if f1 and f1.isMapFocused then f1:SetMapFocus(false) end
+        if f3 and f3.SetFocus then f3:SetFocus(false) end
+    end
+
     wasSelectPressed = selectDown
     wasStartPressed = startDown
 
     -- 3. Gamepad Controls (Requires L2 + A Window Focused)
     if l2Down then
         local f = core.Modules.T1
-        
+
         -- If T1 Map is focused, route controls to it
         if f and f:IsShown() and f.isMapFocused then
             -- --- A (PAD1): ENTER CURRENT ZONE MAP ---
@@ -280,9 +422,9 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                 end
             end
 
-            
+
             -- --- PANNING & ZOOMING ---
-            local panSpeed = (800 / f.zoomLevel) * elapsed 
+            local panSpeed = (800 / f.zoomLevel) * elapsed
             local zoomSpeed = 20 * elapsed
             local dx, dy, zDelta = 0, 0, 0
 
@@ -295,7 +437,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                         local rs = state.sticks[2]
                         if ls then
                             if math.abs(ls.x) > 0.15 then dx = -ls.x * panSpeed end
-                            if math.abs(ls.y) > 0.15 then dy = -ls.y * panSpeed end 
+                            if math.abs(ls.y) > 0.15 then dy = -ls.y * panSpeed end
                         end
                         if rs then
                             if math.abs(rs.y) > 0.15 then zDelta = rs.y * zoomSpeed end
@@ -310,7 +452,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                 if IsKeyDown("PADDPADUP") then dy = panSpeed end
                 if IsKeyDown("PADDPADDOWN") then dy = -panSpeed end
             end
-            
+
             if zDelta == 0 then
                 if IsKeyDown("PADRSHOULDER") or IsKeyDown("PADRTRIGGER") then zDelta = zoomSpeed end
                 if IsKeyDown("PADLSHOULDER") then zDelta = -zoomSpeed end
@@ -328,7 +470,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                 local maxZ = f.GetDynamicMaxZoom and f:GetDynamicMaxZoom() or 20
                 local currentTarget = f.targetZoom or f.zoomLevel
                 f.targetZoom = math.max(1, math.min(maxZ, currentTarget + zDelta))
-                
+
                 local canvasW, canvasH = f.mapCanvas:GetSize()
                 if canvasW and canvasH then
                     f.zoomPivotX = canvasW / 2
@@ -345,10 +487,10 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                 if currentZoneID and currentZoneID > 0 then
                     f.savedWorldZoom = nil
                     if f.currentMapID ~= 947 then f:LoadMap(947) end
-                    
+
                     local wX, wY = nil, nil
                     local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
-                    
+
                     if pos and pos.x and pos.y and T1_ZoneDB and T1_ZoneDB[currentZoneID] then
                         local zData = T1_ZoneDB[currentZoneID]
                         local zW = (zData.w and zData.w > 0) and zData.w or 0.05
@@ -357,7 +499,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                             wY = zData.y + ((0.5 - pos.y) * (zW / 1.5))
                         end
                     end
-                    
+
                     if wX and wY then
                         f:ZoomToPoint((wX / 1.5) + 0.5, 0.5 - wY, 8)
                     else
@@ -371,7 +513,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
             if r3Down and not wasR3Pressed then
                 f.savedWorldZoom = nil
                 if f.currentMapID ~= 947 then f:LoadMap(947) end
-                
+
                 local canvasW, canvasH = f.mapCanvas:GetSize()
                 local contentW, contentH = f.mapContent:GetSize()
                 if canvasW and canvasH and contentW and contentH then
@@ -385,10 +527,27 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
             end
         end
     end
-    
+
     wasL3Pressed = l3Down
     wasR3Pressed = r3Down
     wasAPressed = aDown -- NEW
     wasBPressed = bDown -- NEW
-    
+end)
+
+
+-- ==========================================
+-- Game Menu Suppressor
+-- ==========================================
+hooksecurefunc("ToggleGameMenu", function()
+    local f1 = core.Modules.T1 or _G["t1_TrackMap"]
+    local f3 = core.Modules.T3 or _G["t3_TrackQst"]
+
+    local hasT1 = f1 and f1:IsShown() and (f1:GetHeight() > 100)
+    local hasT3 = f3 and f3:IsShown() and (f3:GetHeight() > 100)
+
+    -- If custom windows are open and the Game Menu popped up, hide it instantly.
+    -- (If a built-in window was open, ToggleGameMenu safely closed it instead of opening the menu).
+    if (hasT1 or hasT3) and GameMenuFrame and GameMenuFrame:IsShown() then
+        HideUIPanel(GameMenuFrame)
+    end
 end)

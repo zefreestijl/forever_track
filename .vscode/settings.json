@@ -47,7 +47,8 @@
         "NUM_CONTAINER_FRAMES",
         "ContainerFrameCombinedBags",
         "GetUIPanel",
-        "ToggleQuestLog"
+        "ToggleQuestLog",
+        "GameMenuFrame"
     ],
     "Lua.type.weakUnionCheck": true
 }

@@ -57,6 +57,9 @@ end
 -- =========================================================================
 local f = CreateFrame("Frame", "t3_TrackQst", nil, "BasicFrameTemplateWithInset")
 
+if _G.ForeverTrack then
+    _G.ForeverTrack.Modules.T3 = f
+end
 
 
 
@@ -1481,30 +1484,6 @@ _G.func_ToggleT3Window = function(questID)
     end
 end
 
-SLASH_T3_CMD1 = "/t3"
-SlashCmdList["T3_CMD"] = function(msg)
-    -- Clean up the input string (removes leading/trailing spaces)
-    msg = msg and strtrim(msg) or ""
-
-    if msg ~= "" then
-        local questID = tonumber(msg)
-        if questID then
-            -- Input was a valid number (e.g., /t3 1001)
-            _G.func_ToggleT3Window(questID)
-        else
-            -- Input was text instead of a number
-            print("|cFFFF3333[T3]|r Invalid quest ID. Usage: /t3 OR /t3 <QuestID>")
-        end
-    else
-        -- No input provided, standard toggle behavior
-        _G.func_ToggleT3Window()
-    end
-end
-
-
-local toggleBtn = CreateFrame("Button", "T3_UniqueKeybindButton", UIParent)
-toggleBtn:SetScript("OnClick", function() _G.func_ToggleT3Window() end)
-
 
 
 
@@ -1579,4 +1558,51 @@ f:SetScript("OnUpdate", function(self, elapsed)
             end
         end
     end
+end)
+
+
+-- ==========================================
+-- Custom Window Focus Visuals
+-- ==========================================
+f.focusBorder = CreateFrame("Frame", nil, f, "BackdropTemplate")
+f.focusBorder:SetPoint("TOPLEFT", f, "TOPLEFT", -1, 1)
+f.focusBorder:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 1, -1)
+f.focusBorder:SetFrameLevel(f:GetFrameLevel() + 20)
+f.focusBorder:EnableMouse(false)
+
+f.focusBorder:SetBackdrop({
+    edgeFile = "Interface\\Buttons\\WHITE8X8",
+    edgeSize = 3,
+})
+
+f.focusBorder.glowAnim = f.focusBorder:CreateAnimationGroup()
+f.focusBorder.glowAnim:SetLooping("BOUNCE")
+
+local alphaPulse = f.focusBorder.glowAnim:CreateAnimation("Alpha")
+alphaPulse:SetFromAlpha(0.3)
+alphaPulse:SetToAlpha(1.0)
+alphaPulse:SetDuration(1.0)
+alphaPulse:SetSmoothing("IN_OUT")
+
+f.focusBorder:Hide()
+f.focusBorder:SetBackdropBorderColor(0, 0, 0, 0)
+
+f.isFocused = false
+function f:SetFocus(focused)
+    f.isFocused = focused
+    if focused then
+        f.focusBorder:Show() 
+        f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1) 
+        f.focusBorder.glowAnim:Play() 
+        if f.title then f.title:SetTextColor(1, 0.82, 0) end
+    else
+        f.focusBorder:Hide() 
+        f.focusBorder.glowAnim:Stop() 
+        if f.title then f.title:SetTextColor(1, 1, 1) end
+    end
+end
+
+-- Clear focus if clicking the background of the window
+f:HookScript("OnMouseDown", function() 
+    if not f.isFocused and f.SetFocus then f:SetFocus(true) end 
 end)
