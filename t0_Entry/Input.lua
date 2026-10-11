@@ -217,23 +217,6 @@ toggleBtn:SetScript("OnClick", function()
 end)
 
 
-
-local bindInitializer = CreateFrame("Frame")
-bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
-bindInitializer:SetScript("OnEvent", function(self, event)
-    self:UnregisterEvent(event)
-
-    SetBinding("PADBACK", nil)
-
-    -- Bind T0 Entry window to Ctrl+Numpad 0
-    SetBindingClick("CTRL-NUMPAD0", "T0_KeybindButton")
-
-    -- Bind T1 Map window (or smart default) to Ctrl+Numpad 1
-    SetBindingClick("CTRL-NUMPAD1", "Entry_KeybindButton")
-
-    SaveBindings(GetCurrentBindingSet() or 1)
-end)
-
 --
 local t3ToggleBtn = CreateFrame("Button", "T3_KeybindButton", UIParent)
 t3ToggleBtn:SetSize(1, 1)
@@ -315,6 +298,26 @@ local wasL3Pressed = false
 local wasR3Pressed = false
 local wasAPressed = false
 local wasBPressed = false
+
+-- ==========================================================
+-- Tracked Gamepad Key Registry for HUD & Custom Actions
+-- ==========================================================
+local trackedPadKeys = {
+    -- Corrected D-Pad API IDs
+    "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT",
+    
+    -- Face Buttons (A = PAD1, B = PAD2, X = PAD3, Y = PAD4)
+    "PAD1", "PAD2", "PAD3", "PAD4",
+    
+    -- Bumpers & Triggers
+    "PADLSHOULDER", "PADRSHOULDER", "PADLTRIGGER", "PADRTRIGGER",
+    
+    -- Sticks & Meta
+    "PADLSTICK", "PADRSTICK", "PADBACK", "PADFORWARD"
+}
+
+local prevKeyState = {}
+
 
 -- Helper to detect if standard built-in windows are open
 local function AreAnyUIPanelsOpen()
@@ -528,6 +531,44 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
         end
     end
 
+    -- ------------------------------------------------------
+    -- Hardware Poller for Visualizer (T4)
+    -- ------------------------------------------------------
+    local t4 = core.Modules.T4 or _G["t4_TrackRes"]
+    local isT4Active = t4 and t4:IsShown()
+
+    for _, key in ipairs(trackedPadKeys) do
+        local isDown = IsKeyDown(key)
+
+        if isT4Active and t4.SetButtonState then
+            t4:SetButtonState(key, isDown)
+        end
+
+        prevKeyState[key] = isDown
+    end
+
+    -- Update Joystick positions on the visualizer
+    if isT4Active and t4.UpdateSticks then
+        local lx, ly, rx, ry = 0, 0, 0, 0
+        if C_GamePad and C_GamePad.GetActiveDeviceID then
+            local deviceID = C_GamePad.GetActiveDeviceID()
+            if deviceID then
+                local state = C_GamePad.GetDeviceMappedState(deviceID)
+                if state and state.sticks then
+                    local ls = state.sticks[1]
+                    local rs = state.sticks[2]
+                    -- Note: Sticks naturally rest slightly off-center (deadzone).
+                    -- You can wrap this in a `math.abs(val) > 0.1` deadzone check if desired.
+                    if ls then lx, ly = ls.x, ls.y end
+                    if rs then rx, ry = rs.x, rs.y end
+                end
+            end
+        end
+        t4:UpdateSticks(lx, ly, rx, ry)
+    end
+
+
+    --
     wasL3Pressed = l3Down
     wasR3Pressed = r3Down
     wasAPressed = aDown -- NEW
