@@ -301,44 +301,66 @@ end)
 -- ==========================================
 -- Custom Window Focus Cycler
 -- ==========================================
-local cycleBtn = CreateFrame("Button", "Entry_CycleButton", UIParent)
-cycleBtn:SetScript("OnClick", function()
-    -- Safely grab the frames (fallback to _G if TOC load order missed the module assignment)
+local function CycleCustomWindows()
     local f1 = core.Modules.T1 or _G["t1_TrackMap"]
     local f3 = core.Modules.T3 or _G["t3_TrackQst"]
+    local f4 = core.Modules.T4 or _G["t4_TrackRes"]
 
-    -- Only consider windows that are shown AND uncollapsed (Height > 100)
-    local hasT1 = f1 and f1:IsShown() and (f1:GetHeight() > 100)
-    local hasT3 = f3 and f3:IsShown() and (f3:GetHeight() > 100)
+    -- Collect all currently open and uncollapsed windows
+    local openWindows = {}
+    if f1 and f1:IsShown() and (f1:GetHeight() > 100) then table.insert(openWindows, { frame = f1, id = 1 }) end
+    if f3 and f3:IsShown() and (f3:GetHeight() > 100) then table.insert(openWindows, { frame = f3, id = 3 }) end
+    if f4 and f4:IsShown() and (f4:GetHeight() > 100) then table.insert(openWindows, { frame = f4, id = 4 }) end
 
-    if hasT1 and hasT3 then
-        if f1.isMapFocused then
-            -- T1 is currently focused -> Switch to T3
-            f1:SetMapFocus(false)
-            f3:Raise()
-            if f3.title then f3.title:SetTextColor(1, 0.82, 0) end -- Gold Title
-            if f1.title then f1.title:SetTextColor(1, 1, 1) end    -- White Title
-        else
-            -- T3 is focused (or neither) -> Switch to T1
-            f1:SetMapFocus(true)
-            f1:Raise()
-            if f3.title then f3.title:SetTextColor(1, 1, 1) end
-            if f1.title then f1.title:SetTextColor(1, 0.82, 0) end
-        end
-    elseif hasT1 then
-        f1:SetMapFocus(not f1.isMapFocused)
-        if f1.isMapFocused then
-            f1:Raise()
-            if f1.title then f1.title:SetTextColor(1, 0.82, 0) end
-        else
-            if f1.title then f1.title:SetTextColor(1, 1, 1) end
-        end
-    elseif hasT3 then
-        -- Only T3 is open
-        f3:Raise()
-        if f3.title then f3.title:SetTextColor(1, 0.82, 0) end
+    if #openWindows == 0 then return end
+
+    -- Determine which window currently has focus
+    local currentIndex = 0
+    for i, win in ipairs(openWindows) do
+        if win.id == 1 and win.frame.isMapFocused then currentIndex = i end
+        if (win.id == 3 or win.id == 4) and win.frame.isFocused then currentIndex = i end
     end
+
+    -- Clear focus on all custom windows
+    if f1 then
+        if f1.SetMapFocus then f1:SetMapFocus(false) else f1.isMapFocused = false end
+        if f1.title then f1.title:SetTextColor(1, 1, 1) end
+    end
+    if f3 then
+        if f3.SetFocus then f3:SetFocus(false) else f3.isFocused = false end
+        if f3.title then f3.title:SetTextColor(1, 1, 1) end
+    end
+    if f4 then
+        if f4.SetFocus then f4:SetFocus(false) else f4.isFocused = false end
+        if f4.title then f4.title:SetTextColor(1, 1, 1) end
+    end
+
+    -- If exactly 1 window is open and it was already focused, we just dropped its focus. Stop here.
+    if #openWindows == 1 and currentIndex == 1 then
+        return
+    end
+
+    -- Target the next window in the list (wrap around to 1)
+    local nextIndex = currentIndex + 1
+    if nextIndex > #openWindows then nextIndex = 1 end
+
+    -- Apply focus to the target window
+    local nextWin = openWindows[nextIndex]
+    if nextWin.id == 1 then
+        if nextWin.frame.SetMapFocus then nextWin.frame:SetMapFocus(true) else nextWin.frame.isMapFocused = true end
+        if nextWin.frame.title then nextWin.frame.title:SetTextColor(1, 0.82, 0) end
+    elseif nextWin.id == 3 or nextWin.id == 4 then
+        if nextWin.frame.SetFocus then nextWin.frame:SetFocus(true) else nextWin.frame.isFocused = true end
+        if nextWin.frame.title then nextWin.frame.title:SetTextColor(1, 0.82, 0) end
+    end
+    nextWin.frame:Raise()
+end
+
+local cycleBtn = CreateFrame("Button", "Entry_CycleButton", UIParent)
+cycleBtn:SetScript("OnClick", function()
+    CycleCustomWindows()
 end)
+
 
 
 -- ==========================================
@@ -358,13 +380,13 @@ local wasBPressed = false
 local trackedPadKeys = {
     -- Corrected D-Pad API IDs
     "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT",
-    
+
     -- Face Buttons (A = PAD1, B = PAD2, X = PAD3, Y = PAD4)
     "PAD1", "PAD2", "PAD3", "PAD4",
-    
+
     -- Bumpers & Triggers
     "PADLSHOULDER", "PADRSHOULDER", "PADLTRIGGER", "PADRTRIGGER",
-    
+
     -- Sticks & Meta
     "PADLSTICK", "PADRSTICK", "PADBACK", "PADFORWARD"
 }
@@ -409,34 +431,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
         if not l2Down then
             -- Only cycle if WoW isn't natively trying to close a built-in window
             if not AreAnyUIPanelsOpen() then
-                local f1 = core.Modules.T1 or _G["t1_TrackMap"]
-                local f3 = core.Modules.T3 or _G["t3_TrackQst"]
-
-                -- Ensure windows are open AND not collapsed (Height > 100)
-                local hasT1 = f1 and f1:IsShown() and (f1:GetHeight() > 100)
-                local hasT3 = f3 and f3:IsShown() and (f3:GetHeight() > 100)
-
-                if hasT1 and hasT3 then
-                    if f1.isMapFocused then
-                        -- Map is focused -> Drop T1 focus, bring T3 to front
-                        f1:SetMapFocus(false)
-                        f3:Raise()
-                        if f3.SetFocus then f3:SetFocus(true) end
-                    else
-                        -- T3 is focused -> Drop T3 focus, bring T1 to front
-                        if f3.SetFocus then f3:SetFocus(false) end
-                        f1:SetMapFocus(true)
-                        f1:Raise()
-                    end
-                elseif hasT1 then
-                    -- Only T1 is open
-                    f1:SetMapFocus(not f1.isMapFocused)
-                    if f1.isMapFocused then f1:Raise() end
-                elseif hasT3 then
-                    -- Only T3 is open
-                    if f3.SetFocus then f3:SetFocus(not f3.isFocused) end
-                    if f3.isFocused then f3:Raise() end
-                end
+                CycleCustomWindows()
             end
         end
     end
@@ -445,10 +440,13 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
     if startDown and not wasStartPressed then
         local f1 = core.Modules.T1 or _G["t1_TrackMap"]
         local f3 = core.Modules.T3 or _G["t3_TrackQst"]
+        local f4 = core.Modules.T4 or _G["t4_TrackRes"]
 
         if f1 and f1.isMapFocused then f1:SetMapFocus(false) end
-        if f3 and f3.SetFocus then f3:SetFocus(false) end
+        if f3 and f3.SetFocus then f3:SetFocus(false) elseif f3 then f3.isFocused = false end
+        if f4 and f4.SetFocus then f4:SetFocus(false) elseif f4 then f4.isFocused = false end
     end
+
 
     wasSelectPressed = selectDown
     wasStartPressed = startDown
@@ -629,19 +627,21 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
 end)
 
 
+
 -- ==========================================
 -- Game Menu Suppressor
 -- ==========================================
 hooksecurefunc("ToggleGameMenu", function()
     local f1 = core.Modules.T1 or _G["t1_TrackMap"]
     local f3 = core.Modules.T3 or _G["t3_TrackQst"]
+    local f4 = core.Modules.T4 or _G["t4_TrackRes"]
 
     local hasT1 = f1 and f1:IsShown() and (f1:GetHeight() > 100)
     local hasT3 = f3 and f3:IsShown() and (f3:GetHeight() > 100)
+    local hasT4 = f4 and f4:IsShown() and (f4:GetHeight() > 100)
 
     -- If custom windows are open and the Game Menu popped up, hide it instantly.
-    -- (If a built-in window was open, ToggleGameMenu safely closed it instead of opening the menu).
-    if (hasT1 or hasT3) and GameMenuFrame and GameMenuFrame:IsShown() then
+    if (hasT1 or hasT3 or hasT4) and GameMenuFrame and GameMenuFrame:IsShown() then
         HideUIPanel(GameMenuFrame)
     end
 end)
