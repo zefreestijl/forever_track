@@ -205,6 +205,32 @@ end
 
 
 -- ==========================================
+-- T4 Slash Command & Toggle
+-- ==========================================
+_G.func_ToggleT4Window = function()
+    local f4 = core.Modules.T4 or _G["t4_TrackRes"]
+    if not f4 then
+        print("|cFFFF2020[T4]|r t4_TrackRes is disabled or missing.")
+        return
+    end
+
+    if f4:IsShown() then
+        f4:Hide()
+    else
+        f4:Show()
+    end
+end
+
+SLASH_T4_CMD1 = "/t4"
+SlashCmdList["T4_CMD"] = function()
+    if _G.func_ToggleT4Window then
+        _G.func_ToggleT4Window()
+    end
+end
+
+
+
+-- ==========================================
 -- Gamepad & Keyboard Hotkey Bindings
 -- ==========================================
 local toggleBtn = CreateFrame("Button", "Entry_KeybindButton", UIParent)
@@ -242,6 +268,33 @@ end)
 
 
 
+
+-- T4 Hidden Clickable Button
+local t4ToggleBtn = CreateFrame("Button", "T4_KeybindButton", UIParent)
+t4ToggleBtn:SetSize(1, 1)
+t4ToggleBtn:SetAlpha(0)
+t4ToggleBtn:RegisterForClicks("AnyDown")
+t4ToggleBtn:SetScript("OnClick", function()
+    if _G.func_ToggleT4Window then
+        _G.func_ToggleT4Window()
+    end
+end)
+
+-- Unified Bind Initializer
+local bindInitializer = CreateFrame("Frame")
+bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
+bindInitializer:SetScript("OnEvent", function(self, event)
+    self:UnregisterEvent(event)
+
+    SetBinding("PADBACK", nil)
+
+    SetBindingClick("CTRL-NUMPAD0", "T0_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD1", "Entry_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD3", "T3_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD4", "T4_KeybindButton") -- Added T4 Binding
+
+    SaveBindings(GetCurrentBindingSet() or 1)
+end)
 
 
 
