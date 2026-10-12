@@ -9,14 +9,14 @@ _G.ForeverTrack.Modules.T0 = f
 
 -- FIX: Prevent FLT_OVERFLOW crash by ensuring scale is never 0 during load
 local uiScale = UIParent:GetEffectiveScale()
-if not uiScale or uiScale <= 0.1 then 
+if not uiScale or uiScale <= 0.1 then
     uiScale = 1 -- Fallback to standard 100% scale if the game hasn't loaded UIParent yet
 end
 f:SetScale(uiScale)
 
 
 --
-f:SetSize(200, 300) 
+f:SetSize(200, 300)
 f:SetPoint("LEFT", nil, "LEFT", 50, 0)
 
 
@@ -64,9 +64,9 @@ resetBtn:SetScript("OnClick", function()
     f:ClearAllPoints()
     f:SetPoint("LEFT", nil, "LEFT", 5, 0)
     f:SetSize(200, 300)
-    
+
     -- 2. Reset all sub-modules
-    local mods = {"t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn"}
+    local mods = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
     for _, modID in ipairs(mods) do
         local targetFrame = _G[modID]
         if targetFrame then
@@ -95,8 +95,8 @@ toggleAllBtn:SetText("Toggle All")
 toggleAllBtn:SetFrameLevel(f:GetFrameLevel() + 5)
 
 toggleAllBtn:SetScript("OnClick", function()
-    local mods = {"t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn"}
-    
+    local mods = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
+
     -- Step 1: Check if any enabled windows are currently hidden
     local anyHidden = false
     for _, modID in ipairs(mods) do
@@ -108,7 +108,7 @@ toggleAllBtn:SetScript("OnClick", function()
             end
         end
     end
-    
+
     -- Step 2: Apply the new state to all enabled windows
     for _, modID in ipairs(mods) do
         if ForeverTrack_DB[modID] then
@@ -120,7 +120,7 @@ toggleAllBtn:SetScript("OnClick", function()
                     targetFrame:Hide()
                 end
             end
-            
+
             -- Step 3: Update the individual On/Off button text visuals in the t0 list
             local btn = _G["t0_Btn_" .. modID]
             if btn then
@@ -168,21 +168,62 @@ local isCollapsed = false
 
 collapseBtn:SetScript("OnClick", function()
     if isCollapsed then
+        local mods = {"t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn"}
+        for _, modID in ipairs(mods) do
+            if _G["t0_CB_" .. modID] then _G["t0_CB_" .. modID]:Show() end
+            if _G["t0_Btn_" .. modID] then _G["t0_Btn_" .. modID]:Show() end
+            if _G["t0_Info_" .. modID] then _G["t0_Info_" .. modID]:Show() end
+        end
+
         -- Restore full size and show background elements
         f:SetHeight(300)
         if f.Bg then f.Bg:Show() end
         if f.InsetBg then f.InsetBg:Show() end
+
+        -- Show the bottom utility buttons
+        reloadBtn:Show()
+        resetBtn:Show()
+        toggleAllBtn:Show()
+
+        -- Show all generated module checkboxes and buttons
+        local mods = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
+        for _, modID in ipairs(mods) do
+            if _G["t0_CB_" .. modID] then _G["t0_CB_" .. modID]:Show() end
+            if _G["t0_Btn_" .. modID] then _G["t0_Btn_" .. modID]:Show() end
+        end
+
         collapseBtn:SetText("_")
         isCollapsed = false
     else
+        local mods = {"t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn"}
+        for _, modID in ipairs(mods) do
+            if _G["t0_CB_" .. modID] then _G["t0_CB_" .. modID]:Hide() end
+            if _G["t0_Btn_" .. modID] then _G["t0_Btn_" .. modID]:Hide() end
+            if _G["t0_Info_" .. modID] then _G["t0_Info_" .. modID]:Hide() end
+        end
+        
         -- Collapse down to just the header bar and hide backgrounds
         f:SetHeight(32)
         if f.Bg then f.Bg:Hide() end
         if f.InsetBg then f.InsetBg:Hide() end
+
+        -- Hide the bottom utility buttons
+        reloadBtn:Hide()
+        resetBtn:Hide()
+        toggleAllBtn:Hide()
+
+        -- Hide all generated module checkboxes and buttons
+        local mods = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
+        for _, modID in ipairs(mods) do
+            if _G["t0_CB_" .. modID] then _G["t0_CB_" .. modID]:Hide() end
+            if _G["t0_Btn_" .. modID] then _G["t0_Btn_" .. modID]:Hide() end
+        end
+
         collapseBtn:SetText("+")
         isCollapsed = true
     end
 end)
+
 
 -- 4. Make the window close when pressing the ESC key
 tinsert(UISpecialFrames, f:GetName())
@@ -222,7 +263,7 @@ for i, mod in ipairs(modules) do
     -- 1. Enable/Disable Checkbox
     local cb = CreateFrame("CheckButton", "t0_CB_" .. mod.id, f, "ChatConfigCheckButtonTemplate")
     cb:SetPoint("TOPLEFT", f, "TOPLEFT", 5, yOffset)
-    
+
     -- Main Title (ID)
     local cbText = getglobal(cb:GetName() .. 'Text')
     cbText:SetText(mod.id)
@@ -232,42 +273,42 @@ for i, mod in ipairs(modules) do
     cbText:SetWordWrap(false)
 
     -- Subtitle (Info)
-    local infoText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    local infoText = f:CreateFontString("t0_Info_" .. mod.id, "OVERLAY", "GameFontHighlightSmall")
     infoText:SetPoint("TOPLEFT", cbText, "BOTTOMLEFT", 0, -2)
-    infoText:SetWidth(120) 
-    infoText:SetJustifyH("LEFT") 
-    infoText:SetWordWrap(false) 
+    infoText:SetWidth(120)
+    infoText:SetJustifyH("LEFT")
+    infoText:SetWordWrap(false)
     infoText:SetText(mod.info)
 
     -- Visual Helper: Grey out text if disabled
     local function UpdateTextVisuals(isEnabled)
         if isEnabled then
-            cbText:SetTextColor(1, 0.82, 0) -- Default UI Gold
+            cbText:SetTextColor(1, 0.82, 0)      -- Default UI Gold
             infoText:SetTextColor(0.7, 0.7, 0.7) -- Default Light Grey
         else
-            cbText:SetTextColor(0.4, 0.4, 0.4) -- Dark Grey
+            cbText:SetTextColor(0.4, 0.4, 0.4)   -- Dark Grey
             infoText:SetTextColor(0.3, 0.3, 0.3) -- Darker Grey
         end
     end
-    
+
     -- Load saved enable/disable state
     cb:SetScript("OnShow", function(self)
         local isEnabled = ForeverTrack_DB[mod.id]
         self:SetChecked(isEnabled)
         UpdateTextVisuals(isEnabled)
     end)
-    
+
     -- 2. Open/Close Window Button
     local toggleBtn = CreateFrame("Button", "t0_Btn_" .. mod.id, f, "UIPanelButtonTemplate")
     toggleBtn:SetSize(45, 22)
-    toggleBtn:SetPoint("LEFT", cb, "RIGHT", 115, 0) 
+    toggleBtn:SetPoint("LEFT", cb, "RIGHT", 115, 0)
     toggleBtn:SetFrameLevel(cb:GetFrameLevel() + 2)
 
-    
+
     -- Visual Helper: Update button text color based on state
     local function UpdateBtnText()
         local targetFrame = _G[mod.id]
-        
+
         if targetFrame and targetFrame:IsShown() then
             -- |cFFFFD100 is the standard WoW UI Gold color
             toggleBtn:SetText("|cFFFFD100On|r")
@@ -284,7 +325,7 @@ for i, mod in ipairs(modules) do
         local isChecked = self:GetChecked()
         ForeverTrack_DB[mod.id] = isChecked
         UpdateTextVisuals(isChecked)
-        
+
         -- Force close the window if disabled
         if not isChecked and _G[mod.id] then
             _G[mod.id]:Hide()
@@ -296,13 +337,13 @@ for i, mod in ipairs(modules) do
     toggleBtn:SetScript("OnShow", function(self)
         UpdateBtnText()
     end)
-    
+
     toggleBtn:SetScript("OnClick", function(self)
         if not ForeverTrack_DB[mod.id] then
             -- print(mod.id .. " is disabled. Enable it first.")
             return
         end
-        
+
         local targetFrame = _G[mod.id]
         if targetFrame then
             if targetFrame:IsShown() then
@@ -313,8 +354,8 @@ for i, mod in ipairs(modules) do
             UpdateBtnText()
         end
     end)
-    
-    yOffset = yOffset - 30 
+
+    yOffset = yOffset - 30
 end
 
 --print("|cFF00FF00t1_BlankPanel loaded! Type /t0 or press Ctrl+Numpad 0 to toggle.|r")

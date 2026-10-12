@@ -113,6 +113,7 @@ collapseBtn:SetText("_")
 f.isCollapsed = false
 f.autoCollapsed = false -- Tracks if the system collapsed it, rather than the user
 
+
 function f:SetCollapsed(collapseState, isAuto)
     if f.isCollapsed == collapseState then return end
 
@@ -122,6 +123,7 @@ function f:SetCollapsed(collapseState, isAuto)
         if f.Bg then f.Bg:Hide() end
         if f.InsetBg then f.InsetBg:Hide() end
         if f.mapCanvas then f.mapCanvas:Hide() end
+        if f.zoomUI then f.zoomUI:Hide() end -- Hides the PoI Checkbox and Zoom Text
         collapseBtn:SetText("+")
         f.isCollapsed = true
         f.autoCollapsed = isAuto or false
@@ -130,6 +132,7 @@ function f:SetCollapsed(collapseState, isAuto)
         if f.Bg then f.Bg:Show() end
         if f.InsetBg then f.InsetBg:Show() end
         if f.mapCanvas then f.mapCanvas:Show() end
+        if f.zoomUI then f.zoomUI:Show() end -- Restores the PoI Checkbox and Zoom Text
         collapseBtn:SetText("_")
         f.isCollapsed = false
         f.autoCollapsed = false
@@ -2003,26 +2006,42 @@ local padKeysToBlock = {
 }
 
 f.isMapFocused = false
+
 function f:SetMapFocus(focused)
     f.isMapFocused = focused
     if focused then
-        -- Show the frame and ignite the gold color
         f.focusBorder:Show()
         f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1)
         f.focusBorder.glowAnim:Play()
 
         if not InCombatLockdown() then
+            -- 1. Call the Global API directly
+            if SetGamePadCursorControl then 
+                SetGamePadCursorControl(true) 
+            end
+            
+            -- 2. Fetch the current Left/Right click CVars so we don't block them
+            local leftClickBtn = C_CVar.GetCVar("GamePadCursorLeftClick") or "PADRTRIGGER"
+            local rightClickBtn = C_CVar.GetCVar("GamePadCursorRightClick") or "PADRSHOULDER"
+            
             for _, key in ipairs(padKeysToBlock) do
-                SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadBlocker")
-                SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, "T1_PadBlocker")
+                -- Exclude the cursor click buttons from the blocker
+                if key ~= leftClickBtn and key ~= rightClickBtn then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadBlocker")
+                    SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, "T1_PadBlocker")
+                end
             end
         end
     else
-        -- Physically hide the frame to remove the black ghosting
         f.focusBorder:Hide()
         f.focusBorder.glowAnim:Stop()
 
         if not InCombatLockdown() then
+            -- Turn off the virtual cursor
+            if SetGamePadCursorControl then 
+                SetGamePadCursorControl(false) 
+            end
+            
             ClearOverrideBindings(f.padBlocker)
         end
     end
