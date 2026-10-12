@@ -263,6 +263,8 @@ f.zoomText:SetJustifyH("LEFT")
 f.zoomText:SetText("Scale: 1.00x")
 
 
+
+
 -- ==========================================
 -- Dynamic POI Menu Builder (For Components)
 -- ==========================================
@@ -478,7 +480,6 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                 end
                 if f.UpdateMapTransform then f:UpdateMapTransform() end
             end
-            
         elseif button == "MiddleButton" then
             -- Single Click: Recenter on Player
             local currentZoneID = C_Map.GetBestMapForUnit("player")
@@ -506,7 +507,6 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                 end
             end
             if f.UpdateMapTransform then f:UpdateMapTransform() end
-            
         elseif button == "LeftButton" then
             if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
                 if self.hoveredMapID and self.hoveredMapID ~= 0 then
@@ -1265,15 +1265,23 @@ function f:UpdateMapTransform()
         end
     end
 
+    --
     for key, flagObj in pairs(f.cityFlags) do
         local data = cityDataByZone[key]
+
+        -- FIX: Check if this city is currently being hovered
+        local isHovered = (key == f.currentHoveredCityKey)
+        local scaleMult = isHovered and 1.1 or 1.0
+
         if f.currentMapID == 947 then
             flagObj.frame:Show()
             flagObj.baseOpacity = (playerInCityID and data.id ~= playerInCityID) and 0.3 or 1.0
             flagObj.tex:SetDesaturated(false)
             flagObj.tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity)
             local baseWidth = (data.status == "Alliance") and (24 * 1.15) or 24
-            flagObj.frame:SetSize(baseWidth / self.zoomLevel, 24 / self.zoomLevel)
+
+            -- Apply the 1.1 multiplier if hovered
+            flagObj.frame:SetSize((baseWidth * scaleMult) / self.zoomLevel, (24 * scaleMult) / self.zoomLevel)
             flagObj.frame:ClearAllPoints()
             local uiX, uiY = LogicalToUIPercent(data.x, data.y)
             flagObj.frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", uiX * contentW, -uiY * contentH)
@@ -1283,7 +1291,9 @@ function f:UpdateMapTransform()
             flagObj.tex:SetDesaturated(false)
             flagObj.tex:SetVertexColor(1, 1, 1, 1.0)
             local baseWidth = (data.status == "Alliance") and (24 * 1.15) or 24
-            flagObj.frame:SetSize(baseWidth / self.zoomLevel, 24 / self.zoomLevel)
+
+            -- Apply the 1.1 multiplier if hovered
+            flagObj.frame:SetSize((baseWidth * scaleMult) / self.zoomLevel, (24 * scaleMult) / self.zoomLevel)
             flagObj.frame:ClearAllPoints()
             flagObj.frame:SetPoint("CENTER", self.mapContent, "TOPLEFT", data.zoneX * contentW, -data.zoneY * contentH)
         else
@@ -1291,6 +1301,7 @@ function f:UpdateMapTransform()
         end
     end
 
+    --
     if not f.pinFrames then f.pinFrames = {} end
     if not f.customPins then f.customPins = {} end
     local maxIndex = math.max(#f.customPins, #f.pinFrames)
@@ -1742,10 +1753,11 @@ f.deathTracker:SetScript("OnUpdate", function()
 end)
 
 --
+
 if not f.flagHoverTracker then f.flagHoverTracker = CreateFrame("Frame", nil, f.mapCanvas) end
 
--- NEW: Track tooltip state so we don't cause flicker by constantly redrawing it
-local currentHoveredCityKey = nil 
+-- FIX: Bind this variable to the frame 'f' so it can be accessed by the map zooming function
+f.currentHoveredCityKey = f.currentHoveredCityKey or nil
 
 f.flagHoverTracker:SetScript("OnUpdate", function()
     if not f.cityFlags then return end
@@ -1755,11 +1767,11 @@ f.flagHoverTracker:SetScript("OnUpdate", function()
         local rawX, rawY = GetCursorPosition()
         local left, top = f.mapContent:GetLeft(), f.mapContent:GetTop()
         if not left or not top then return end
-        
+
         local pctX = ((rawX / f.mapContent:GetEffectiveScale()) - left) / f.mapContent:GetWidth()
         local pctY = (top - (rawY / f.mapContent:GetEffectiveScale())) / f.mapContent:GetHeight()
         local contentW, contentH = f.mapContent:GetSize()
-        
+
         local hitRadius = f.cityHitboxRadius or 18
         local hitRadiusSq = (hitRadius / f.zoomLevel) * (hitRadius / f.zoomLevel)
 
@@ -1768,7 +1780,7 @@ f.flagHoverTracker:SetScript("OnUpdate", function()
                 local cityPctX, cityPctY = LogicalToUIPercent(cityDataByZone[key].x or 0, cityDataByZone[key].y or 0)
                 local pixelDx = (pctX - cityPctX) * contentW
                 local pixelDy = (pctY - cityPctY) * contentH
-                
+
                 if (pixelDx * pixelDx) + (pixelDy * pixelDy) <= hitRadiusSq then
                     flagObj.tex:SetVertexColor(1, 1, 1, 0.7)
                     foundHoverKey = key
@@ -1788,36 +1800,61 @@ f.flagHoverTracker:SetScript("OnUpdate", function()
             end
         end
     end
-    
-    -- NEW: Draw the detail tooltip based on the mathematical hover state
-    if foundHoverKey ~= currentHoveredCityKey then
-        currentHoveredCityKey = foundHoverKey
-        
+
+    -- STATE TRANSITION: Draw Tooltip and Apply Scaling
+    if foundHoverKey ~= f.currentHoveredCityKey then
+        local prevKey = f.currentHoveredCityKey
+        f.currentHoveredCityKey = foundHoverKey
+
+        local contentW, contentH = f.mapContent:GetSize()
+
+        -- 1. Revert previous hovered city back to normal (1.0x scale)
+        if prevKey and cityDataByZone[prevKey] and f.cityFlags[prevKey] then
+            local pData = cityDataByZone[prevKey]
+            local pFlag = f.cityFlags[prevKey]
+            local baseW = (pData.status == "Alliance") and (24 * 1.15) or 24
+
+            pFlag.frame:SetSize(baseW / f.zoomLevel, 24 / f.zoomLevel)
+            pFlag.frame:ClearAllPoints()
+            if f.currentMapID == 947 then
+                local uiX, uiY = LogicalToUIPercent(pData.x, pData.y)
+                pFlag.frame:SetPoint("CENTER", f.mapContent, "TOPLEFT", uiX * contentW, -uiY * contentH)
+            else
+                pFlag.frame:SetPoint("CENTER", f.mapContent, "TOPLEFT", (pData.zoneX or 0) * contentW,
+                    -(pData.zoneY or 0) * contentH)
+            end
+        end
+
+        -- 2. Scale up newly hovered city (1.1x scale)
         if foundHoverKey and cityDataByZone[foundHoverKey] then
             local data = cityDataByZone[foundHoverKey]
             local flagObj = f.cityFlags[foundHoverKey]
-            
+            local baseW = (data.status == "Alliance") and (24 * 1.15) or 24
+
+            flagObj.frame:SetSize((baseW * 1.1) / f.zoomLevel, (24 * 1.1) / f.zoomLevel)
+            flagObj.frame:ClearAllPoints()
+            if f.currentMapID == 947 then
+                local uiX, uiY = LogicalToUIPercent(data.x, data.y)
+                flagObj.frame:SetPoint("CENTER", f.mapContent, "TOPLEFT", uiX * contentW, -uiY * contentH)
+            else
+                flagObj.frame:SetPoint("CENTER", f.mapContent, "TOPLEFT", (data.zoneX or 0) * contentW,
+                    -(data.zoneY or 0) * contentH)
+            end
+
+            -- Draw Tooltip
             GameTooltip:SetOwner(flagObj.frame, "ANCHOR_RIGHT")
             GameTooltip:SetText(data.name, 1, 0.82, 0)
-            
-            -- Brighten the colors slightly for better readability on dark tooltips
             local factionColor = "|cffffcc00"
             if data.status == "Alliance" then
-                factionColor = "|cff00aaff" 
+                factionColor = "|cff00aaff"
             elseif data.status == "Horde" then
                 factionColor = "|cffff4444"
             end
-            
             GameTooltip:AddLine("Capital City", 1, 1, 1)
             GameTooltip:AddLine("Faction: " .. factionColor .. (data.status or "Unknown") .. "|r", 1, 1, 1)
-            
-            if data.id then
-                GameTooltip:AddLine("Map ID: " .. data.id, 0.5, 0.5, 0.5)
-            end
-            
+            if data.id then GameTooltip:AddLine("Map ID: " .. data.id, 0.5, 0.5, 0.5) end
             GameTooltip:Show()
         else
-            -- Only hide the tooltip if we explicitly moved off a city icon
             GameTooltip:Hide()
         end
     end

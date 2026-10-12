@@ -48,7 +48,13 @@
         "ContainerFrameCombinedBags",
         "GetUIPanel",
         "ToggleQuestLog",
-        "GameMenuFrame"
+        "GameMenuFrame",
+        "UIDropDownMenu_Initialize",
+        "UIDropDownMenu_SetWidth",
+        "UIDropDownMenu_SetText",
+        "UIDropDownMenu_AddButton",
+        "CloseDropDownMenus",
+        "UIDropDownMenu_CreateInfo"
     ],
     "Lua.type.weakUnionCheck": true
 }
