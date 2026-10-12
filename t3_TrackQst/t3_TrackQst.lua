@@ -106,30 +106,49 @@ f.title:SetText(L.TITLE)
 local UpdateQuestList
 
 -- =========================================================================
--- Font Size Controls (Moved here to properly reference UpdateQuestList)
+-- Font Size Controls & Saved Variable Support
 -- =========================================================================
 f.baseFontSize = 12
 local fontPath, _, fontFlags = GameFontHighlight:GetFont()
 
 local btnMinus = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 btnMinus:SetSize(22, 22)
-btnMinus:SetPoint("TOPLEFT", f, "TOPLEFT", 3, -0)
+btnMinus:SetPoint("TOPLEFT", f, "TOPLEFT", 5, -2)
 btnMinus:SetText("-")
-btnMinus:SetScript("OnClick", function()
-    if f.baseFontSize > 8 then
-        f.baseFontSize = f.baseFontSize - 1
-        UpdateQuestList()
-    end
-end)
+
+-- Add the dynamic numbering text
+f.fontSizeText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+f.fontSizeText:SetPoint("LEFT", btnMinus, "RIGHT", 5, 0)
+f.fontSizeText:SetText(f.baseFontSize)
 
 local btnPlus = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 btnPlus:SetSize(22, 22)
-btnPlus:SetPoint("LEFT", btnMinus, "RIGHT", 2, 0)
+btnPlus:SetPoint("LEFT", f.fontSizeText, "RIGHT", 5, 0)
 btnPlus:SetText("+")
+
+btnMinus:SetScript("OnClick", function()
+    if f.baseFontSize > 8 then
+        f.baseFontSize = f.baseFontSize - 1
+        f.fontSizeText:SetText(f.baseFontSize)
+
+        -- Save to existing T3_QST_DATA table
+        T3_QST_DATA = T3_QST_DATA or {}
+        T3_QST_DATA.fontSize = f.baseFontSize
+
+        if UpdateQuestList then UpdateQuestList() end
+    end
+end)
+
 btnPlus:SetScript("OnClick", function()
     if f.baseFontSize < 24 then
         f.baseFontSize = f.baseFontSize + 1
-        UpdateQuestList()
+        f.fontSizeText:SetText(f.baseFontSize)
+
+        -- Save to existing T3_QST_DATA table
+        T3_QST_DATA = T3_QST_DATA or {}
+        T3_QST_DATA.fontSize = f.baseFontSize
+
+        if UpdateQuestList then UpdateQuestList() end
     end
 end)
 
@@ -193,6 +212,7 @@ for _, region in ipairs({ btnUntrackAll:GetRegions() }) do
     end
 end
 
+
 -- =========================================================================
 -- 3. ScrollFrame Setup & Custom Scrolling
 -- =========================================================================
@@ -248,6 +268,48 @@ collapseBtn:SetScript("OnClick", function()
         isCollapsed = true
     end
 end)
+
+-- =========================================================================
+-- Sticky Hovered Title Frame
+-- =========================================================================
+f.stickyTitleFrame = CreateFrame("Frame", nil, f)
+f.stickyTitleFrame:SetSize(210, 24)
+f.stickyTitleFrame:SetFrameLevel(f:GetFrameLevel() + 25) -- Forces it above the scroll list
+f.stickyTitleFrame:Hide()
+
+f.stickyTitleFrame.bg = f.stickyTitleFrame:CreateTexture(nil, "BACKGROUND")
+f.stickyTitleFrame.bg:SetAllPoints()
+f.stickyTitleFrame.bg:SetColorTexture(0.1, 0.1, 0.1, 0.95) -- Solid dark background to cover text underneath
+
+f.stickyTitleFrame.text = f.stickyTitleFrame:CreateFontString(nil, "OVERLAY")
+f.stickyTitleFrame.text:SetPoint("LEFT", f.stickyTitleFrame, "LEFT", 10, 0)
+f.stickyTitleFrame.text:SetWidth(190)
+f.stickyTitleFrame.text:SetJustifyH("LEFT")
+f.stickyTitleFrame.text:SetWordWrap(false)
+
+
+-- =========================================================================
+-- Pinned Focused Quest Header
+-- =========================================================================
+f.pinnedFrame = CreateFrame("Frame", nil, f)
+f.pinnedFrame:SetSize(210, 24)
+f.pinnedFrame:SetFrameLevel(f:GetFrameLevel() + 10) -- ADD THIS LINE
+f.pinnedFrame:Hide()
+
+f.pinnedFrame.bg = f.pinnedFrame:CreateTexture(nil, "BACKGROUND")
+f.pinnedFrame.bg:SetAllPoints()
+f.pinnedFrame.bg:SetColorTexture(0.15, 0.15, 0.15, 0.9) -- Dark background so it stands out
+
+f.pinnedFrame.trackBtn = CreateFrame("CheckButton", nil, f.pinnedFrame, "UICheckButtonTemplate")
+f.pinnedFrame.trackBtn:SetSize(18, 18)
+f.pinnedFrame.trackBtn:SetPoint("TOPLEFT", f.pinnedFrame, "TOPLEFT", 0, -3)
+
+f.pinnedFrame.text = f.pinnedFrame:CreateFontString(nil, "OVERLAY")
+f.pinnedFrame.text:SetPoint("TOPLEFT", f.pinnedFrame, "TOPLEFT", 20, -4)
+f.pinnedFrame.text:SetWidth(190)
+f.pinnedFrame.text:SetJustifyH("LEFT")
+f.pinnedFrame.text:SetWordWrap(false) -- Keep pinned title on one line
+
 
 -- =========================================================================
 -- 4. Dynamic Tabs Logic & Helpers
@@ -664,12 +726,28 @@ UpdateQuestList = function()
     local finalTabY = isTabsExpanded and tabY or -28
     f.tabAreaBottom = finalTabY - 26 -- Store this for hover detection bounds
 
+    -- Check if ANY quests are expanded; if not, hide the sticky title
+    local hasExpanded = false
+    for _, isExpanded in pairs(expandedQuests) do
+        if isExpanded then
+            hasExpanded = true; break
+        end
+    end
+    if not hasExpanded then f.stickyTitleFrame:Hide() end
+
+    -- Anchor the sticky title frame directly below the tabs
+    f.stickyTitleFrame:ClearAllPoints()
+    f.stickyTitleFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 10, f.tabAreaBottom)
+
+    -- Shift the scroll frame down by 24 pixels ONLY if the sticky title is active
+    local stickyOffset = f.stickyTitleFrame:IsShown() and -24 or 0
     scrollFrame:ClearAllPoints()
-    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 10, f.tabAreaBottom)
+    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 10, f.tabAreaBottom + stickyOffset)
     scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -30, 35)
 
     --
     local yOffset = -5
+
     local lineIndex = 1
 
     local function FlushText(textStr, indent)
@@ -764,6 +842,23 @@ UpdateQuestList = function()
 
         qBtn:SetScript("OnEnter", function(self)
             self.text:SetAlpha(0.7)
+
+            -- === NEW: UPDATE STICKY TITLE ON HOVER ===
+            if expandedQuests[questInfo.questID] then
+                f.stickyTitleFrame.text:SetFont(fontPath, f.baseFontSize + 1, fontFlags)
+                local hexDiff = GetDifficultyColorHex(questInfo.level)
+
+                -- Update this specific line:
+                f.stickyTitleFrame.text:SetText(hexDiff .. "[" .. questInfo.level .. "] " .. questInfo.title .. "|r")
+
+                -- Show the frame and gently bump the scroll area down
+                if not f.stickyTitleFrame:IsShown() then
+                    f.stickyTitleFrame:Show()
+                    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 10, f.tabAreaBottom - 24)
+                end
+            end
+            -- ==========================================
+            -- ==========================================
 
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:ClearLines()
@@ -1342,41 +1437,7 @@ UpdateQuestList = function()
         yOffset = yOffset - 4
     end
 
-    local focusedQuestID = nil
-    if C_SuperTrack and type(C_SuperTrack.GetSuperTrackedQuestID) == "function" then
-        focusedQuestID = C_SuperTrack.GetSuperTrackedQuestID()
-    elseif type(GetSuperTrackedQuestID) == "function" then
-        focusedQuestID = GetSuperTrackedQuestID()
-    end
 
-    if focusedQuestID then
-        local focusedQuestInfo = nil
-        local focusedLogIndex = nil
-        for i = 1, numEntries do
-            local qInfo = C_QuestLog.GetInfo(i)
-            if qInfo and not qInfo.isHidden and not qInfo.isHeader and qInfo.questID == focusedQuestID then
-                focusedQuestInfo = qInfo
-                focusedLogIndex = i
-                break
-            end
-        end
-
-        if focusedQuestInfo then
-            local hBtn = GetOrCreateLine(lineIndex)
-            hBtn:ClearAllPoints()
-            hBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 5, yOffset)
-            hBtn.text:SetWidth(scrollFrame:GetWidth() - 25)
-            hBtn.text:SetFont(fontPath, f.baseFontSize + 2, fontFlags)
-            hBtn.text:SetText("|cFFFFFFFF" .. L.FOCUSED .. "|r")
-            local h = hBtn.text:GetStringHeight()
-            hBtn:SetSize(scrollFrame:GetWidth() - 25, h + 4)
-            hBtn:Show()
-            yOffset = yOffset - (h + 8)
-            lineIndex = lineIndex + 1
-
-            RenderSingleQuest(focusedQuestInfo, focusedLogIndex)
-        end
-    end
 
     local currentHeaderTitle = nil
     local headerDrawn = false
@@ -1412,7 +1473,7 @@ UpdateQuestList = function()
                             hBtn:ClearAllPoints()
                             hBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 5, yOffset)
                             hBtn.text:SetWidth(scrollFrame:GetWidth() - 25)
-                            hBtn.text:SetFontObject("GameFontNormalLarge")
+                            hBtn.text:SetFont(fontPath, f.baseFontSize + 2, fontFlags)
                             hBtn.text:SetText("|cFFFFFFFF" .. currentHeaderTitle .. "|r")
                             local h = hBtn.text:GetStringHeight()
                             hBtn:SetSize(scrollFrame:GetWidth() - 25, h + 4)
@@ -1474,6 +1535,8 @@ f:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
 f:RegisterEvent("QUEST_WATCH_UPDATE")
 f:RegisterEvent("QUEST_ACCEPTED")
 
+f:RegisterEvent("VARIABLES_LOADED")
+
 -- ADD NEW BAG EVENTS
 f:RegisterEvent("BAG_OPEN")
 f:RegisterEvent("BAG_CLOSED")
@@ -1481,7 +1544,12 @@ f:RegisterEvent("BAG_CLOSED")
 local autoCollapsedByBags = false
 
 f:SetScript("OnEvent", function(self, event, arg1, arg2)
-    if event == "BAG_OPEN" then
+    if event == "VARIABLES_LOADED" then
+        if type(T3_QST_DATA) == "table" and T3_QST_DATA.fontSize then
+            f.baseFontSize = T3_QST_DATA.fontSize
+            if f.fontSizeText then f.fontSizeText:SetText(f.baseFontSize) end
+        end
+    elseif event == "BAG_OPEN" then
         if not isCollapsed then
             autoCollapsedByBags = true
             local onClick = collapseBtn:GetScript("OnClick")
