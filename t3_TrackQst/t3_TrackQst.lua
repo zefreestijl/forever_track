@@ -102,6 +102,41 @@ f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
 f.title:SetText(L.TITLE)
 
+
+local UpdateQuestList
+
+-- =========================================================================
+-- Font Size Controls (Moved here to properly reference UpdateQuestList)
+-- =========================================================================
+f.baseFontSize = 12
+local fontPath, _, fontFlags = GameFontHighlight:GetFont()
+
+local btnMinus = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+btnMinus:SetSize(22, 22)
+btnMinus:SetPoint("TOPLEFT", f, "TOPLEFT", 3, -0)
+btnMinus:SetText("-")
+btnMinus:SetScript("OnClick", function()
+    if f.baseFontSize > 8 then
+        f.baseFontSize = f.baseFontSize - 1
+        UpdateQuestList()
+    end
+end)
+
+local btnPlus = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+btnPlus:SetSize(22, 22)
+btnPlus:SetPoint("LEFT", btnMinus, "RIGHT", 2, 0)
+btnPlus:SetText("+")
+btnPlus:SetScript("OnClick", function()
+    if f.baseFontSize < 24 then
+        f.baseFontSize = f.baseFontSize + 1
+        UpdateQuestList()
+    end
+end)
+
+
+-- =========================================================================
+-- 2. Bottom Action Buttons
+-- =========================================================================
 local collapseBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 collapseBtn:SetSize(24, 22)
 collapseBtn:SetPoint("RIGHT", f.CloseButton, "LEFT", -2, 0)
@@ -123,8 +158,6 @@ resizeBtn:SetScript("OnMouseUp", function(self, button)
     f:StopMovingOrSizing()
     expandedHeight = f:GetHeight()
 end)
-
-local UpdateQuestList
 
 -- =========================================================================
 -- 2. Bottom Action Buttons (Resized to 74px to fit 250px total width)
@@ -645,7 +678,7 @@ UpdateQuestList = function()
         dBtn:ClearAllPoints()
         dBtn:SetPoint("TOPLEFT", content, "TOPLEFT", indent or 35, yOffset)
         dBtn.text:SetWidth(scrollFrame:GetWidth() - (indent or 35) - 5)
-        dBtn.text:SetFontObject("GameFontHighlightSmall")
+        dBtn.text:SetFont(fontPath, f.baseFontSize, fontFlags)
         dBtn.text:SetText(textStr)
         local h = dBtn.text:GetStringHeight()
         dBtn:SetSize(scrollFrame:GetWidth() - (indent or 35) - 5, h + 4)
@@ -666,7 +699,7 @@ UpdateQuestList = function()
         -- Shift text to the right to make room for the checkbox
         qBtn.text:SetPoint("TOPLEFT", qBtn, "TOPLEFT", 20, -2)
         qBtn.text:SetWidth(scrollFrame:GetWidth() - 45)
-        qBtn.text:SetFontObject("GameFontHighlight")
+        qBtn.text:SetFont(fontPath, f.baseFontSize + 1, fontFlags)
 
         -- Determine current tracking status
         local isCurrentlyTracked = false
@@ -1159,7 +1192,7 @@ UpdateQuestList = function()
             tBtn:ClearAllPoints()
             tBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 32, yOffset)
             tBtn.text:SetWidth(scrollFrame:GetWidth() - 37)
-            tBtn.text:SetFontObject("GameFontHighlightSmall")
+            tBtn.text:SetFont(fontPath, f.baseFontSize, fontFlags)
             tBtn.text:SetText(GetFormattedTimerString(initialTimeLeft))
 
             local h = tBtn.text:GetStringHeight()
@@ -1236,7 +1269,7 @@ UpdateQuestList = function()
                         iBtn:ClearAllPoints()
                         iBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 35, yOffset)
                         iBtn.text:SetWidth(scrollFrame:GetWidth() - 45)
-                        iBtn.text:SetFontObject("GameFontHighlightSmall")
+                        iBtn.text:SetFont(fontPath, f.baseFontSize, fontFlags)
                         iBtn.text:SetText("- " .. count .. (link or itemName))
 
                         iBtn.bg:Show()
@@ -1281,7 +1314,7 @@ UpdateQuestList = function()
                         cBtn:ClearAllPoints()
                         cBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 35, yOffset)
                         cBtn.text:SetWidth(scrollFrame:GetWidth() - 45)
-                        cBtn.text:SetFontObject("GameFontHighlightSmall")
+                        cBtn.text:SetFont(fontPath, f.baseFontSize, fontFlags)
                         cBtn.text:SetText("- " .. count .. (link or itemName))
 
                         cBtn.bg:Show()
@@ -1333,7 +1366,7 @@ UpdateQuestList = function()
             hBtn:ClearAllPoints()
             hBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 5, yOffset)
             hBtn.text:SetWidth(scrollFrame:GetWidth() - 25)
-            hBtn.text:SetFontObject("GameFontNormalLarge")
+            hBtn.text:SetFont(fontPath, f.baseFontSize + 2, fontFlags)
             hBtn.text:SetText("|cFFFFFFFF" .. L.FOCUSED .. "|r")
             local h = hBtn.text:GetStringHeight()
             hBtn:SetSize(scrollFrame:GetWidth() - 25, h + 4)
