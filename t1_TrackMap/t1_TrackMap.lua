@@ -480,16 +480,15 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                 end
                 if f.UpdateMapTransform then f:UpdateMapTransform() end
             end
-        elseif button == "MiddleButton" then
+       elseif button == "MiddleButton" then
             -- Single Click: Recenter on Player
             local currentZoneID = C_Map.GetBestMapForUnit("player")
             if currentZoneID and currentZoneID > 0 then
                 f.savedWorldZoom = nil
-                if f.currentMapID ~= 947 then f:LoadMap(947) end
-
-                local wX, wY = nil, nil
                 local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
 
+                -- 1. Try to find the player on the World Map first
+                local wX, wY = nil, nil
                 if pos and pos.x and pos.y and T1_ZoneDB and T1_ZoneDB[currentZoneID] then
                     local zData = T1_ZoneDB[currentZoneID]
                     local zW = (zData.w and zData.w > 0) and zData.w or 0.05
@@ -500,9 +499,22 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                 end
 
                 if wX and wY then
+                    -- Player is mapped on the World Map
+                    if f.currentMapID ~= 947 then f:LoadMap(947) end
                     local uiX, uiY = LogicalToUIPercent(wX, wY)
                     f:ZoomToPoint(uiX, uiY, 8)
+                elseif T1.IsCustomCityMap(currentZoneID) then
+                    -- 2. Player is in a custom city, load the city map directly
+                    if f.currentMapID ~= currentZoneID then f:LoadMap(currentZoneID) end
+                    
+                    -- Reset zoom and pan to fit the city map
+                    f.targetZoom = 1
+                    f.targetOffsetX = 0
+                    f.targetOffsetY = 0
+                    if f.zoomSmoother then f.zoomSmoother:Show() end
                 else
+                    -- 3. Fallback for unmapped zones
+                    if f.currentMapID ~= 947 then f:LoadMap(947) end
                     if f.ZoomToZone then f:ZoomToZone(currentZoneID) end
                 end
             end
@@ -1931,21 +1943,23 @@ end
 
 
 f:SetScript("OnShow", function(self)
-    if not self.currentMapID then
-        local playerMap = C_Map.GetBestMapForUnit("player")
-        local defaultMap = 947
-        if playerMap == 1416 then
-            defaultMap = -1416
-        elseif T1.IsCustomCityMap(playerMap) then
-            defaultMap = playerMap
-        end
+    local playerMap = C_Map.GetBestMapForUnit("player")
+    local defaultMap = 947
 
-        self:LoadMap(defaultMap)
-        if defaultMap == 947 and playerMap and playerMap > 0 then self:ZoomToZone(playerMap) end
+    if playerMap == 1416 then
+        defaultMap = -1416
+    elseif T1.IsCustomCityMap(playerMap) then
+        defaultMap = playerMap
     end
+
+    self:LoadMap(defaultMap)
+    
+    if defaultMap == 947 and playerMap and playerMap > 0 then 
+        self:ZoomToZone(playerMap) 
+    end
+    
     if self.UpdateMapTransform then self:UpdateMapTransform() end
 end)
-
 
 
 

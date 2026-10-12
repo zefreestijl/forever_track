@@ -161,12 +161,26 @@ function f:RefreshDgnPins()
                     GameTooltip:Hide()
                 end)
 
-                pin:SetScript("OnClick", function()
-                    if f.LoadMap and type(instanceID) == "number" then
-                        f:LoadMap(instanceID)
-                        if f.UpdateMapTransform then f:UpdateMapTransform() end
+                
+                -- Ensure the pin specifically registers mouse clicks
+                pin:RegisterForClicks("LeftButtonUp")
+
+                -- Click to enter map
+                pin:SetScript("OnClick", function(self, button)
+                    if button == "LeftButton" then
+                        -- DEBUG PRINT: Output the name, ID, and the data type of the ID
+                        print("T1_TrackMap Debug - Clicked: " .. tostring(data.name) .. " | ID: " .. tostring(instanceID) .. " | Type: " .. type(instanceID))
+                        
+                        -- Only attempt to load if it's a valid Blizzard Map ID (a number)
+                        if f.LoadMap and type(instanceID) == "number" then
+                            f:LoadMap(instanceID)
+                            if f.UpdateMapTransform then f:UpdateMapTransform() end
+                        else
+                            print("T1_TrackMap: Failed to load. ID is missing or not a number.")
+                        end
                     end
                 end)
+                
 
                 -- FIX 4: Check if the mouse is actively hovering while zooming
                 local initialSize = pin:IsMouseOver() and (12 / f.zoomLevel) or (10 / f.zoomLevel)

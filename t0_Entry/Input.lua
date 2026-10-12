@@ -519,16 +519,14 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                 if f.zoomSmoother then f.zoomSmoother:Show() end
             end
 
-            -- --- L3: RECENTER ON PLAYER ---
+           -- --- L3: RECENTER ON PLAYER ---
             if l3Down and not wasL3Pressed then
                 local currentZoneID = C_Map.GetBestMapForUnit("player")
                 if currentZoneID and currentZoneID > 0 then
                     f.savedWorldZoom = nil
-                    if f.currentMapID ~= 947 then f:LoadMap(947) end
-
-                    local wX, wY = nil, nil
                     local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
 
+                    local wX, wY = nil, nil
                     if pos and pos.x and pos.y and T1_ZoneDB and T1_ZoneDB[currentZoneID] then
                         local zData = T1_ZoneDB[currentZoneID]
                         local zW = (zData.w and zData.w > 0) and zData.w or 0.05
@@ -539,14 +537,21 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                     end
 
                     if wX and wY then
+                        if f.currentMapID ~= 947 then f:LoadMap(947) end
                         f:ZoomToPoint((wX / 1.5) + 0.5, 0.5 - wY, 8)
+                    elseif _G.ForeverTrack.Modules.T1.IsCustomCityMap(currentZoneID) then
+                        if f.currentMapID ~= currentZoneID then f:LoadMap(currentZoneID) end
+                        f.targetZoom = 1
+                        f.targetOffsetX = 0
+                        f.targetOffsetY = 0
+                        if f.zoomSmoother then f.zoomSmoother:Show() end
                     else
+                        if f.currentMapID ~= 947 then f:LoadMap(947) end
                         if f.ZoomToZone then f:ZoomToZone(currentZoneID) end
                     end
                     if f.UpdateMapTransform then f:UpdateMapTransform() end
                 end
             end
-
             -- --- R3: ZOOM TO FIT MAP ---
             if r3Down and not wasR3Pressed then
                 f.savedWorldZoom = nil
