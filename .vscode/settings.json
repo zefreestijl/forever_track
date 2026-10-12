@@ -54,7 +54,16 @@
         "UIDropDownMenu_SetText",
         "UIDropDownMenu_AddButton",
         "CloseDropDownMenus",
-        "UIDropDownMenu_CreateInfo"
+        "UIDropDownMenu_CreateInfo",
+        "OKAY",
+        "StaticPopup_Show",
+        "ITEM_DELTA_DESCRIPTION",
+        "ChatEdit_InsertLink",
+        "YES",
+        "NO",
+        "DressUpItemLink",
+        "CLASS_ICON_TCOORDS",
+        "RETRIEVING_ITEM_INFO"
     ],
     "Lua.type.weakUnionCheck": true
 }
