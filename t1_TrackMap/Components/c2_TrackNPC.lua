@@ -4,24 +4,35 @@ local f = T1.MapFrame
 f.showT2NPCs = false
 if not f.npcPinPool then f.npcPinPool = {} end
 
--- 1. Initialize the UI Toggle (Using the new 4-parameter auto-anchoring signature)
-f.chk_T2 = T1.CreatePoICheckbox("T1_Chk_T2", "T2_NPC", false, function(isChecked)
-    f.showT2NPCs = isChecked
-    if f.RefreshNPCPins then f:RefreshNPCPins() end
+-- 1. Initialize the UI Toggle without a default callback
+f.chk_T2 = T1.CreatePoICheckbox("T1_Chk_T2", "T2_NPC", false)
+
+-- Register the checkbox to accept both left and right clicks
+f.chk_T2:RegisterForClicks("AnyUp")
+
+-- Overwrite the click script to handle both interactions
+f.chk_T2:SetScript("OnClick", function(self, button)
+    if button == "RightButton" then
+        -- Prevent right-click from visually toggling the checkmark
+        self:SetChecked(not self:GetChecked())
+        
+        -- Determine target map ID and open the external window
+        local targetMapID = (f.currentMapID == 947) and f.mapCanvas.hoveredMapID or f.currentMapID
+        if targetMapID and targetMapID ~= 0 then
+            if _G.func_ToggleT2Window then
+                _G.func_ToggleT2Window(targetMapID)
+            else
+                print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
+            end
+        end
+    else
+        -- Normal left-click toggle behavior
+        f.showT2NPCs = self:GetChecked()
+        if f.RefreshNPCPins then f:RefreshNPCPins() end
+    end
 end)
 
--- 2. Handle Map Canvas Right-Click Integration
-function T1:OpenT2Window(targetMapID)
-    if targetMapID and targetMapID ~= 0 then
-        if _G.func_ToggleT2Window then
-            _G.func_ToggleT2Window(targetMapID)
-        else
-            print("|cffff2020T1_TrackMap:|r T2_TrackNPC addon is not loaded.")
-        end
-    end
-end
-
--- 3. Render NPC Pins
+-- 2. Render NPC Pins
 function f:RefreshNPCPins()
     for _, pin in ipairs(f.npcPinPool) do pin:Hide() end
     if not f.showT2NPCs or f.currentMapID == 947 or f.currentMapID == -1416 or f.currentMapID <= 0 then return end

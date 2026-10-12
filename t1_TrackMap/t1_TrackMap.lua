@@ -461,15 +461,12 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
 
     if dragDistance < 25 then
         if button == "RightButton" then
-            local targetMapID = (f.currentMapID == MY_CUSTOM_WORLD_MAP_ID) and self.hoveredMapID or f.currentMapID
-            if T1.OpenT2Window then T1:OpenT2Window(targetMapID) end
-        elseif button == "MiddleButton" then
-            local currentTime = GetTime()
-            if self.lastMiddleClickTime and (currentTime - self.lastMiddleClickTime < 0.3) then
-                self.lastMiddleClickTime = 0
-                f.savedWorldZoom = nil
-                if f.currentMapID ~= 947 then f:LoadMap(947) end
-
+            if f.currentMapID ~= 947 then
+                -- Return to upper-level World Map
+                f:LoadMap(947)
+                if f.UpdateMapTransform then f:UpdateMapTransform() end
+            else
+                -- Already on World Map: Zoom to Fit
                 local canvasW, canvasH = self:GetSize()
                 local contentW, contentH = f.mapContent:GetSize()
                 if canvasW and canvasH and contentW and contentH then
@@ -479,34 +476,37 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                     f.targetOffsetY = (-(canvasH - (contentH * fitScale)) / 2) / fitScale
                     if f.zoomSmoother then f.zoomSmoother:Show() end
                 end
-            else
-                self.lastMiddleClickTime = currentTime
-                local currentZoneID = C_Map.GetBestMapForUnit("player")
-                if currentZoneID and currentZoneID > 0 then
-                    f.savedWorldZoom = nil
-                    if f.currentMapID ~= 947 then f:LoadMap(947) end
+                if f.UpdateMapTransform then f:UpdateMapTransform() end
+            end
+            
+        elseif button == "MiddleButton" then
+            -- Single Click: Recenter on Player
+            local currentZoneID = C_Map.GetBestMapForUnit("player")
+            if currentZoneID and currentZoneID > 0 then
+                f.savedWorldZoom = nil
+                if f.currentMapID ~= 947 then f:LoadMap(947) end
 
-                    local wX, wY = nil, nil
-                    local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
+                local wX, wY = nil, nil
+                local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
 
-                    if pos and pos.x and pos.y and T1_ZoneDB and T1_ZoneDB[currentZoneID] then
-                        local zData = T1_ZoneDB[currentZoneID]
-                        local zW = (zData.w and zData.w > 0) and zData.w or 0.05
-                        if zData.x and zData.y then
-                            wX = zData.x + ((pos.x - 0.5) * zW)
-                            wY = zData.y + ((0.5 - pos.y) * (zW / 1.5))
-                        end
+                if pos and pos.x and pos.y and T1_ZoneDB and T1_ZoneDB[currentZoneID] then
+                    local zData = T1_ZoneDB[currentZoneID]
+                    local zW = (zData.w and zData.w > 0) and zData.w or 0.05
+                    if zData.x and zData.y then
+                        wX = zData.x + ((pos.x - 0.5) * zW)
+                        wY = zData.y + ((0.5 - pos.y) * (zW / 1.5))
                     end
+                end
 
-                    if wX and wY then
-                        local uiX, uiY = LogicalToUIPercent(wX, wY)
-                        f:ZoomToPoint(uiX, uiY, 8)
-                    else
-                        f:ZoomToZone(currentZoneID)
-                    end
+                if wX and wY then
+                    local uiX, uiY = LogicalToUIPercent(wX, wY)
+                    f:ZoomToPoint(uiX, uiY, 8)
+                else
+                    if f.ZoomToZone then f:ZoomToZone(currentZoneID) end
                 end
             end
             if f.UpdateMapTransform then f:UpdateMapTransform() end
+            
         elseif button == "LeftButton" then
             if f.currentMapID == MY_CUSTOM_WORLD_MAP_ID then
                 if self.hoveredMapID and self.hoveredMapID ~= 0 then
@@ -519,6 +519,7 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
             end
         end
     end
+
     self.startX = nil
     self.startY = nil
 end)
