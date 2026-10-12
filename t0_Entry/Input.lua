@@ -519,7 +519,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                 if f.zoomSmoother then f.zoomSmoother:Show() end
             end
 
-           -- --- L3: RECENTER ON PLAYER ---
+            -- --- L3: RECENTER ON PLAYER ---
             if l3Down and not wasL3Pressed then
                 local currentZoneID = C_Map.GetBestMapForUnit("player")
                 if currentZoneID and currentZoneID > 0 then
@@ -539,7 +539,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                     if wX and wY then
                         if f.currentMapID ~= 947 then f:LoadMap(947) end
                         f:ZoomToPoint((wX / 1.5) + 0.5, 0.5 - wY, 8)
-                    elseif _G.ForeverTrack.Modules.T1.IsCustomCityMap(currentZoneID) then
+                    elseif f.IsCustomCityMap and f.IsCustomCityMap(currentZoneID) then
                         if f.currentMapID ~= currentZoneID then f:LoadMap(currentZoneID) end
                         f.targetZoom = 1
                         f.targetOffsetX = 0
@@ -552,6 +552,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                     if f.UpdateMapTransform then f:UpdateMapTransform() end
                 end
             end
+
             -- --- R3: ZOOM TO FIT MAP ---
             if r3Down and not wasR3Pressed then
                 f.savedWorldZoom = nil

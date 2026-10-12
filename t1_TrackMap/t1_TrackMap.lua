@@ -175,6 +175,7 @@ function T1.IsCustomCityMap(mapID)
     end
     return false
 end
+f.IsCustomCityMap = T1.IsCustomCityMap -- Add this line to expose the function to the frame
 
 -- ==========================================
 -- Map Toggle & Zoom UI
