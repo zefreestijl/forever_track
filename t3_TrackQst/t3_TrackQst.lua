@@ -569,6 +569,9 @@ UpdateQuestList = function()
         return a < b
     end)
 
+    -- ADD THIS LINE: Expose the sorted tabs to the main frame
+    f.currentTabs = sortedFilters
+
     --
 
     local tabX, tabY = 10, -28
@@ -959,7 +962,7 @@ UpdateQuestList = function()
                         else
                             -- Fallback to client API map ID if DB fails
                             local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and
-                            QuestUtils_GetQuestMapID(questInfo.questID) or nil
+                                QuestUtils_GetQuestMapID(questInfo.questID) or nil
                             if fallbackMapID and _G.func_OpenZoneMapByID then
                                 _G.func_OpenZoneMapByID(fallbackMapID)
                             end
@@ -1115,7 +1118,7 @@ UpdateQuestList = function()
 
         if not foundCoords and type(C_QuestLog.GetQuestPOIs) == "function" then
             local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and
-            QuestUtils_GetQuestMapID(questInfo.questID) or nil
+                QuestUtils_GetQuestMapID(questInfo.questID) or nil
             if fallbackMapID then
                 local pois = C_QuestLog.GetQuestPOIs(questInfo.questID)
                 if pois and #pois > 0 then
@@ -1453,36 +1456,44 @@ tinsert(UISpecialFrames, f:GetName())
 f:Hide()
 
 
-
 -- =========================================================================
 -- Global Toggle & Focus Function
 -- =========================================================================
 _G.func_ToggleT3Window = function(questID)
     if type(questID) == "number" then
-        -- 1. Inject into Recent cache
         recentQuests[questID] = GetTime()
-
-        -- 2. Switch tab to Recent
         activeFilter = L.TAB_RECENT
 
-        -- 3. Set to focused state (SuperTrack)
         if type(C_SuperTrack) == "table" and type(C_SuperTrack.SetSuperTrackedQuestID) == "function" then
             pcall(C_SuperTrack.SetSuperTrackedQuestID, questID)
         elseif type(SetSuperTrackedQuestID) == "function" then
             pcall(SetSuperTrackedQuestID, questID)
         end
 
-        -- 4. Show window or force UI refresh if already open
         if not f:IsShown() then
-            f:Show() -- The OnShow script automatically calls UpdateQuestList()
+            f:Show()
+            if f.SetFocus then f:SetFocus(true) end
         else
             UpdateQuestList()
+            if f.SetFocus then f:SetFocus(true) end
+            f:Raise()
         end
     else
-        -- Default toggle behavior if no valid ID is passed
-        if f:IsShown() then f:Hide() else f:Show() end
+        -- Toggle behavior when no ID is passed (e.g., hitting the shortcut key)
+        if f:IsShown() then
+            if f.isFocused then
+                f:Hide()
+            else
+                if f.SetFocus then f:SetFocus(true) end
+                f:Raise()
+            end
+        else
+            f:Show()
+            if f.SetFocus then f:SetFocus(true) end
+        end
     end
 end
+
 
 
 
@@ -1562,7 +1573,7 @@ end)
 
 
 -- ==========================================
--- Custom Window Focus Visuals
+-- Custom Window Focus Visuals & Gamepad Blocker
 -- ==========================================
 f.focusBorder = CreateFrame("Frame", nil, f, "BackdropTemplate")
 f.focusBorder:SetPoint("TOPLEFT", f, "TOPLEFT", -1, 1)
@@ -1587,6 +1598,50 @@ alphaPulse:SetSmoothing("IN_OUT")
 f.focusBorder:Hide()
 f.focusBorder:SetBackdropBorderColor(0, 0, 0, 0)
 
+-- 1. Create the invisible pad blocker (matches T1 logic)
+f.padBlocker = CreateFrame("Button", "T3_PadBlocker", UIParent)
+f.padBlocker:SetScript("OnClick", function() end)
+
+
+local padKeysToBlock = {
+    "PAD1", "PAD2", "PAD3", "PAD4",
+    "PADFORWARD",
+    "PADLSHOULDER", "PADRSHOULDER", -- L1 and R1
+    "PADDPADUP", "PADDPADDOWN", "PADDPADLEFT", "PADDPADRIGHT",
+    "PADLSTICK", "PADRSTICK"
+}
+
+-- Create hidden buttons to handle the tab cycling logic
+f.tabCycleLeftBtn = CreateFrame("Button", "T3_TabCycleLeft", f)
+f.tabCycleLeftBtn:SetScript("OnClick", function()
+    if not f.currentTabs or #f.currentTabs == 0 then return end
+    local currentIndex = 1
+    for i, filter in ipairs(f.currentTabs) do
+        if filter == activeFilter then currentIndex = i; break end
+    end
+    
+    local newIndex = currentIndex - 1
+    if newIndex < 1 then newIndex = #f.currentTabs end -- Wrap to end
+    
+    activeFilter = f.currentTabs[newIndex]
+    UpdateQuestList()
+end)
+
+f.tabCycleRightBtn = CreateFrame("Button", "T3_TabCycleRight", f)
+f.tabCycleRightBtn:SetScript("OnClick", function()
+    if not f.currentTabs or #f.currentTabs == 0 then return end
+    local currentIndex = 1
+    for i, filter in ipairs(f.currentTabs) do
+        if filter == activeFilter then currentIndex = i; break end
+    end
+    
+    local newIndex = currentIndex + 1
+    if newIndex > #f.currentTabs then newIndex = 1 end -- Wrap to start
+    
+    activeFilter = f.currentTabs[newIndex]
+    UpdateQuestList()
+end)
+
 f.isFocused = false
 function f:SetFocus(focused)
     f.isFocused = focused
@@ -1595,14 +1650,60 @@ function f:SetFocus(focused)
         f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1) 
         f.focusBorder.glowAnim:Play() 
         if f.title then f.title:SetTextColor(1, 0.82, 0) end
+        
+        if not InCombatLockdown() then
+            if SetGamePadCursorControl then SetGamePadCursorControl(true) end
+            
+            local leftClickBtn = C_CVar.GetCVar("GamePadCursorLeftClick") or ""
+            local rightClickBtn = C_CVar.GetCVar("GamePadCursorRightClick") or ""
+            
+            for _, key in ipairs(padKeysToBlock) do
+                -- 1. Force L1 to cycle left, regardless of cursor settings
+                if key == "PADLSHOULDER" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_TabCycleLeft")
+                    SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
+                
+                -- 2. Force R1 to cycle right, regardless of cursor settings
+                elseif key == "PADRSHOULDER" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_TabCycleRight")
+                    SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
+                
+                -- 3. For all other buttons, apply the normal safety check
+                elseif key ~= leftClickBtn and key ~= rightClickBtn and key ~= "" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, f.padBlocker:GetName())
+                    SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
+                end
+            end
+
+        end
     else
         f.focusBorder:Hide() 
         f.focusBorder.glowAnim:Stop() 
         if f.title then f.title:SetTextColor(1, 1, 1) end
+        
+        if not InCombatLockdown() then
+            if SetGamePadCursorControl then SetGamePadCursorControl(false) end
+            ClearOverrideBindings(f.padBlocker)
+        end
     end
 end
 
--- Clear focus if clicking the background of the window
-f:HookScript("OnMouseDown", function() 
-    if not f.isFocused and f.SetFocus then f:SetFocus(true) end 
+-- Auto-Focus Triggers
+f:HookScript("OnShow", function() f:SetFocus(false) end)
+f:HookScript("OnMouseDown", function() f:SetFocus(true) end)
+f:HookScript("OnHide", function() f:SetFocus(false) end)
+
+local focusWatcher = CreateFrame("Frame")
+focusWatcher:RegisterEvent("GLOBAL_MOUSE_DOWN")
+focusWatcher:RegisterEvent("PLAYER_REGEN_DISABLED")
+
+focusWatcher:SetScript("OnEvent", function(self, event)
+    if event == "GLOBAL_MOUSE_DOWN" then
+        -- Drop focus if clicking anywhere outside the T3 frame
+        if f:IsShown() and not f:IsMouseOver() then
+            f:SetFocus(false)
+        end
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        if f.isFocused then f:SetFocus(false) end
+    end
 end)

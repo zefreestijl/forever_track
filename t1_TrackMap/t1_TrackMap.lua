@@ -178,6 +178,7 @@ function T1.IsCustomCityMap(mapID)
     end
     return false
 end
+
 f.IsCustomCityMap = T1.IsCustomCityMap -- Add this line to expose the function to the frame
 
 -- ==========================================
@@ -484,7 +485,7 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                 end
                 if f.UpdateMapTransform then f:UpdateMapTransform() end
             end
-       elseif button == "MiddleButton" then
+        elseif button == "MiddleButton" then
             -- Single Click: Recenter on Player
             local currentZoneID = C_Map.GetBestMapForUnit("player")
             if currentZoneID and currentZoneID > 0 then
@@ -510,7 +511,7 @@ f.mapCanvas:SetScript("OnMouseUp", function(self, button)
                 elseif T1.IsCustomCityMap(currentZoneID) then
                     -- 2. Player is in a custom city, load the city map directly
                     if f.currentMapID ~= currentZoneID then f:LoadMap(currentZoneID) end
-                    
+
                     -- Reset zoom and pan to fit the city map
                     f.targetZoom = 1
                     f.targetOffsetX = 0
@@ -1957,11 +1958,11 @@ f:SetScript("OnShow", function(self)
     end
 
     self:LoadMap(defaultMap)
-    
-    if defaultMap == 947 and playerMap and playerMap > 0 then 
-        self:ZoomToZone(playerMap) 
+
+    if defaultMap == 947 and playerMap and playerMap > 0 then
+        self:ZoomToZone(playerMap)
     end
-    
+
     if self.UpdateMapTransform then self:UpdateMapTransform() end
 end)
 
@@ -2015,20 +2016,19 @@ function f:SetMapFocus(focused)
         f.focusBorder.glowAnim:Play()
 
         if not InCombatLockdown() then
-            -- 1. Call the Global API directly
-            if SetGamePadCursorControl then 
-                SetGamePadCursorControl(true) 
-            end
-            
-            -- 2. Fetch the current Left/Right click CVars so we don't block them
-            local leftClickBtn = C_CVar.GetCVar("GamePadCursorLeftClick") or "PADRTRIGGER"
-            local rightClickBtn = C_CVar.GetCVar("GamePadCursorRightClick") or "PADRSHOULDER"
-            
+            -- Summon the built-in Virtual Mouse
+            if SetGamePadCursorControl then SetGamePadCursorControl(true) end
+
+            -- FIX: Remove the hardcoded PADRTRIGGER and PADRSHOULDER fallbacks.
+            -- If the CVar is empty or nil, default to a blank string so nothing is accidentally excluded.
+            local leftClickBtn = C_CVar.GetCVar("GamePadCursorLeftClick") or ""
+            local rightClickBtn = C_CVar.GetCVar("GamePadCursorRightClick") or ""
+
             for _, key in ipairs(padKeysToBlock) do
-                -- Exclude the cursor click buttons from the blocker
-                if key ~= leftClickBtn and key ~= rightClickBtn then
-                    SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadBlocker")
-                    SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, "T1_PadBlocker")
+                -- Exclude ONLY if the key exactly matches your actual CVar bindings
+                if key ~= leftClickBtn and key ~= rightClickBtn and key ~= "" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, f.padBlocker:GetName())
+                    SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
                 end
             end
         end
@@ -2038,10 +2038,10 @@ function f:SetMapFocus(focused)
 
         if not InCombatLockdown() then
             -- Turn off the virtual cursor
-            if SetGamePadCursorControl then 
-                SetGamePadCursorControl(false) 
+            if SetGamePadCursorControl then
+                SetGamePadCursorControl(false)
             end
-            
+
             ClearOverrideBindings(f.padBlocker)
         end
     end
