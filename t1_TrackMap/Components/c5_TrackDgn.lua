@@ -165,19 +165,12 @@ function f:RefreshDgnPins()
                 -- Ensure the pin specifically registers mouse clicks
                 pin:RegisterForClicks("LeftButtonUp")
 
-                -- Click to enter map
+                -- Click to enter custom dungeon map
                 pin:SetScript("OnClick", function(self, button)
                     if button == "LeftButton" then
-                        -- DEBUG PRINT: Output the name, ID, and the data type of the ID
-                        print("T1_TrackMap Debug - Clicked: " .. tostring(data.name) .. " | ID: " .. tostring(instanceID) .. " | Type: " .. type(instanceID))
-                        
-                        -- Only attempt to load if it's a valid Blizzard Map ID (a number)
-                        if f.LoadMap and type(instanceID) == "number" then
-                            f:LoadMap(instanceID)
-                            if f.UpdateMapTransform then f:UpdateMapTransform() end
-                        else
-                            print("T1_TrackMap: Failed to load. ID is missing or not a number.")
-                        end
+                        print("T1_TrackMap Debug - Entered Dungeon: " .. tostring(data.name))
+                        f.currentDungeonID = instanceID
+                        f:LoadDungeonFloor(instanceID, 1)
                     end
                 end)
                 
@@ -205,4 +198,125 @@ end
 -- 3. Hook into Main Map Updates
 hooksecurefunc(f, "UpdateMapTransform", function(self)
     if self.RefreshDgnPins then self:RefreshDgnPins() end
+end)
+
+
+-- ==========================================
+-- Custom Dungeon Map Viewer & Paginator
+-- ==========================================
+f.dungeonTexture = f.mapContent:CreateTexture(nil, "ARTWORK")
+f.dungeonTexture:SetAllPoints(f.mapContent)
+f.dungeonTexture:Hide()
+
+f.dungeonPaginator = CreateFrame("Frame", nil, f)
+f.dungeonPaginator:SetSize(140, 30)
+f.dungeonPaginator:SetPoint("BOTTOM", f.mapCanvas, "BOTTOM", 0, 15)
+f.dungeonPaginator:SetFrameLevel(f:GetFrameLevel() + 20)
+f.dungeonPaginator:Hide()
+
+local dpBg = f.dungeonPaginator:CreateTexture(nil, "BACKGROUND")
+dpBg:SetAllPoints()
+dpBg:SetColorTexture(0, 0, 0, 0.75) -- Dark background for text readability
+
+f.dungeonPaginator.text = f.dungeonPaginator:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+f.dungeonPaginator.text:SetPoint("CENTER", 0, 0)
+
+f.dungeonPaginator.prevBtn = CreateFrame("Button", nil, f.dungeonPaginator, "UIPanelButtonTemplate")
+f.dungeonPaginator.prevBtn:SetSize(24, 24)
+f.dungeonPaginator.prevBtn:SetPoint("RIGHT", f.dungeonPaginator.text, "LEFT", -10, 0)
+f.dungeonPaginator.prevBtn:SetText("<")
+
+f.dungeonPaginator.nextBtn = CreateFrame("Button", nil, f.dungeonPaginator, "UIPanelButtonTemplate")
+f.dungeonPaginator.nextBtn:SetSize(24, 24)
+f.dungeonPaginator.nextBtn:SetPoint("LEFT", f.dungeonPaginator.text, "RIGHT", 10, 0)
+f.dungeonPaginator.nextBtn:SetText(">")
+--
+
+function f:LoadDungeonFloor(instanceID, floor)
+    local data = T1_InstanceDB and T1_InstanceDB[instanceID]
+    if not data then return end
+    
+    local totalFloors = data.floors or 1
+    if floor < 1 then floor = 1 end
+    if floor > totalFloors then floor = totalFloors end
+    
+    -- Save the World Map zoom and pan state before transitioning
+    if f.currentMapID == 947 then
+        f.savedWorldZoom = f.zoomLevel
+        f.savedWorldOffsetX = f.mapOffsetX
+        f.savedWorldOffsetY = f.mapOffsetY
+        f.savedTargetZoom = f.targetZoom
+    end
+
+    f.currentDungeonFloor = floor
+    f.currentMapID = -instanceID -- Negative ID prevents world map elements from drawing
+    
+    -- Hide standard Blizzard tiles
+    if f.worldMapTiles then for _, tile in ipairs(f.worldMapTiles) do tile:Hide() end end
+    if f.dalaranMapTile then f.dalaranMapTile:Hide() end
+    if f.blizzardTiles then for _, tile in ipairs(f.blizzardTiles) do tile:Hide() end end
+    
+    -- Clear the Fog of War queues and hide active explored textures
+    f.fogQueue = {}
+    if f.exploredTexturePool then
+        for tex in f.exploredTexturePool:EnumerateActive() do
+            if tex.activeMask then
+                tex:RemoveMaskTexture(tex.activeMask)
+                tex.activeMask = nil
+            end
+        end
+        f.exploredTexturePool:ReleaseAll()
+    end
+    if f.exploredMaskPool then 
+        for _, mask in pairs(f.exploredMaskPool) do mask:Hide() end 
+    end
+    
+    -- Dynamically construct the file path based on total floors
+    local texturePath = "Interface\\AddOns\\forever_track\\t1_TrackMap\\dungeon_texture\\" .. instanceID
+    if totalFloors > 1 then
+        texturePath = texturePath .. "-" .. floor
+    end
+    
+    f.dungeonTexture:SetTexture(texturePath .. ".tga")
+    f.dungeonTexture:Show()
+    
+    if f.MapToggleButton then f.MapToggleButton:SetText("Return") end
+    
+    -- Toggle Paginator Visibility
+    if totalFloors > 1 then
+        f.dungeonPaginator.text:SetText("Floor " .. floor .. " / " .. totalFloors)
+        f.dungeonPaginator.prevBtn:SetEnabled(floor > 1)
+        f.dungeonPaginator.nextBtn:SetEnabled(floor < totalFloors)
+        f.dungeonPaginator:Show()
+    else
+        f.dungeonPaginator:Hide()
+    end
+    
+    -- Reset Zoom Constraints for the dungeon map
+    f.zoomLevel = 1
+    f.mapOffsetX = 0
+    f.mapOffsetY = 0
+    f.targetZoom = 1
+    f.targetOffsetX = nil
+    f.targetOffsetY = nil
+    
+    if f.UpdateMapTransform then f:UpdateMapTransform() end
+end
+
+--
+f.dungeonPaginator.prevBtn:SetScript("OnClick", function()
+    if f.currentDungeonID then f:LoadDungeonFloor(f.currentDungeonID, (f.currentDungeonFloor or 1) - 1) end
+end)
+
+f.dungeonPaginator.nextBtn:SetScript("OnClick", function()
+    if f.currentDungeonID then f:LoadDungeonFloor(f.currentDungeonID, (f.currentDungeonFloor or 1) + 1) end
+end)
+
+-- Hook standard map loading to hide dungeon elements when right-clicking to return to the world map
+hooksecurefunc(f, "LoadMap", function(self, mapID)
+    if mapID == 947 or mapID == -1416 or (mapID and mapID > 0) then
+        if self.dungeonTexture then self.dungeonTexture:Hide() end
+        if self.dungeonPaginator then self.dungeonPaginator:Hide() end
+        self.currentDungeonID = nil
+    end
 end)
