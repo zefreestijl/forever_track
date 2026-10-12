@@ -168,7 +168,7 @@ local isCollapsed = false
 
 collapseBtn:SetScript("OnClick", function()
     if isCollapsed then
-        local mods = {"t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn"}
+        local mods = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
         for _, modID in ipairs(mods) do
             if _G["t0_CB_" .. modID] then _G["t0_CB_" .. modID]:Show() end
             if _G["t0_Btn_" .. modID] then _G["t0_Btn_" .. modID]:Show() end
@@ -195,13 +195,13 @@ collapseBtn:SetScript("OnClick", function()
         collapseBtn:SetText("_")
         isCollapsed = false
     else
-        local mods = {"t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn"}
+        local mods = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
         for _, modID in ipairs(mods) do
             if _G["t0_CB_" .. modID] then _G["t0_CB_" .. modID]:Hide() end
             if _G["t0_Btn_" .. modID] then _G["t0_Btn_" .. modID]:Hide() end
             if _G["t0_Info_" .. modID] then _G["t0_Info_" .. modID]:Hide() end
         end
-        
+
         -- Collapse down to just the header bar and hide backgrounds
         f:SetHeight(32)
         if f.Bg then f.Bg:Hide() end
@@ -260,9 +260,16 @@ local modules = {
 
 local yOffset = -30
 for i, mod in ipairs(modules) do
+    -- Add background highlight for gamepad focus
+    local rowBg = f:CreateTexture(nil, "BACKGROUND")
+    rowBg:SetColorTexture(0.5, 0.5, 0.5, 0.5)
+    rowBg:Hide()
+    mod.bg = rowBg
+
     -- 1. Enable/Disable Checkbox
     local cb = CreateFrame("CheckButton", "t0_CB_" .. mod.id, f, "ChatConfigCheckButtonTemplate")
     cb:SetPoint("TOPLEFT", f, "TOPLEFT", 5, yOffset)
+    mod.cb = cb -- Store reference for the gamepad
 
     -- Main Title (ID)
     local cbText = getglobal(cb:GetName() .. 'Text')
@@ -303,6 +310,11 @@ for i, mod in ipairs(modules) do
     toggleBtn:SetSize(45, 22)
     toggleBtn:SetPoint("LEFT", cb, "RIGHT", 115, 0)
     toggleBtn:SetFrameLevel(cb:GetFrameLevel() + 2)
+    mod.toggleBtn = toggleBtn -- Store reference for the gamepad
+
+    -- Anchor the highlight background to cover the whole row securely
+    rowBg:SetPoint("TOPLEFT", cb, "TOPLEFT", -2, 2)
+    rowBg:SetPoint("BOTTOMRIGHT", toggleBtn, "BOTTOMRIGHT", 2, -2)
 
 
     -- Visual Helper: Update button text color based on state
@@ -310,17 +322,13 @@ for i, mod in ipairs(modules) do
         local targetFrame = _G[mod.id]
 
         if targetFrame and targetFrame:IsShown() then
-            -- |cFFFFD100 is the standard WoW UI Gold color
             toggleBtn:SetText("|cFFFFD100On|r")
         else
-            -- |cFF808080 is a dark grey color
             toggleBtn:SetText("|cFF808080Off|r")
         end
     end
 
-
-
-    -- Save enable/disable state (needs to be below UpdateBtnText so it can call it)
+    -- Save enable/disable state
     cb:SetScript("OnClick", function(self)
         local isChecked = self:GetChecked()
         ForeverTrack_DB[mod.id] = isChecked
@@ -330,19 +338,13 @@ for i, mod in ipairs(modules) do
         if not isChecked and _G[mod.id] then
             _G[mod.id]:Hide()
         end
-        -- Refresh the button visuals in case we just forced it closed
         UpdateBtnText()
     end)
 
-    toggleBtn:SetScript("OnShow", function(self)
-        UpdateBtnText()
-    end)
+    toggleBtn:SetScript("OnShow", function(self) UpdateBtnText() end)
 
     toggleBtn:SetScript("OnClick", function(self)
-        if not ForeverTrack_DB[mod.id] then
-            -- print(mod.id .. " is disabled. Enable it first.")
-            return
-        end
+        if not ForeverTrack_DB[mod.id] then return end
 
         local targetFrame = _G[mod.id]
         if targetFrame then
@@ -358,4 +360,217 @@ for i, mod in ipairs(modules) do
     yOffset = yOffset - 30
 end
 
---print("|cFF00FF00t1_BlankPanel loaded! Type /t0 or press Ctrl+Numpad 0 to toggle.|r")
+-- ==========================================
+-- Custom Window Focus Visuals & Gamepad Blocker
+-- ==========================================
+f.moduleRows = modules
+f.focusBorder = CreateFrame("Frame", nil, f, "BackdropTemplate")
+f.focusBorder:SetPoint("TOPLEFT", f, "TOPLEFT", -1, 1)
+f.focusBorder:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 1, -1)
+f.focusBorder:SetFrameLevel(f:GetFrameLevel() + 20)
+f.focusBorder:EnableMouse(false)
+
+f.focusBorder:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 3 })
+f.focusBorder.glowAnim = f.focusBorder:CreateAnimationGroup()
+f.focusBorder.glowAnim:SetLooping("BOUNCE")
+
+local alphaPulse = f.focusBorder.glowAnim:CreateAnimation("Alpha")
+alphaPulse:SetFromAlpha(0.3)
+alphaPulse:SetToAlpha(1.0)
+alphaPulse:SetDuration(1.0)
+alphaPulse:SetSmoothing("IN_OUT")
+
+f.focusBorder:Hide()
+f.focusBorder:SetBackdropBorderColor(0, 0, 0, 0)
+
+f.padBlocker = CreateFrame("Button", "T0_PadBlocker", UIParent)
+f.padBlocker:SetScript("OnClick", function() end)
+
+local padKeysToBlock = {
+    "PAD1", "PAD2", "PAD3", "PAD4",
+    "PADFORWARD",
+    "PADLSHOULDER", "PADRSHOULDER",
+    "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT",
+    "PADLSTICK", "PADRSTICK"
+}
+
+f.bottomButtons = { reloadBtn, resetBtn, toggleAllBtn }
+f.selectedIndex = 1
+f.bottomSelectedIndex = 1
+f.isBottomRowFocused = false
+
+-- Restore the missing MoveSelection function
+function f:MoveSelection(delta)
+    f.isBottomRowFocused = false -- Moving D-Pad snaps focus back to the vertical list
+    f.selectedIndex = math.max(1, math.min(#f.moduleRows, (f.selectedIndex or 1) + delta))
+    if f.UpdateSelectionVisuals then f:UpdateSelectionVisuals() end
+end
+
+
+f.UpdateSelectionVisuals = function(self)
+    -- 1. Update the vertical addon list
+    for i, row in ipairs(self.moduleRows) do
+        if not self.isBottomRowFocused and i == self.selectedIndex then
+            if row.bg then
+                row.bg:SetDrawLayer("ARTWORK")
+                row.bg:SetColorTexture(0.5, 0.5, 0.5, 0.5)
+                row.bg:Show()
+            end
+        else
+            if row.bg then row.bg:Hide() end
+        end
+    end
+
+    -- 2. Update the bottom utility buttons
+    for i, btn in ipairs(self.bottomButtons) do
+        if self.isBottomRowFocused and i == self.bottomSelectedIndex then
+            btn:LockHighlight()                            -- Native WoW glow effect
+            local text = btn:GetFontString()
+            if text then text:SetTextColor(1, 0.82, 0) end -- Gold text
+        else
+            btn:UnlockHighlight()
+            local text = btn:GetFontString()
+            if text then text:SetTextColor(1, 1, 1) end -- White text
+        end
+    end
+end
+
+
+-- Hidden Actions for the D-Pad
+f.padUpBtn = CreateFrame("Button", "T0_ListUp", f)
+f.padUpBtn:SetScript("OnClick", function() f:MoveSelection(-1) end)
+
+f.padDownBtn = CreateFrame("Button", "T0_ListDown", f)
+f.padDownBtn:SetScript("OnClick", function() f:MoveSelection(1) end)
+
+-- Hidden Actions for L1 / R1 Bottom Tabs
+f.padL1Btn = CreateFrame("Button", "T0_TabLeft", f)
+f.padL1Btn:SetScript("OnClick", function()
+    f.isBottomRowFocused = true
+    f.bottomSelectedIndex = (f.bottomSelectedIndex or 1) - 1
+    if f.bottomSelectedIndex < 1 then f.bottomSelectedIndex = #f.bottomButtons end
+    f:UpdateSelectionVisuals()
+end)
+
+f.padR1Btn = CreateFrame("Button", "T0_TabRight", f)
+f.padR1Btn:SetScript("OnClick", function()
+    f.isBottomRowFocused = true
+    f.bottomSelectedIndex = (f.bottomSelectedIndex or 1) + 1
+    if f.bottomSelectedIndex > #f.bottomButtons then f.bottomSelectedIndex = 1 end
+    f:UpdateSelectionVisuals()
+end)
+
+
+
+
+-- Hidden Action for A (Select / Confirm)
+f.padSelectBtn = CreateFrame("Button", "T0_PadSelect", f)
+f.padSelectBtn:SetScript("OnClick", function()
+    if f.isBottomRowFocused then
+        -- Click the focused bottom button
+        local btn = f.bottomButtons[f.bottomSelectedIndex]
+        if btn then
+            local onClick = btn:GetScript("OnClick")
+            if onClick then onClick(btn) end
+        end
+    else
+        -- Click the focused addon row's toggle button
+        local row = f.moduleRows[f.selectedIndex]
+        if row and row.toggleBtn then
+            local onClick = row.toggleBtn:GetScript("OnClick")
+            if onClick then onClick(row.toggleBtn) end
+        end
+    end
+end)
+
+-- ==========================================
+-- ADD THIS MISSING BLOCK BACK:
+-- Hidden Action for X (PAD3) - Toggle Checkbox
+f.padXBtn = CreateFrame("Button", "T0_PadX", f)
+f.padXBtn:SetScript("OnClick", function()
+    -- Only toggle if we are focused on the vertical addon list
+    if not f.isBottomRowFocused then
+        local row = f.moduleRows[f.selectedIndex]
+        if row and row.cb then
+            -- Flip the visual checkmark state
+            row.cb:SetChecked(not row.cb:GetChecked())
+            
+            -- Execute the save/update script
+            local onClick = row.cb:GetScript("OnClick")
+            if onClick then onClick(row.cb) end
+        end
+    end
+end)
+-- ==========================================
+
+f.isFocused = false
+
+
+function f:SetFocus(focused)
+    f.isFocused = focused
+    if focused then
+        f.focusBorder:Show()
+        f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1)
+        f.focusBorder.glowAnim:Play()
+        if f.title then f.title:SetTextColor(1, 0.82, 0) end
+
+        if not InCombatLockdown() then
+            if SetGamePadCursorControl then SetGamePadCursorControl(false) end
+
+
+            for _, key in ipairs(padKeysToBlock) do
+                if key == "PADDUP" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T0_ListUp")
+                elseif key == "PADDDOWN" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T0_ListDown")
+                elseif key == "PADLSHOULDER" then -- L1 Button
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T0_TabLeft")
+                elseif key == "PADRSHOULDER" then -- R1 Button
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T0_TabRight")
+                elseif key == "PAD1" then         -- A Button (Confirm)
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T0_PadSelect")
+                elseif key == "PAD3" then         -- X Button (Enable/Disable Checkbox)
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T0_PadX")
+                else
+                    SetOverrideBindingClick(f.padBlocker, true, key, f.padBlocker:GetName())
+                end
+                SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
+            end
+        end
+
+        f.selectedIndex = 1
+        f:UpdateSelectionVisuals()
+    else
+        f.focusBorder:Hide()
+        f.focusBorder.glowAnim:Stop()
+        if f.title then f.title:SetTextColor(1, 1, 1) end
+
+        if not InCombatLockdown() then
+            ClearOverrideBindings(f.padBlocker)
+        end
+
+        for _, row in ipairs(f.moduleRows) do
+            if row.bg then row.bg:Hide() end
+        end
+
+        f.isBottomRowFocused = false
+        if f.UpdateSelectionVisuals then f:UpdateSelectionVisuals() end
+    end
+end
+
+f:HookScript("OnShow", function() f:SetFocus(false) end)
+f:HookScript("OnMouseDown", function() f:SetFocus(true) end)
+f:HookScript("OnHide", function() f:SetFocus(false) end)
+
+local focusWatcher = CreateFrame("Frame")
+focusWatcher:RegisterEvent("GLOBAL_MOUSE_DOWN")
+focusWatcher:RegisterEvent("PLAYER_REGEN_DISABLED")
+focusWatcher:SetScript("OnEvent", function(self, event)
+    if event == "GLOBAL_MOUSE_DOWN" then
+        if f:IsShown() and not f:IsMouseOver() then
+            f:SetFocus(false)
+        end
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        if f.isFocused then f:SetFocus(false) end
+    end
+end)

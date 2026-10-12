@@ -25,6 +25,9 @@ _G.func_ToggleT0Window = function()
 
         -- 2. Prompt up the t0_Entry window
         t0Frame:Show()
+        
+        -- NEW: Auto-focus the dashboard when opened
+        if t0Frame.SetFocus then t0Frame:SetFocus(true) end
 
         -- 3. Prompt up other enabled custom addon windows
         if ForeverTrack_DB then
@@ -48,7 +51,10 @@ _G.func_ToggleT0Window = function()
             end
         end
 
-        -- 2. Restore the built-in HUD (This often triggers WoW's auto-hide wipe)
+        -- NEW: Drop focus from the dashboard
+        if t0Frame.SetFocus then t0Frame:SetFocus(false) end
+
+        -- 2. Restore the built-in HUD
         UIParent:Show()
 
         -- 3. Hide ONLY the t0_Entry window
@@ -57,14 +63,13 @@ _G.func_ToggleT0Window = function()
         -- 4. Force previously open windows to stay open and float above the HUD
         for modID, _ in pairs(openWindows) do
             if _G[modID] then
-                _G[modID]:SetParent(nil)         -- Ensure it wasn't secretly attached to t0_Entry
-                _G[modID]:SetFrameStrata("HIGH") -- Prevent sinking behind the default HUD
-                _G[modID]:Show()                 -- Override WoW's auto-close panel manager
+                _G[modID]:SetParent(nil)
+                _G[modID]:SetFrameStrata("HIGH")
+                _G[modID]:Show()
             end
         end
     end
 end
-
 
 
 SLASH_T0_CMD1 = "/t0"
@@ -236,12 +241,11 @@ end
 local toggleBtn = CreateFrame("Button", "Entry_KeybindButton", UIParent)
 toggleBtn:SetSize(1, 1)
 toggleBtn:SetAlpha(0)
-toggleBtn:RegisterForClicks("AnyDown") -- Add this line right here
+toggleBtn:RegisterForClicks("AnyDown")
 toggleBtn:SetScript("OnClick", function()
-    -- Defaults to toggling T1 for now. Later we can make this smart based on context.
-    _G.func_ToggleT1Window()
+    -- Changed to open T0 Dashboard instead of T1 Map
+    if _G.func_ToggleT0Window then _G.func_ToggleT0Window() end
 end)
-
 
 --
 local t3ToggleBtn = CreateFrame("Button", "T3_KeybindButton", UIParent)
@@ -285,13 +289,16 @@ end)
 -- ==========================================
 -- Custom Window Focus Cycler
 -- ==========================================
+
 local function CycleCustomWindows()
+    local f0 = core.Modules.T0 or _G["t0_Entry"]
     local f1 = core.Modules.T1 or _G["t1_TrackMap"]
     local f3 = core.Modules.T3 or _G["t3_TrackQst"]
     local f4 = core.Modules.T4 or _G["t4_TrackRes"]
 
     -- Collect all currently open and uncollapsed windows
     local openWindows = {}
+    if f0 and f0:IsShown() and (f0:GetHeight() > 100) then table.insert(openWindows, { frame = f0, id = 0 }) end
     if f1 and f1:IsShown() and (f1:GetHeight() > 100) then table.insert(openWindows, { frame = f1, id = 1 }) end
     if f3 and f3:IsShown() and (f3:GetHeight() > 100) then table.insert(openWindows, { frame = f3, id = 3 }) end
     if f4 and f4:IsShown() and (f4:GetHeight() > 100) then table.insert(openWindows, { frame = f4, id = 4 }) end
@@ -302,21 +309,22 @@ local function CycleCustomWindows()
     local currentIndex = 0
     for i, win in ipairs(openWindows) do
         if win.id == 1 and win.frame.isMapFocused then currentIndex = i end
-        if (win.id == 3 or win.id == 4) and win.frame.isFocused then currentIndex = i end
+        if (win.id == 0 or win.id == 3 or win.id == 4) and win.frame.isFocused then currentIndex = i end
     end
 
     -- Clear focus on all custom windows
+    if f0 then
+        if f0.SetFocus then f0:SetFocus(false) else f0.isFocused = false end
+    end
     if f1 then
         if f1.SetMapFocus then f1:SetMapFocus(false) else f1.isMapFocused = false end
         if f1.title then f1.title:SetTextColor(1, 1, 1) end
     end
     if f3 then
         if f3.SetFocus then f3:SetFocus(false) else f3.isFocused = false end
-        if f3.title then f3.title:SetTextColor(1, 1, 1) end
     end
     if f4 then
         if f4.SetFocus then f4:SetFocus(false) else f4.isFocused = false end
-        if f4.title then f4.title:SetTextColor(1, 1, 1) end
     end
 
     -- If exactly 1 window is open and it was already focused, we just dropped its focus. Stop here.
@@ -333,13 +341,13 @@ local function CycleCustomWindows()
     if nextWin.id == 1 then
         if nextWin.frame.SetMapFocus then nextWin.frame:SetMapFocus(true) else nextWin.frame.isMapFocused = true end
         if nextWin.frame.title then nextWin.frame.title:SetTextColor(1, 0.82, 0) end
-    elseif nextWin.id == 3 or nextWin.id == 4 then
+    elseif nextWin.id == 0 or nextWin.id == 3 or nextWin.id == 4 then
         if nextWin.frame.SetFocus then nextWin.frame:SetFocus(true) else nextWin.frame.isFocused = true end
-        if nextWin.frame.title then nextWin.frame.title:SetTextColor(1, 0.82, 0) end
     end
     nextWin.frame:Raise()
 end
 
+--
 local cycleBtn = CreateFrame("Button", "Entry_CycleButton", UIParent)
 cycleBtn:SetScript("OnClick", function()
     CycleCustomWindows()
