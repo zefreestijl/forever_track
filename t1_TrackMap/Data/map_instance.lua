@@ -7,7 +7,7 @@ T1_InstanceDB = {
 
     [3065] = { name = "Hall of Thanes", zoneID = 1455, zone = "Dun Morogh", x = 0.435, y = 0.520, level = 13, comment = "" },
 
-    [2999] = { name = "Ruins of Lordaeron", zoneID = 1420, zone = "", x = 0.634, y = 0.674, level = 15, comment = "" },
+    [2999] = { name = "Ruins of Lordaeron", zoneID = 1420, zone = "Undercity", x = 0.634, y = 0.674, level = 15, comment = "" },
 
     [36] = { name = "The Deadmines", zoneID = 1436, zone = "Westfall", x = 0.425, y = 0.717, level = 16, comment = "" },
 
@@ -15,7 +15,7 @@ T1_InstanceDB = {
 
     [33] = { name = "Shadowfang Keep", zoneID = 1421, zone = "Silverpine Forest", x = 0.448, y = 0.678, level = 18, comment = "" },
 
-    [48] = { name = "Blackfathom Deeps", zoneID = 1440, zone = "Darkshore", x = 0.145, y = 0.142, level = 22, comment = "" },
+    [48] = { name = "Blackfathom Deeps", zoneID = 1440, zone = "Ashenvale", x = 0.145, y = 0.142, level = 22, comment = "" },
 
     [34] = { name = "The Stockade", zoneID = 1453, zone = "Stormwind City", x = 0.524, y = 0.700, level = 23, comment = "" },
 
@@ -29,37 +29,37 @@ T1_InstanceDB = {
 
 
     [189] = { name = "Scarlet Monastery", zoneID = 1420, zone = "Tirisfal Glades", x = 0.826, y = 0.338, level = 30, comment = "" },
-    [1891] = { name = "Scarlet Monastery Graveyard", zoneID = 1420, zone = "", x = 0.826, y = 0.338, level = 45, comment = "" },
-    [1892] = { name = "Scarlet Monastery Library", zoneID = 1420, zone = "", x = 0.826, y = 0.338, level = 45, comment = "" },
-    [1893] = { name = "Scarlet Monastery Armory", zoneID = 1420, zone = "", x = 0.826, y = 0.338, level = 45, comment = "" },
-    [1894] = { name = "Scarlet Monastery Cathedral", zoneID = 1420, zone = "", x = 0.826, y = 0.338, level = 45, comment = "" },
+    [1891] = { name = "Scarlet Monastery Graveyard", zoneID = 1420, zone = "Tirisfal", x = 0.826, y = 0.338, level = 45, comment = "" },
+    [1892] = { name = "Scarlet Monastery Library", zoneID = 1420, zone = "Tirisfal", x = 0.826, y = 0.338, level = 45, comment = "" },
+    [1893] = { name = "Scarlet Monastery Armory", zoneID = 1420, zone = "Tirisfal", x = 0.826, y = 0.338, level = 45, comment = "" },
+    [1894] = { name = "Scarlet Monastery Cathedral", zoneID = 1420, zone = "Tirisfal", x = 0.826, y = 0.338, level = 45, comment = "" },
 
 
-    [129] = { name = "Razorfen Downs", zoneID = 722, zone = "The Barrens", x = 0.509, y = 0.929, level = 34, comment = "" },
+    [129] = { name = "Razorfen Downs", zoneID = 1413, zone = "The Barrens", x = 0.509, y = 0.929, level = 34, comment = "" },
 
-    [70] = { name = "Uldaman", zoneID = 1137, zone = "Loch Modan", x = 0.348, y = 0.855, level = 35, comment = "" },
+    [70] = { name = "Uldaman", zoneID = 1432, zone = "Loch Modan", x = 0.348, y = 0.855, level = 35, comment = "" },
 
-    [349] = { name = "Maraudon", zoneID = 2100, zone = "Desolace", x = 0.291, y = 0.629, level = 42, comment = "" },
+    [349] = { name = "Maraudon", zoneID = 1443, zone = "Desolace", x = 0.291, y = 0.629, level = 42, comment = "" },
 
-    [209] = { name = "Zul'Farrak", zoneID = 1176, zone = "Tanaris", x = 0.387, y = 0.199, level = 42, comment = "" },
+    [209] = { name = "Zul'Farrak", zoneID = 1446, zone = "Tanaris", x = 0.387, y = 0.199, level = 42, worldX = -0.358, worldY = -0.222, comment = "" },
 
-    [109] = { name = "Sunken Temple", zoneID = 1477, zone = "Swamp of Sorrows", x = 0.773, y = 0.359, level = 45, comment = "" },
+    [109] = { name = "Sunken Temple", zoneID = 1435, zone = "Swamp of Sorrows", x = 0.773, y = 0.359, level = 45, comment = "" },
 
-    [230] = { name = "Blackrock Depths", zoneID = 1428, zone = "Searing Gorge", x = 0.271, y = 0.725, level = 48, comment = "" },
+    [230] = { name = "Blackrock Depths", zoneID = 1427, zone = "Searing Gorge", x = 0.271, y = 0.725, level = 48, comment = "" },
     [229] = { name = "Blackrock Spire", zoneID = 1428, zone = "Burning Steppes", x = 0.330, y = 0.252, level = 53, comment = "" },
 
-    [429] = { name = "Dire Maul", zoneID = 2557, zone = "Feralas", x = 0.620, y = 0.333, level = 54, comment = "" },
+    [429] = { name = "Dire Maul", zoneID = 1444, zone = "Feralas", x = 0.620, y = 0.333, level = 54, comment = "" },
 
-    [329] = { name = "Stratholme", zoneID = 2017, zone = "Eastern Plaguelands", x = 0.261, y = 0.104, level = 55, comment = "" },
+    [329] = { name = "Stratholme", zoneID = 1423, zone = "Eastern Plaguelands", x = 0.261, y = 0.104, worldX = 0.465, worldY = 0.280, level = 55, comment = "" },
 
-    [289] = { name = "Scholomance", zoneID = 2057, zone = "Western Plaguelands", x = nil, y = nil, level = 57, comment = "" },
-    
+    [289] = { name = "Scholomance", zoneID = 1422, zone = "Western Plaguelands", x = nil, y = nil, level = 57, comment = "" },
+
 
     [2784] = { name = "Demon Fall Canyon", zoneID = 0, zone = "", x = nil, y = nil, level = 60, comment = "" },
-    
+
 
     [3109] = { name = "Manor Mistmantle", zoneID = 0, zone = "", x = nil, y = nil, level = 60, comment = "" },
-    
+
 
     -- Raids
     [249] = { name = "Onyxia's Lair", zoneID = 2159, zone = "", x = nil, y = nil, level = 40, comment = "" },
@@ -78,7 +78,7 @@ T1_InstanceDB = {
     [2997] = { name = "Darkspear Islands", zoneID = 0, zone = "", x = nil, y = nil, level = 30, comment = "" },
 
     [489] = { name = "Warsong Gulch", zoneID = 3277, zone = "", x = nil, y = nil, level = 10, comment = "" },
-    
+
 
     -- Arenas
     [2995] = { name = "Hyjal Crater", zoneID = 0, zone = "", x = nil, y = nil, level = 60, comment = "" },

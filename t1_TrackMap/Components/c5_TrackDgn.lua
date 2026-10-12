@@ -36,7 +36,13 @@ function f:RefreshDgnPins()
                 drawY = data.y > 1 and data.y / 100 or data.y
                 showPin = true
             elseif f.currentMapID == 947 then
-                if T1_ZoneDB and T1_ZoneDB[data.zoneID] then
+                -- Check if we have hand-tuned world map coordinates first
+                if data.worldX and data.worldY then
+                    drawX = data.worldX
+                    drawY = data.worldY
+                    showPin = true
+                elseif T1_ZoneDB and T1_ZoneDB[data.zoneID] then
+                    -- Fallback to the math translation if no override exists
                     local zData = T1_ZoneDB[data.zoneID]
                     local zoneW = (zData.w and zData.w > 0) and zData.w or 0.05
                     if zData.x and zData.y and (zData.x ~= 0 or zData.y ~= 0) then
@@ -57,9 +63,17 @@ function f:RefreshDgnPins()
             -- Render Pin
             if showPin then
                 local pin = f.dgnPinPool[pinIndex]
+
                 if not pin then
                     pin = CreateFrame("Button", nil, f.mapContent)
                     pin:SetFrameLevel(f.mapContent:GetFrameLevel() + 65)
+
+                    pin.shadow = pin:CreateTexture(nil, "BACKGROUND")
+                    pin.shadow:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+                    pin.shadow:SetVertexColor(0, 0, 0, 0.35)
+
+
+                    -- Main Icon Layer
                     pin.tex = pin:CreateTexture(nil, "OVERLAY")
                     pin.tex:SetAllPoints()
 
@@ -98,14 +112,20 @@ function f:RefreshDgnPins()
 
                 -- Hover Tooltips & Immediate Redraw Logic
                 pin:SetScript("OnEnter", function(self)
-                    self:SetAlpha(0.5)
-
+                    self:SetAlpha(0.8)
+                    
                     local hoverSize = 12 / f.zoomLevel
                     self:SetSize(hoverSize, hoverSize)
-
-                    -- FIX 2: Force the client to immediately redraw the center coordinate
+                    
+                    -- Scale the shadow to be 25% larger than the pin, and scale the drop-offset
+                    self.shadow:SetSize(hoverSize * 1.25, hoverSize * 1.25)
+                    self.shadow:ClearAllPoints()
+                    self.shadow:SetPoint("CENTER", self, "CENTER", 1.5 / f.zoomLevel, -1.5 / f.zoomLevel)
+                    
                     self:ClearAllPoints()
                     self:SetPoint("CENTER", f.mapContent, "TOPLEFT", self.targetX, self.targetY)
+                    
+
 
                     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                     local displayID = type(instanceID) == "number" and instanceID or "???"
@@ -115,19 +135,27 @@ function f:RefreshDgnPins()
                         local levelText = data.level == 1000 and "Raid/PvP" or tostring(data.level)
                         GameTooltip:AddLine("Level: " .. levelText, pR, pG, pB)
                     end
-                    if data.comment and data.comment ~= "" then GameTooltip:AddLine("|cFF808080" .. data.comment .. "|r",
-                            1, 1, 1, true) end
+                    if data.comment and data.comment ~= "" then
+                        GameTooltip:AddLine("|cFF808080" .. data.comment .. "|r",
+                        1, 1, 1, true)
+                    end
                     GameTooltip:Show()
                 end)
 
-                pin:SetScript("OnLeave", function(self)
+         pin:SetScript("OnLeave", function(self) 
                     self:SetAlpha(1.0)
-
+                    
                     local normalSize = 10 / f.zoomLevel
                     self:SetSize(normalSize, normalSize)
-
-                    -- FIX 3: Force the client to immediately redraw the center coordinate on exit
+                    
+                    -- Revert the shadow scale and offset
+                    self.shadow:SetSize(normalSize * 1.25, normalSize * 1.25)
+                    self.shadow:ClearAllPoints()
+                    self.shadow:SetPoint("CENTER", self, "CENTER", 1.5 / f.zoomLevel, -1.5 / f.zoomLevel)
+                    
                     self:ClearAllPoints()
+
+
                     self:SetPoint("CENTER", f.mapContent, "TOPLEFT", self.targetX, self.targetY)
 
                     GameTooltip:Hide()
@@ -140,15 +168,21 @@ function f:RefreshDgnPins()
                     end
                 end)
 
-                -- FIX 4: Check if the mouse is actively hovering while zooming the map to prevent jitter
+                -- FIX 4: Check if the mouse is actively hovering while zooming
                 local initialSize = pin:IsMouseOver() and (12 / f.zoomLevel) or (10 / f.zoomLevel)
                 pin:SetSize(initialSize, initialSize)
-
+                
+                -- Sync the shadow scale and offset during map movement
+                pin.shadow:SetSize(initialSize * 1.25, initialSize * 1.25)
+                pin.shadow:ClearAllPoints()
+                pin.shadow:SetPoint("CENTER", pin, "CENTER", 1.5 / f.zoomLevel, -1.5 / f.zoomLevel)
+                
                 pin:ClearAllPoints()
                 pin:SetPoint("CENTER", f.mapContent, "TOPLEFT", pin.targetX, pin.targetY)
-
+                
                 pin:Show()
                 pinIndex = pinIndex + 1
+
             end
         end
     end
