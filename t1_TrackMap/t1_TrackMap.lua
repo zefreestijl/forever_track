@@ -6,7 +6,7 @@ local f = T1.MapFrame
 
 
 local uiScale = UIParent:GetEffectiveScale()
-if not uiScale or uiScale <= 0.1 then 
+if not uiScale or uiScale <= 0.1 then
     uiScale = 1 -- Fallback to standard 100% scale if the game hasn't loaded UIParent yet
 end
 f:SetScale(uiScale)
@@ -31,7 +31,7 @@ f:SetResizable(true)
 f.ResetLayout = function(self)
     self:ClearAllPoints()
     self:SetPoint("TOPLEFT", nil, "TOPLEFT", 5, -5) -- T1's specific default position
-    self:SetSize(304, 227)                            -- T1's specific default size
+    self:SetSize(304, 227)                          -- T1's specific default size
 end
 
 
@@ -115,7 +115,7 @@ f.autoCollapsed = false -- Tracks if the system collapsed it, rather than the us
 
 function f:SetCollapsed(collapseState, isAuto)
     if f.isCollapsed == collapseState then return end
-    
+
     if collapseState then
         f.expandedHeight = f:GetHeight()
         f:SetHeight(32)
@@ -244,6 +244,16 @@ f.zoomSlider:SetScript("OnValueChanged", function(self, value)
 end)
 
 f.zoomUI = CreateFrame("Frame", nil, f)
+-- CRITICAL: Restrict this to the top 30 pixels so it doesn't cover the canvas
+f.zoomUI:SetPoint("TOPLEFT", f.mapCanvas, "TOPLEFT", 0, 0)
+f.zoomUI:SetPoint("TOPRIGHT", f.mapCanvas, "TOPRIGHT", 0, 0)
+f.zoomUI:SetHeight(30)
+f.zoomUI:SetFrameLevel(f:GetFrameLevel() + 5)
+f.zoomUI:EnableMouse(false)
+
+
+
+--
 f.zoomUI:SetAllPoints(f.mapCanvas)
 f.zoomUI:SetFrameLevel(f:GetFrameLevel() + 5)
 
@@ -260,7 +270,7 @@ f.poiMainToggle = CreateFrame("CheckButton", nil, f.zoomUI, "UICheckButtonTempla
 f.poiMainToggle:SetSize(24, 24)
 -- Anchor to the Top Right of the map canvas
 f.poiMainToggle:SetPoint("TOPRIGHT", f.zoomUI, "TOPRIGHT", 0, 0)
-f.poiMainToggle:SetChecked(false)
+f.poiMainToggle:SetChecked(true)
 
 f.poiMainText = f.poiMainToggle:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 -- Position the text on the left side of the checkbox
@@ -271,12 +281,38 @@ f.poiMainToggle:SetHitRectInsets(-f.poiMainText:GetStringWidth() - 5, 0, 0, 0)
 
 f.poiSubMenu = CreateFrame("Frame", nil, f.zoomUI)
 f.poiSubMenu:SetSize(100, 100)
--- Anchor the submenu flush right with the main toggle
 f.poiSubMenu:SetPoint("TOPRIGHT", f.poiMainToggle, "BOTTOMRIGHT", 0, 0)
+f.poiSubMenu:EnableMouse(false) -- CRITICAL: Allows clicks to pass through to the map
 f.poiSubMenu:Hide()
 
+
 f.poiMainToggle:SetScript("OnClick", function(self)
-    if self:GetChecked() then f.poiSubMenu:Show() else f.poiSubMenu:Hide() end
+    local isChecked = self:GetChecked()
+
+    if isChecked then
+        f.poiSubMenu:Show()
+    else
+        f.poiSubMenu:Hide()
+    end
+
+    for _, cb in ipairs(f.poiCheckboxes) do
+        if isChecked then
+            -- Restore the previous state (defaults to true if it's the first time)
+            local prevState = cb.savedState
+            if prevState == nil then prevState = true end
+            cb:SetChecked(prevState)
+        else
+            -- Save the active state before forcing it off
+            cb.savedState = cb:GetChecked()
+            cb:SetChecked(false)
+        end
+
+        -- Trigger the child's update function
+        local clickFunc = cb:GetScript("OnClick")
+        if clickFunc then
+            clickFunc(cb)
+        end
+    end
 end)
 
 f.poiCheckboxes = {}
@@ -494,7 +530,10 @@ f.cursorTooltip = CreateFrame("Frame", nil, f.mapCanvas)
 f.cursorTooltip:SetSize(120, 65)
 f.cursorTooltip:SetFrameStrata("TOOLTIP")
 f.cursorTooltip:SetFrameLevel(f:GetFrameLevel() + 20)
+f.cursorTooltip:EnableMouse(false) -- CRITICAL: Prevents it from blocking pin hovers
 f.cursorTooltip:Hide()
+
+
 
 f.cursorTooltip.text = f.cursorTooltip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 f.cursorTooltip.text:SetPoint("CENTER", f.cursorTooltip, "CENTER", 0, 0)
@@ -542,11 +581,21 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
 
                     local CLICK_RADIUS_SQ = 0.0006 / (f.zoomLevel * f.zoomLevel)
 
+                    -- NEW: Master variable to control the hitbox size (base pixels at 1x zoom)
+                    f.cityHitboxRadius = 18
+
+                    local hitRadiusSq = (f.cityHitboxRadius / f.zoomLevel) * (f.cityHitboxRadius / f.zoomLevel)
+                    local contentW, contentH = f.mapContent:GetSize()
+
+
                     for _, data in pairs(cityDataByZone) do
                         if data.x and data.y then
-                            local dx = data.x - logicalX
-                            local dy = data.y - logicalY
-                            if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
+                            -- Calculate in uniform screen percent instead of skewed logical coords
+                            local cityPctX, cityPctY = LogicalToUIPercent(data.x, data.y)
+                            local pixelDx = (pctX - cityPctX) * contentW
+                            local pixelDy = (pctY - cityPctY) * contentH
+
+                            if (pixelDx * pixelDx) + (pixelDy * pixelDy) <= hitRadiusSq then
                                 closestID = data.id
                                 closestZone = data.name
                                 hoverCityStatus = data.status
@@ -662,10 +711,14 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                         local clX, clY = GetCityLocalCoords(cityData, f.currentMapID)
                         if clX and clY then
                             local contentW, contentH = f.mapContent:GetSize()
-                            local dx = (pctX - clX) * contentW
-                            local dy = (pctY - clY) * contentH
-                            local CLICK_RADIUS = 14 / f.zoomLevel
-                            if (dx * dx) + (dy * dy) <= (CLICK_RADIUS * CLICK_RADIUS) then
+                            local pixelDx = (pctX - clX) * contentW
+                            local pixelDy = (pctY - clY) * contentH
+
+                            -- Use the new variable for zone map cities too
+                            local hitRadius = f.cityHitboxRadius or 18
+                            local hitRadiusSq = (hitRadius / f.zoomLevel) * (hitRadius / f.zoomLevel)
+
+                            if (pixelDx * pixelDx) + (pixelDy * pixelDy) <= hitRadiusSq then
                                 isHoveringZoneCity = true
                                 self.hoveredCityID = cityData.id
                                 mapName = cityData.name
@@ -680,7 +733,6 @@ f.mapCanvas:SetScript("OnUpdate", function(self, elapsed)
                             end
                         end
                     end
-
                     if not isHoveringZoneCity then
                         for key, data in pairs(cityDataByZone) do
                             if data.id == f.currentMapID then
@@ -1046,7 +1098,8 @@ function f:DrawExploredZone(zoneID)
                             mask:Show()
 
                             local tex = f.exploredTexturePool:Acquire()
-                            tex:SetTexture("Interface\\AddOns\\forever_track\\t1_TrackMap\\map_texture\\worldmap-forever-0.0.1.tga")
+                            tex:SetTexture(
+                                "Interface\\AddOns\\forever_track\\t1_TrackMap\\map_texture\\worldmap-forever-0.0.1.tga")
                             tex:SetDesaturated(false)
                             tex:SetVertexColor(1, 1, 1, 1)
                             tex:SetTexCoord(left, right, top, bottom)
@@ -1687,25 +1740,39 @@ f.deathTracker:SetScript("OnUpdate", function()
     end
 end)
 
+--
 if not f.flagHoverTracker then f.flagHoverTracker = CreateFrame("Frame", nil, f.mapCanvas) end
+
+-- NEW: Track tooltip state so we don't cause flicker by constantly redrawing it
+local currentHoveredCityKey = nil 
+
 f.flagHoverTracker:SetScript("OnUpdate", function()
     if not f.cityFlags then return end
+    local foundHoverKey = nil
+
     if f.currentMapID == 947 then
         local rawX, rawY = GetCursorPosition()
         local left, top = f.mapContent:GetLeft(), f.mapContent:GetTop()
         if not left or not top then return end
-        local logicalMouseX, logicalMouseY = UIPercentToLogical(
-            ((rawX / f.mapContent:GetEffectiveScale()) - left) / f.mapContent:GetWidth(),
-            (top - (rawY / f.mapContent:GetEffectiveScale())) / f.mapContent:GetHeight())
-        local CLICK_RADIUS_SQ = 0.0006 / (f.zoomLevel * f.zoomLevel)
+        
+        local pctX = ((rawX / f.mapContent:GetEffectiveScale()) - left) / f.mapContent:GetWidth()
+        local pctY = (top - (rawY / f.mapContent:GetEffectiveScale())) / f.mapContent:GetHeight()
+        local contentW, contentH = f.mapContent:GetSize()
+        
+        local hitRadius = f.cityHitboxRadius or 18
+        local hitRadiusSq = (hitRadius / f.zoomLevel) * (hitRadius / f.zoomLevel)
+
         for key, flagObj in pairs(f.cityFlags) do
             if cityDataByZone[key] then
-                local dx, dy = (cityDataByZone[key].x or 0) - logicalMouseX, (cityDataByZone[key].y or 0) - logicalMouseY
-                if (dx * dx) + (dy * dy) <= CLICK_RADIUS_SQ then
+                local cityPctX, cityPctY = LogicalToUIPercent(cityDataByZone[key].x or 0, cityDataByZone[key].y or 0)
+                local pixelDx = (pctX - cityPctX) * contentW
+                local pixelDy = (pctY - cityPctY) * contentH
+                
+                if (pixelDx * pixelDx) + (pixelDy * pixelDy) <= hitRadiusSq then
                     flagObj.tex:SetVertexColor(1, 1, 1, 0.7)
+                    foundHoverKey = key
                 else
-                    flagObj
-                        .tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity or 1)
+                    flagObj.tex:SetVertexColor(1, 1, 1, flagObj.baseOpacity or 1)
                 end
             end
         end
@@ -1714,13 +1781,47 @@ f.flagHoverTracker:SetScript("OnUpdate", function()
         if cityKey and f.cityFlags[cityKey] then
             if f.mapCanvas.hoveredCityID then
                 f.cityFlags[cityKey].tex:SetVertexColor(1, 1, 1, 0.7)
+                foundHoverKey = cityKey
             else
-                f.cityFlags
-                    [cityKey].tex:SetVertexColor(1, 1, 1, 1.0)
+                f.cityFlags[cityKey].tex:SetVertexColor(1, 1, 1, 1.0)
             end
         end
     end
+    
+    -- NEW: Draw the detail tooltip based on the mathematical hover state
+    if foundHoverKey ~= currentHoveredCityKey then
+        currentHoveredCityKey = foundHoverKey
+        
+        if foundHoverKey and cityDataByZone[foundHoverKey] then
+            local data = cityDataByZone[foundHoverKey]
+            local flagObj = f.cityFlags[foundHoverKey]
+            
+            GameTooltip:SetOwner(flagObj.frame, "ANCHOR_RIGHT")
+            GameTooltip:SetText(data.name, 1, 0.82, 0)
+            
+            -- Brighten the colors slightly for better readability on dark tooltips
+            local factionColor = "|cffffcc00"
+            if data.status == "Alliance" then
+                factionColor = "|cff00aaff" 
+            elseif data.status == "Horde" then
+                factionColor = "|cffff4444"
+            end
+            
+            GameTooltip:AddLine("Capital City", 1, 1, 1)
+            GameTooltip:AddLine("Faction: " .. factionColor .. (data.status or "Unknown") .. "|r", 1, 1, 1)
+            
+            if data.id then
+                GameTooltip:AddLine("Map ID: " .. data.id, 0.5, 0.5, 0.5)
+            end
+            
+            GameTooltip:Show()
+        else
+            -- Only hide the tooltip if we explicitly moved off a city icon
+            GameTooltip:Hide()
+        end
+    end
 end)
+
 
 -- ==========================================
 -- Auto-Refresh & Events
@@ -1853,10 +1954,10 @@ function f:SetMapFocus(focused)
     f.isMapFocused = focused
     if focused then
         -- Show the frame and ignite the gold color
-        f.focusBorder:Show() 
-        f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1) 
-        f.focusBorder.glowAnim:Play() 
-        
+        f.focusBorder:Show()
+        f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1)
+        f.focusBorder.glowAnim:Play()
+
         if not InCombatLockdown() then
             for _, key in ipairs(padKeysToBlock) do
                 SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadBlocker")
@@ -1865,9 +1966,9 @@ function f:SetMapFocus(focused)
         end
     else
         -- Physically hide the frame to remove the black ghosting
-        f.focusBorder:Hide() 
-        f.focusBorder.glowAnim:Stop() 
-        
+        f.focusBorder:Hide()
+        f.focusBorder.glowAnim:Stop()
+
         if not InCombatLockdown() then
             ClearOverrideBindings(f.padBlocker)
         end
@@ -1902,13 +2003,14 @@ end)
 
 -- Helper function to check if any standard Blizzard panels are currently open
 local function AreAnyUIPanelsOpen()
-    return GetUIPanel("left") or GetUIPanel("center") or GetUIPanel("right") or GetUIPanel("doublewide") or GetUIPanel("fullscreen")
+    return GetUIPanel("left") or GetUIPanel("center") or GetUIPanel("right") or GetUIPanel("doublewide") or
+        GetUIPanel("fullscreen")
 end
 
 hooksecurefunc("ShowUIPanel", function(frame)
     if frame and frame ~= f then
         if f.isMapFocused then f:SetMapFocus(false) end
-        
+
         -- Auto-collapse and mark it as an auto-action (true)
         if f:IsShown() and not f.isCollapsed then
             f:SetCollapsed(true, true)

@@ -252,21 +252,6 @@ t3ToggleBtn:SetScript("OnClick", function()
     if _G.func_ToggleT3Window then _G.func_ToggleT3Window() end
 end)
 
-local bindInitializer = CreateFrame("Frame")
-bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
-bindInitializer:SetScript("OnEvent", function(self, event)
-    self:UnregisterEvent(event)
-
-    SetBinding("PADBACK", nil)
-
-    SetBindingClick("CTRL-NUMPAD0", "T0_KeybindButton")
-    SetBindingClick("CTRL-NUMPAD1", "Entry_KeybindButton")
-    SetBindingClick("CTRL-NUMPAD3", "T3_KeybindButton") -- NEW: T3 Keybind
-
-    SaveBindings(GetCurrentBindingSet() or 1)
-end)
-
-
 
 
 -- T4 Hidden Clickable Button
@@ -293,10 +278,9 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     SetBindingClick("CTRL-NUMPAD3", "T3_KeybindButton")
     SetBindingClick("CTRL-NUMPAD4", "T4_KeybindButton") -- Added T4 Binding
 
-    SaveBindings(GetCurrentBindingSet() or 1)
+    -- FIX: Force 1 to prevent client version mismatch errors
+    SaveBindings(1)
 end)
-
-
 
 -- ==========================================
 -- Custom Window Focus Cycler

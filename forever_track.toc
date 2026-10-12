@@ -12,6 +12,7 @@ t0_Entry\t0_Entry.lua
 # --- 1. Track Map ---
 t1_TrackMap\Data\map_data.lua
 t1_TrackMap\Data\map_outline.lua
+t1_TrackMap\Data\map_instance.lua
 t1_TrackMap\t1_TrackMap.lua
 t1_TrackMap\Components\c1_Fly.lua
 t1_TrackMap\Components\c2_TrackNPC.lua
