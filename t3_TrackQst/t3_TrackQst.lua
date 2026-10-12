@@ -1395,6 +1395,24 @@ UpdateQuestList = function()
         end
     end
 
+
+    -- Gather all interactable lines for gamepad navigation
+    f.activeLines = {}
+    for _, line in ipairs(questLines) do
+        -- Only add lines that are visible and have click scripts (quests, items, choices)
+        if line:IsShown() and line:GetScript("OnClick") then
+            table.insert(f.activeLines, line)
+        end
+    end
+
+    -- Ensure index stays within bounds after tab switches
+    if not f.selectedIndex then f.selectedIndex = 1 end
+    if f.selectedIndex > #f.activeLines then f.selectedIndex = #f.activeLines end
+
+    if f.isFocused and f.UpdateSelectionVisuals then
+        f:UpdateSelectionVisuals()
+    end
+
     content:SetHeight(math.abs(yOffset) + 10)
 
     if oldSelectionID and C_QuestLog and type(C_QuestLog.SetSelectedQuest) == "function" then
@@ -1569,6 +1587,62 @@ f:SetScript("OnUpdate", function(self, elapsed)
             end
         end
     end
+
+    -- Helper function to visually update the list highlight
+    f.UpdateSelectionVisuals = function(self)
+        if not self.activeLines or #self.activeLines == 0 then return end
+        for i, line in ipairs(self.activeLines) do
+            if i == self.selectedIndex then
+                -- Apply Gold Highlight and trigger the Tooltip
+                line.bg:Show()
+                line.bg:SetColorTexture(1, 0.82, 0, 0.4)
+                local onEnter = line:GetScript("OnEnter")
+                if onEnter then onEnter(line) end
+            else
+                -- Remove highlight and hide Tooltip
+                line.bg:Hide()
+                local onLeave = line:GetScript("OnLeave")
+                if onLeave then onLeave(line) end
+            end
+        end
+    end
+
+    -- Stick Polling Logic
+    if f.isFocused and C_GamePad and C_GamePad.GetActiveDeviceID then
+        local deviceID = C_GamePad.GetActiveDeviceID()
+        if deviceID then
+            local state = C_GamePad.GetDeviceMappedState(deviceID)
+            if state and state.sticks then
+                local ls = state.sticks[1]
+                local rs = state.sticks[2]
+
+                -- Right Stick: Smooth Vertical Scrolling
+                if rs and math.abs(rs.y) > 0.15 then
+                    local scrollBar = _G["T3_QuestScrollFrameScrollBar"]
+                    if scrollBar then
+                        local current = scrollBar:GetValue()
+                        local minVal, maxVal = scrollBar:GetMinMaxValues()
+                        -- Invert rs.y so pushing UP scrolls UP
+                        local newVal = current - (rs.y * 300 * elapsed)
+                        newVal = math.max(minVal, math.min(maxVal, newVal))
+                        scrollBar:SetValue(newVal)
+                    end
+                end
+
+                -- Left Stick: Menu Selection
+                f.stickThrottle = (f.stickThrottle or 0) - elapsed
+                if ls and math.abs(ls.y) > 0.5 then
+                    if f.stickThrottle <= 0 then
+                        f.stickThrottle = 0.15 
+                        -- Pass -1 for UP, 1 for DOWN
+                        f:MoveSelection(ls.y > 0 and -1 or 1)
+                    end
+                else
+                    f.stickThrottle = 0 
+                end
+            end
+        end
+    end
 end)
 
 
@@ -1598,20 +1672,41 @@ alphaPulse:SetSmoothing("IN_OUT")
 f.focusBorder:Hide()
 f.focusBorder:SetBackdropBorderColor(0, 0, 0, 0)
 
--- 1. Create the invisible pad blocker (matches T1 logic)
+
+-- 1. Create the invisible pad blocker
 f.padBlocker = CreateFrame("Button", "T3_PadBlocker", UIParent)
 f.padBlocker:SetScript("OnClick", function() end)
-
 
 local padKeysToBlock = {
     "PAD1", "PAD2", "PAD3", "PAD4",
     "PADFORWARD",
-    "PADLSHOULDER", "PADRSHOULDER", -- L1 and R1
-    "PADDPADUP", "PADDPADDOWN", "PADDPADLEFT", "PADDPADRIGHT",
+    "PADLSHOULDER", "PADRSHOULDER",
+    "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT", 
     "PADLSTICK", "PADRSTICK"
 }
 
--- Create hidden buttons to handle the tab cycling logic
+-- ==========================================
+-- Gamepad Helper Functions & Hidden Buttons
+-- ==========================================
+-- Helper to move selection and auto-scroll
+function f:MoveSelection(delta)
+    if not self.activeLines or #self.activeLines == 0 then return end
+    self.selectedIndex = math.max(1, math.min(#self.activeLines, (self.selectedIndex or 1) + delta))
+    
+    if self.UpdateSelectionVisuals then self:UpdateSelectionVisuals() end
+    
+    local targetLine = self.activeLines[self.selectedIndex]
+    if targetLine then
+        local scrollBar = _G["T3_QuestScrollFrameScrollBar"]
+        if scrollBar then
+            local lineTop = math.abs(targetLine:GetTop() - content:GetTop())
+            scrollBar:SetValue(lineTop - 50) 
+        end
+    end
+end
+
+
+-- Hidden buttons for Tab Cycling
 f.tabCycleLeftBtn = CreateFrame("Button", "T3_TabCycleLeft", f)
 f.tabCycleLeftBtn:SetScript("OnClick", function()
     if not f.currentTabs or #f.currentTabs == 0 then return end
@@ -1619,10 +1714,8 @@ f.tabCycleLeftBtn:SetScript("OnClick", function()
     for i, filter in ipairs(f.currentTabs) do
         if filter == activeFilter then currentIndex = i; break end
     end
-    
     local newIndex = currentIndex - 1
-    if newIndex < 1 then newIndex = #f.currentTabs end -- Wrap to end
-    
+    if newIndex < 1 then newIndex = #f.currentTabs end
     activeFilter = f.currentTabs[newIndex]
     UpdateQuestList()
 end)
@@ -1634,56 +1727,84 @@ f.tabCycleRightBtn:SetScript("OnClick", function()
     for i, filter in ipairs(f.currentTabs) do
         if filter == activeFilter then currentIndex = i; break end
     end
-    
     local newIndex = currentIndex + 1
-    if newIndex > #f.currentTabs then newIndex = 1 end -- Wrap to start
-    
+    if newIndex > #f.currentTabs then newIndex = 1 end
     activeFilter = f.currentTabs[newIndex]
     UpdateQuestList()
 end)
 
+-- Hidden buttons for D-Pad List Navigation
+f.padUpBtn = CreateFrame("Button", "T3_ListUp", f)
+f.padUpBtn:SetScript("OnClick", function() f:MoveSelection(-1) end)
+
+f.padDownBtn = CreateFrame("Button", "T3_ListDown", f)
+f.padDownBtn:SetScript("OnClick", function() f:MoveSelection(1) end)
+
+-- Hidden button for A (PAD1) Select
+f.padSelectBtn = CreateFrame("Button", "T3_PadSelect", f)
+f.padSelectBtn:SetScript("OnClick", function()
+    if f.activeLines and f.activeLines[f.selectedIndex] then
+        local targetLine = f.activeLines[f.selectedIndex]
+        local onClick = targetLine:GetScript("OnClick")
+        if onClick then
+            onClick(targetLine, "LeftButton")
+        end
+    end
+end)
+
+
+-- ==========================================
+-- Focus Management & Key Routing
+-- ==========================================
 f.isFocused = false
 function f:SetFocus(focused)
     f.isFocused = focused
     if focused then
-        f.focusBorder:Show() 
-        f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1) 
-        f.focusBorder.glowAnim:Play() 
+        f.focusBorder:Show()
+        f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1)
+        f.focusBorder.glowAnim:Play()
         if f.title then f.title:SetTextColor(1, 0.82, 0) end
-        
-        if not InCombatLockdown() then
-            if SetGamePadCursorControl then SetGamePadCursorControl(true) end
-            
-            local leftClickBtn = C_CVar.GetCVar("GamePadCursorLeftClick") or ""
-            local rightClickBtn = C_CVar.GetCVar("GamePadCursorRightClick") or ""
-            
-            for _, key in ipairs(padKeysToBlock) do
-                -- 1. Force L1 to cycle left, regardless of cursor settings
-                if key == "PADLSHOULDER" then
-                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_TabCycleLeft")
-                    SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
-                
-                -- 2. Force R1 to cycle right, regardless of cursor settings
-                elseif key == "PADRSHOULDER" then
-                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_TabCycleRight")
-                    SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
-                
-                -- 3. For all other buttons, apply the normal safety check
-                elseif key ~= leftClickBtn and key ~= rightClickBtn and key ~= "" then
-                    SetOverrideBindingClick(f.padBlocker, true, key, f.padBlocker:GetName())
-                    SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
-                end
-            end
 
-        end
-    else
-        f.focusBorder:Hide() 
-        f.focusBorder.glowAnim:Stop() 
-        if f.title then f.title:SetTextColor(1, 1, 1) end
-        
         if not InCombatLockdown() then
             if SetGamePadCursorControl then SetGamePadCursorControl(false) end
+
+            for _, key in ipairs(padKeysToBlock) do
+                if key == "PADLSHOULDER" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_TabCycleLeft")
+                elseif key == "PADRSHOULDER" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_TabCycleRight")
+                elseif key == "PAD1" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_PadSelect")
+                elseif key == "PADDUP" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_ListUp")
+                elseif key == "PADDDOWN" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_ListDown")
+                else
+                    SetOverrideBindingClick(f.padBlocker, true, key, f.padBlocker:GetName())
+                end
+                
+                -- Block the L2 modified versions of these keys so they don't bleed through
+                SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
+            end
+        end
+
+        f.selectedIndex = 1
+        if f.UpdateSelectionVisuals then f:UpdateSelectionVisuals() end
+    else
+        f.focusBorder:Hide()
+        f.focusBorder.glowAnim:Stop()
+        if f.title then f.title:SetTextColor(1, 1, 1) end
+
+        if not InCombatLockdown() then
             ClearOverrideBindings(f.padBlocker)
+        end
+
+        if f.activeLines then
+            for _, line in ipairs(f.activeLines) do
+                local onLeave = line:GetScript("OnLeave")
+                if onLeave then onLeave(line) end
+                line.bg:Hide()
+            end
         end
     end
 end
@@ -1699,7 +1820,6 @@ focusWatcher:RegisterEvent("PLAYER_REGEN_DISABLED")
 
 focusWatcher:SetScript("OnEvent", function(self, event)
     if event == "GLOBAL_MOUSE_DOWN" then
-        -- Drop focus if clicking anywhere outside the T3 frame
         if f:IsShown() and not f:IsMouseOver() then
             f:SetFocus(false)
         end
