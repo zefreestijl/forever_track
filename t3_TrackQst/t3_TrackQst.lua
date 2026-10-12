@@ -129,23 +129,25 @@ local UpdateQuestList
 -- =========================================================================
 -- 2. Bottom Action Buttons (Resized to 74px to fit 250px total width)
 -- =========================================================================
-local btnExpandAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-btnExpandAll:SetSize(74, 22)
-btnExpandAll:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 8, 8)
-btnExpandAll:SetText(L.BTN_EXPAND)
-btnExpandAll:SetNormalFontObject("GameFontNormalSmall")
-btnExpandAll:SetHighlightFontObject("GameFontHighlightSmall")
-
 local btnCollapseAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 btnCollapseAll:SetSize(74, 22)
-btnCollapseAll:SetPoint("LEFT", btnExpandAll, "RIGHT", 5, 0)
+btnCollapseAll:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 8, 8)
 btnCollapseAll:SetText(L.BTN_COLLAPSE)
 btnCollapseAll:SetNormalFontObject("GameFontNormalSmall")
 btnCollapseAll:SetHighlightFontObject("GameFontHighlightSmall")
 
+
+local btnExpandAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+btnExpandAll:SetSize(74, 22)
+btnExpandAll:SetPoint("LEFT", btnCollapseAll, "RIGHT", 5, 0)
+btnExpandAll:SetText(L.BTN_EXPAND)
+btnExpandAll:SetNormalFontObject("GameFontNormalSmall")
+btnExpandAll:SetHighlightFontObject("GameFontHighlightSmall")
+
+
 local btnUntrackAll = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
 btnUntrackAll:SetSize(74, 22)
-btnUntrackAll:SetPoint("LEFT", btnCollapseAll, "RIGHT", 5, 0)
+btnUntrackAll:SetPoint("LEFT", btnExpandAll, "RIGHT", 5, 0)
 btnUntrackAll:SetText(L.BTN_UNTRACK)
 btnUntrackAll:SetNormalFontObject("GameFontNormalSmall")
 btnUntrackAll:SetHighlightFontObject("GameFontHighlightSmall")
@@ -1515,22 +1517,39 @@ end
 
 
 
-
 -- =========================================================================
 -- LIVE TIMER TICKER, TAB HOVER & MODERN BAG CHECK
 -- =========================================================================
 local timerUpdateAccumulator = 0
 local autoCollapsedByBags = false
 
+-- Define the visual updater ONCE outside the loop
+f.UpdateSelectionVisuals = function(self)
+    if not self.activeLines or #self.activeLines == 0 then return end
+    for i, line in ipairs(self.activeLines) do
+        if i == self.selectedIndex then
+            -- Elevate to ARTWORK layer to prevent clipping and apply Grey (0.5 Opacity)
+            line.bg:SetDrawLayer("ARTWORK")
+            line.bg:SetColorTexture(0.5, 0.5, 0.5, 0.5)
+            line.bg:Show()
+
+            local onEnter = line:GetScript("OnEnter")
+            if onEnter then onEnter(line) end
+        else
+            -- Hide background and remove Tooltip
+            line.bg:Hide()
+            local onLeave = line:GetScript("OnLeave")
+            if onLeave then onLeave(line) end
+        end
+    end
+end
+
 f:SetScript("OnUpdate", function(self, elapsed)
     -- 1. Modern & Classic Bag Visibility Check
     local isAnyBagOpen = false
-
-    -- Check Modern Combined Bag Frame (Dragonflight+)
     if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
         isAnyBagOpen = true
     else
-        -- Check Classic Individual Bag Frames
         local maxBags = NUM_CONTAINER_FRAMES or 13
         for i = 1, maxBags do
             local cFrame = _G["ContainerFrame" .. i]
@@ -1541,7 +1560,6 @@ f:SetScript("OnUpdate", function(self, elapsed)
         end
     end
 
-    -- Trigger the Collapse/Expand logic based on what we found
     if isAnyBagOpen and not isCollapsed then
         autoCollapsedByBags = true
         local onClick = collapseBtn:GetScript("OnClick")
@@ -1572,73 +1590,42 @@ f:SetScript("OnUpdate", function(self, elapsed)
     end
 
     -- 3. Timer Update Loop
-    if #activeTimers == 0 then return end
-
-    timerUpdateAccumulator = timerUpdateAccumulator + elapsed
-    if timerUpdateAccumulator >= 1.0 then
-        timerUpdateAccumulator = 0
-
-        for _, tData in ipairs(activeTimers) do
-            local current = FetchQuestTimeLeft(tData.questID, tData.logIndex)
-            if current and current > 0 then
-                tData.btn.text:SetText(GetFormattedTimerString(current))
-            else
-                tData.btn.text:SetText("|cFFFF3333⏱ 0s|r")
-            end
-        end
-    end
-
-    -- Helper function to visually update the list highlight
-    f.UpdateSelectionVisuals = function(self)
-        if not self.activeLines or #self.activeLines == 0 then return end
-        for i, line in ipairs(self.activeLines) do
-            if i == self.selectedIndex then
-                -- Apply Gold Highlight and trigger the Tooltip
-                line.bg:Show()
-                line.bg:SetColorTexture(1, 0.82, 0, 0.4)
-                local onEnter = line:GetScript("OnEnter")
-                if onEnter then onEnter(line) end
-            else
-                -- Remove highlight and hide Tooltip
-                line.bg:Hide()
-                local onLeave = line:GetScript("OnLeave")
-                if onLeave then onLeave(line) end
-            end
-        end
-    end
-
-    -- Stick Polling Logic
-    if f.isFocused and C_GamePad and C_GamePad.GetActiveDeviceID then
-        local deviceID = C_GamePad.GetActiveDeviceID()
-        if deviceID then
-            local state = C_GamePad.GetDeviceMappedState(deviceID)
-            if state and state.sticks then
-                local ls = state.sticks[1]
-                local rs = state.sticks[2]
-
-                -- Right Stick: Smooth Vertical Scrolling
-                if rs and math.abs(rs.y) > 0.15 then
-                    local scrollBar = _G["T3_QuestScrollFrameScrollBar"]
-                    if scrollBar then
-                        local current = scrollBar:GetValue()
-                        local minVal, maxVal = scrollBar:GetMinMaxValues()
-                        -- Invert rs.y so pushing UP scrolls UP
-                        local newVal = current - (rs.y * 300 * elapsed)
-                        newVal = math.max(minVal, math.min(maxVal, newVal))
-                        scrollBar:SetValue(newVal)
-                    end
-                end
-
-                -- Left Stick: Menu Selection
-                f.stickThrottle = (f.stickThrottle or 0) - elapsed
-                if ls and math.abs(ls.y) > 0.5 then
-                    if f.stickThrottle <= 0 then
-                        f.stickThrottle = 0.15 
-                        -- Pass -1 for UP, 1 for DOWN
-                        f:MoveSelection(ls.y > 0 and -1 or 1)
-                    end
+    if #activeTimers > 0 then
+        timerUpdateAccumulator = timerUpdateAccumulator + elapsed
+        if timerUpdateAccumulator >= 1.0 then
+            timerUpdateAccumulator = 0
+            for _, tData in ipairs(activeTimers) do
+                local current = FetchQuestTimeLeft(tData.questID, tData.logIndex)
+                if current and current > 0 then
+                    tData.btn.text:SetText(GetFormattedTimerString(current))
                 else
-                    f.stickThrottle = 0 
+                    tData.btn.text:SetText("|cFFFF3333⏱ 0s|r")
+                end
+            end
+        end
+    end
+
+    -- 4. Stick Polling Logic (L2 + Right Stick)
+    if f.isFocused and C_GamePad and C_GamePad.GetActiveDeviceID then
+        -- REQUIRE the L2 modifier to be held to bypass camera hijacking
+        if IsKeyDown("PADLTRIGGER") then
+            local deviceID = C_GamePad.GetActiveDeviceID()
+            if deviceID then
+                local state = C_GamePad.GetDeviceMappedState(deviceID)
+                if state and state.sticks then
+                    local rs = state.sticks[2]
+
+                    -- Right Stick: Smooth Vertical Scrolling
+                    if rs and math.abs(rs.y) > 0.15 then
+                        local scrollBar = _G["T3_QuestScrollFrameScrollBar"]
+                        if scrollBar then
+                            local current = scrollBar:GetValue()
+                            local minVal, maxVal = scrollBar:GetMinMaxValues()
+                            local newVal = current - (rs.y * 1200 * elapsed)
+                            newVal = math.max(minVal, math.min(maxVal, newVal))
+                            scrollBar:SetValue(newVal)
+                        end
+                    end
                 end
             end
         end
@@ -1681,7 +1668,7 @@ local padKeysToBlock = {
     "PAD1", "PAD2", "PAD3", "PAD4",
     "PADFORWARD",
     "PADLSHOULDER", "PADRSHOULDER",
-    "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT", 
+    "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT",
     "PADLSTICK", "PADRSTICK"
 }
 
@@ -1692,19 +1679,18 @@ local padKeysToBlock = {
 function f:MoveSelection(delta)
     if not self.activeLines or #self.activeLines == 0 then return end
     self.selectedIndex = math.max(1, math.min(#self.activeLines, (self.selectedIndex or 1) + delta))
-    
+
     if self.UpdateSelectionVisuals then self:UpdateSelectionVisuals() end
-    
+
     local targetLine = self.activeLines[self.selectedIndex]
     if targetLine then
         local scrollBar = _G["T3_QuestScrollFrameScrollBar"]
         if scrollBar then
             local lineTop = math.abs(targetLine:GetTop() - content:GetTop())
-            scrollBar:SetValue(lineTop - 50) 
+            scrollBar:SetValue(lineTop - 50)
         end
     end
 end
-
 
 -- Hidden buttons for Tab Cycling
 f.tabCycleLeftBtn = CreateFrame("Button", "T3_TabCycleLeft", f)
@@ -1712,7 +1698,9 @@ f.tabCycleLeftBtn:SetScript("OnClick", function()
     if not f.currentTabs or #f.currentTabs == 0 then return end
     local currentIndex = 1
     for i, filter in ipairs(f.currentTabs) do
-        if filter == activeFilter then currentIndex = i; break end
+        if filter == activeFilter then
+            currentIndex = i; break
+        end
     end
     local newIndex = currentIndex - 1
     if newIndex < 1 then newIndex = #f.currentTabs end
@@ -1725,7 +1713,9 @@ f.tabCycleRightBtn:SetScript("OnClick", function()
     if not f.currentTabs or #f.currentTabs == 0 then return end
     local currentIndex = 1
     for i, filter in ipairs(f.currentTabs) do
-        if filter == activeFilter then currentIndex = i; break end
+        if filter == activeFilter then
+            currentIndex = i; break
+        end
     end
     local newIndex = currentIndex + 1
     if newIndex > #f.currentTabs then newIndex = 1 end
@@ -1753,6 +1743,50 @@ f.padSelectBtn:SetScript("OnClick", function()
 end)
 
 
+-- Hidden button for D-Pad Left (Collapse All)
+f.padLeftBtn = CreateFrame("Button", "T3_ListLeft", f)
+f.padLeftBtn:SetScript("OnClick", function()
+    local onClick = btnCollapseAll:GetScript("OnClick")
+    if onClick then onClick(btnCollapseAll) end
+end)
+
+-- Hidden button for D-Pad Right (Expand All)
+f.padRightBtn = CreateFrame("Button", "T3_ListRight", f)
+f.padRightBtn:SetScript("OnClick", function()
+    local onClick = btnExpandAll:GetScript("OnClick")
+    if onClick then onClick(btnExpandAll) end
+end)
+
+-- Hidden button for X (PAD3) - Toggle Tracked Status
+f.padXBtn = CreateFrame("Button", "T3_PadX", f)
+f.padXBtn:SetScript("OnClick", function()
+    if f.activeLines and f.activeLines[f.selectedIndex] then
+        local targetLine = f.activeLines[f.selectedIndex]
+        -- Make sure the line actually has a tracking checkbox
+        if targetLine.trackBtn and targetLine.trackBtn:IsShown() then
+            -- Flip the visual checkmark state
+            targetLine.trackBtn:SetChecked(not targetLine.trackBtn:GetChecked())
+            -- Execute your custom tracking script
+            local onClick = targetLine.trackBtn:GetScript("OnClick")
+            if onClick then onClick(targetLine.trackBtn) end
+        end
+    end
+end)
+
+-- Hidden button for Y (PAD4) - Focus / SuperTrack (Right-Click)
+f.padYBtn = CreateFrame("Button", "T3_PadY", f)
+f.padYBtn:SetScript("OnClick", function()
+    if f.activeLines and f.activeLines[f.selectedIndex] then
+        local targetLine = f.activeLines[f.selectedIndex]
+        local onClick = targetLine:GetScript("OnClick")
+        if onClick then
+            -- Pass "RightButton" to trick the script into running the SuperTrack logic
+            onClick(targetLine, "RightButton")
+        end
+    end
+end)
+
+
 -- ==========================================
 -- Focus Management & Key Routing
 -- ==========================================
@@ -1768,6 +1802,7 @@ function f:SetFocus(focused)
         if not InCombatLockdown() then
             if SetGamePadCursorControl then SetGamePadCursorControl(false) end
 
+
             for _, key in ipairs(padKeysToBlock) do
                 if key == "PADLSHOULDER" then
                     SetOverrideBindingClick(f.padBlocker, true, key, "T3_TabCycleLeft")
@@ -1775,14 +1810,26 @@ function f:SetFocus(focused)
                     SetOverrideBindingClick(f.padBlocker, true, key, "T3_TabCycleRight")
                 elseif key == "PAD1" then
                     SetOverrideBindingClick(f.padBlocker, true, key, "T3_PadSelect")
+                elseif key == "PAD3" then
+                    -- Route X Button
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_PadX")
+                elseif key == "PAD4" then
+                    -- Route Y Button
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_PadY")
                 elseif key == "PADDUP" then
                     SetOverrideBindingClick(f.padBlocker, true, key, "T3_ListUp")
                 elseif key == "PADDDOWN" then
                     SetOverrideBindingClick(f.padBlocker, true, key, "T3_ListDown")
+                elseif key == "PADDLEFT" then
+                    -- Route D-Pad Left
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_ListLeft")
+                elseif key == "PADDRIGHT" then
+                    -- Route D-Pad Right
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_ListRight")
                 else
                     SetOverrideBindingClick(f.padBlocker, true, key, f.padBlocker:GetName())
                 end
-                
+
                 -- Block the L2 modified versions of these keys so they don't bleed through
                 SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
             end
