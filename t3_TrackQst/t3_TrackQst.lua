@@ -1605,10 +1605,10 @@ f:SetScript("OnUpdate", function(self, elapsed)
         end
     end
 
-    -- 4. Stick Polling Logic (L2 + Right Stick)
+    -- 4. Stick Polling Logic (L2 or R2 + Right Stick)
     if f.isFocused and C_GamePad and C_GamePad.GetActiveDeviceID then
-        -- REQUIRE the L2 modifier to be held to bypass camera hijacking
-        if IsKeyDown("PADLTRIGGER") then
+        -- REQUIRE the L2 or R2 modifier to be held to bypass camera hijacking
+        if IsKeyDown("PADLTRIGGER") or IsKeyDown("PADRTRIGGER") then
             local deviceID = C_GamePad.GetActiveDeviceID()
             if deviceID then
                 local state = C_GamePad.GetDeviceMappedState(deviceID)

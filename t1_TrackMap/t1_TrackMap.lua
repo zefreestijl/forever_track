@@ -1994,6 +1994,8 @@ alphaPulse:SetToAlpha(1.0)   -- Glows to 100% opacity
 alphaPulse:SetDuration(1.0)  -- 1 second per pulse
 alphaPulse:SetSmoothing("IN_OUT")
 
+
+
 -- 1. Create the invisible pad blocker
 f.padBlocker = CreateFrame("Button", "T1_PadBlocker", UIParent)
 f.padBlocker:SetScript("OnClick", function() end)
@@ -2002,12 +2004,85 @@ local padKeysToBlock = {
     "PAD1", "PAD2", "PAD3", "PAD4",
     "PADFORWARD",
     "PADLSHOULDER", "PADRSHOULDER",
-    "PADDPADUP", "PADDPADDOWN", "PADDPADLEFT", "PADDPADRIGHT",
+    "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT",
     "PADLSTICK", "PADRSTICK"
 }
 
-f.isMapFocused = false
+-- ==========================================
+-- Gamepad Hidden Action Buttons
+-- ==========================================
+-- A (PAD1) - Enter Current Zone
+f.padABtn = CreateFrame("Button", "T1_PadA", f)
+f.padABtn:SetScript("OnClick", function()
+    local currentZoneID = C_Map.GetBestMapForUnit("player")
+    if currentZoneID and currentZoneID > 0 and f.currentMapID ~= currentZoneID then
+        f:LoadMap(currentZoneID)
+        if f.UpdateMapTransform then f:UpdateMapTransform() end
+    end
+end)
 
+-- B (PAD2) - Return to World Map
+f.padBBtn = CreateFrame("Button", "T1_PadB", f)
+f.padBBtn:SetScript("OnClick", function()
+    if f.currentMapID ~= 947 then
+        f:LoadMap(947)
+        if f.UpdateMapTransform then f:UpdateMapTransform() end
+    end
+end)
+
+-- L3 (PADLSTICK) - Recenter on Player
+f.padL3Btn = CreateFrame("Button", "T1_PadL3", f)
+f.padL3Btn:SetScript("OnClick", function()
+    local currentZoneID = C_Map.GetBestMapForUnit("player")
+    if currentZoneID and currentZoneID > 0 then
+        f.savedWorldZoom = nil
+        local pos = C_Map.GetPlayerMapPosition(currentZoneID, "player")
+        local wX, wY = nil, nil
+        if pos and pos.x and pos.y and T1_ZoneDB and T1_ZoneDB[currentZoneID] then
+            local zData = T1_ZoneDB[currentZoneID]
+            local zW = (zData.w and zData.w > 0) and zData.w or 0.05
+            if zData.x and zData.y then
+                wX = zData.x + ((pos.x - 0.5) * zW)
+                wY = zData.y + ((0.5 - pos.y) * (zW / 1.5))
+            end
+        end
+
+        if wX and wY then
+            if f.currentMapID ~= 947 then f:LoadMap(947) end
+            f:ZoomToPoint((wX / 1.5) + 0.5, 0.5 - wY, 8)
+        elseif f.IsCustomCityMap and f.IsCustomCityMap(currentZoneID) then
+            if f.currentMapID ~= currentZoneID then f:LoadMap(currentZoneID) end
+            f.targetZoom = 1; f.targetOffsetX = 0; f.targetOffsetY = 0
+            if f.zoomSmoother then f.zoomSmoother:Show() end
+        else
+            if f.currentMapID ~= 947 then f:LoadMap(947) end
+            if f.ZoomToZone then f:ZoomToZone(currentZoneID) end
+        end
+        if f.UpdateMapTransform then f:UpdateMapTransform() end
+    end
+end)
+
+-- R3 (PADRSTICK) - Zoom to Fit
+f.padR3Btn = CreateFrame("Button", "T1_PadR3", f)
+f.padR3Btn:SetScript("OnClick", function()
+    f.savedWorldZoom = nil
+    if f.currentMapID ~= 947 then f:LoadMap(947) end
+    local canvasW, canvasH = f.mapCanvas:GetSize()
+    local contentW, contentH = f.mapContent:GetSize()
+    if canvasW and canvasH and contentW and contentH then
+        local fitScale = math.max(canvasW / contentW, canvasH / contentH)
+        f.targetZoom = fitScale
+        f.targetOffsetX = ((canvasW - (contentW * fitScale)) / 2) / fitScale
+        f.targetOffsetY = (-(canvasH - (contentH * fitScale)) / 2) / fitScale
+        if f.zoomSmoother then f.zoomSmoother:Show() end
+    end
+    if f.UpdateMapTransform then f:UpdateMapTransform() end
+end)
+
+-- ==========================================
+-- Focus Management & Key Routing
+-- ==========================================
+f.isMapFocused = false
 function f:SetMapFocus(focused)
     f.isMapFocused = focused
     if focused then
@@ -2016,20 +2091,23 @@ function f:SetMapFocus(focused)
         f.focusBorder.glowAnim:Play()
 
         if not InCombatLockdown() then
-            -- Summon the built-in Virtual Mouse
             if SetGamePadCursorControl then SetGamePadCursorControl(true) end
-
-            -- FIX: Remove the hardcoded PADRTRIGGER and PADRSHOULDER fallbacks.
-            -- If the CVar is empty or nil, default to a blank string so nothing is accidentally excluded.
             local leftClickBtn = C_CVar.GetCVar("GamePadCursorLeftClick") or ""
             local rightClickBtn = C_CVar.GetCVar("GamePadCursorRightClick") or ""
 
             for _, key in ipairs(padKeysToBlock) do
-                -- Exclude ONLY if the key exactly matches your actual CVar bindings
-                if key ~= leftClickBtn and key ~= rightClickBtn and key ~= "" then
+                if key == "PAD1" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadA")
+                elseif key == "PAD2" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadB")
+                elseif key == "PADLSTICK" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadL3")
+                elseif key == "PADRSTICK" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadR3")
+                elseif key ~= leftClickBtn and key ~= rightClickBtn and key ~= "" then
                     SetOverrideBindingClick(f.padBlocker, true, key, f.padBlocker:GetName())
-                    SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
                 end
+                SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
             end
         end
     else
@@ -2037,11 +2115,7 @@ function f:SetMapFocus(focused)
         f.focusBorder.glowAnim:Stop()
 
         if not InCombatLockdown() then
-            -- Turn off the virtual cursor
-            if SetGamePadCursorControl then
-                SetGamePadCursorControl(false)
-            end
-
+            if SetGamePadCursorControl then SetGamePadCursorControl(false) end
             ClearOverrideBindings(f.padBlocker)
         end
     end
@@ -2112,5 +2186,59 @@ end)
 
 
 
+-- ==========================================
+-- Gamepad Continuous Poller (D-Pad Panning & L2+RStick Zoom)
+-- ==========================================
+if not f.gamepadPoller then f.gamepadPoller = CreateFrame("Frame", nil, f) end
+f.gamepadPoller:SetScript("OnUpdate", function(self, elapsed)
+    if not f.isMapFocused then return end
 
---print("|cFF00FF00t1_TrackMap UI Built! Type /t1 or Ctrl+Numpad 1|r")
+    local dx, dy, zDelta = 0, 0, 0
+    local panSpeed = (800 / f.zoomLevel) * elapsed
+
+    -- D-Pad Panning (Up and Down directions swapped)
+    if IsKeyDown("PADDLEFT") then dx = panSpeed end
+    if IsKeyDown("PADDRIGHT") then dx = -panSpeed end
+    if IsKeyDown("PADDUP") then dy = -panSpeed end
+    if IsKeyDown("PADDDOWN") then dy = panSpeed end
+
+    -- L2 or R2 + Right Stick Zooming
+    if (IsKeyDown("PADLTRIGGER") or IsKeyDown("PADRTRIGGER")) and C_GamePad and C_GamePad.GetActiveDeviceID then
+        local deviceID = C_GamePad.GetActiveDeviceID()
+        if deviceID then
+            local state = C_GamePad.GetDeviceMappedState(deviceID)
+            if state and state.sticks then
+                local rs = state.sticks[2] -- Right Stick
+                if rs and math.abs(rs.y) > 0.15 then
+                    -- Adjust the '20' multiplier if you want zoom to be faster or slower
+                    zDelta = rs.y * 20 * elapsed
+                end
+            end
+        end
+    end
+
+    -- Apply Pan
+    if dx ~= 0 or dy ~= 0 then
+        f.mapOffsetX = (f.mapOffsetX or 0) + dx
+        f.mapOffsetY = (f.mapOffsetY or 0) + dy
+        f.velocityX, f.velocityY = 0, 0
+        f.targetOffsetX, f.targetOffsetY = nil, nil
+        f:UpdateMapTransform()
+    end
+
+    -- Apply Zoom
+    if zDelta ~= 0 then
+        local maxZ = f.GetDynamicMaxZoom and f:GetDynamicMaxZoom() or 20
+        local currentTarget = f.targetZoom or f.zoomLevel
+        f.targetZoom = math.max(1, math.min(maxZ, currentTarget + zDelta))
+
+        local canvasW, canvasH = f.mapCanvas:GetSize()
+        if canvasW and canvasH then
+            f.zoomPivotX = canvasW / 2
+            f.zoomPivotY = -canvasH / 2
+        end
+        f.targetOffsetX, f.targetOffsetY = nil, nil
+        f.velocityX, f.velocityY = 0, 0
+        if f.zoomSmoother then f.zoomSmoother:Show() end
+    end
+end)
