@@ -132,7 +132,7 @@ debugBtn:SetFrameLevel(f:GetFrameLevel() + 5)
 
 debugBtn:SetScript("OnClick", function(self)
     local testPanel = _G["GamepadLayout"]
-    
+
     if testPanel then
         -- Set up a one-time hook to ensure the text always matches the window state
         if not testPanel.debugBtnHooked then
@@ -578,10 +578,13 @@ function f:SetFocus(focused)
     end
 end
 
-f:HookScript("OnShow", function() f:SetFocus(false) end)
+f:HookScript("OnShow", function()
+    -- Left empty so Input.lua can successfully auto-focus the window
+end)
+
 f:HookScript("OnMouseDown", function() f:SetFocus(true) end)
 
-f:HookScript("OnHide", function() 
+f:HookScript("OnHide", function()
     f:SetFocus(false)
     -- Fail-safe: Always restore the native HUD if this window is closed via ESC or other means
     if not UIParent:IsShown() then

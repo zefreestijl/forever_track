@@ -10,6 +10,7 @@ _G.ForeverTrack = {
 }
 local core = _G.ForeverTrack
 
+
 _G.func_ToggleT0Window = function()
     local t0Frame = core.Modules.T0
     if not t0Frame then
@@ -19,15 +20,12 @@ _G.func_ToggleT0Window = function()
 
     local modules = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
 
-    if UIParent:IsShown() then
-        -- 1. Hide all built-in HUD
-        UIParent:Hide()
-
-        -- 2. Prompt up the t0_Entry window
+    if not t0Frame:IsShown() then
+        -- 1. Show the t0_Entry window (Removed UIParent:Hide() to prevent Taint)
         t0Frame:Show()
-
         -- NEW: Auto-focus the dashboard when opened
         if t0Frame.SetFocus then t0Frame:SetFocus(true) end
+
 
         -- 3. Prompt up other enabled custom addon windows
         if ForeverTrack_DB then
@@ -43,31 +41,11 @@ _G.func_ToggleT0Window = function()
             end
         end
     else
-        -- 1. Capture which custom windows are currently open BEFORE the HUD returns
-        local openWindows = {}
-        for _, modID in ipairs(modules) do
-            if _G[modID] and _G[modID]:IsShown() then
-                openWindows[modID] = true
-            end
-        end
-
-        -- NEW: Drop focus from the dashboard
+        -- 1. Drop focus from the dashboard
         if t0Frame.SetFocus then t0Frame:SetFocus(false) end
 
-        -- 2. Restore the built-in HUD
-        UIParent:Show()
-
-        -- 3. Hide ONLY the t0_Entry window
+        -- 2. Hide ONLY the t0_Entry window
         t0Frame:Hide()
-
-        -- 4. Force previously open windows to stay open and float above the HUD
-        for modID, _ in pairs(openWindows) do
-            if _G[modID] then
-                _G[modID]:SetParent(nil)
-                _G[modID]:SetFrameStrata("HIGH")
-                _G[modID]:Show()
-            end
-        end
     end
 end
 
@@ -287,7 +265,8 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     SetBindingClick("CTRL-NUMPAD4", "T4_KeybindButton") -- Added T4 Binding
 
     -- FIX: Force 1 to prevent client version mismatch errors
-    SaveBindings(1)
+    -- SaveBindings(1)
+    -- Forcing a global binding save during login severely taints the Gamepad UI.
 end)
 
 -- ==========================================
@@ -325,7 +304,12 @@ local function CycleCustomWindows()
     -- Clear focus on all custom windows
     if f0 then if f0.SetFocus then f0:SetFocus(false) else f0.isFocused = false end end
     if fDebug then if fDebug.SetFocus then fDebug:SetFocus(false) else fDebug.isFocused = false end end
-    if f1 then if f1.SetMapFocus then f1:SetMapFocus(false) else f1.isMapFocused = false end; if f1.title then f1.title:SetTextColor(1, 1, 1) end end
+    if f1 then
+        if f1.SetMapFocus then f1:SetMapFocus(false) else f1.isMapFocused = false end; if f1.title then
+            f1.title
+                :SetTextColor(1, 1, 1)
+        end
+    end
     if f3 then if f3.SetFocus then f3:SetFocus(false) else f3.isFocused = false end end
     if f4 then if f4.SetFocus then f4:SetFocus(false) else f4.isFocused = false end end
 
@@ -369,13 +353,14 @@ local bindInitializer = CreateFrame("Frame")
 bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
 bindInitializer:SetScript("OnEvent", function(self, event)
     self:UnregisterEvent(event)
-    SetBindingClick("PADBACK", "Entry_CycleButton")    -- Swallows the native Select button
-    SetBindingClick("PADFORWARD", "Entry_StartButton") -- Swallows the native Start button
+
+    SetBinding("PADBACK", nil) -- Keep PADBACK unbound natively to prevent conflicts
+    -- We do NOT bind PADFORWARD, allowing it to natively open the Game Menu securely
+
     SetBindingClick("CTRL-NUMPAD0", "T0_KeybindButton")
     SetBindingClick("CTRL-NUMPAD1", "Entry_KeybindButton")
     SetBindingClick("CTRL-NUMPAD3", "T3_KeybindButton")
-    SetBindingClick("CTRL-NUMPAD4", "T4_KeybindButton") 
-    SaveBindings(1)
+    SetBindingClick("CTRL-NUMPAD4", "T4_KeybindButton")
 end)
 
 
@@ -430,7 +415,7 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
     local aDown = IsKeyDown("PAD1")
     local bDown = IsKeyDown("PAD2")
 
-    
+
     -- REMOVED the old L2 Modifier Hijack block, we handle this purely with hardware polling now.
 
     -- 1. L2 + Select (Toggle T0) OR Single Select (Cycle Windows)
@@ -448,30 +433,36 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
     if startDown and not wasStartPressed then
         local f0 = core.Modules.T0 or _G["t0_Entry"]
         local fDebug = core.Modules.T0_Debug or _G["GamepadLayout"]
-
-        -- Close T0 Dashboard (and safely restore HUD) if it's open
-        if f0 and f0:IsShown() then
-            _G.func_ToggleT0Window()
-        end
-        
-        -- Explicitly hide the debug layout if it was expanded
-        if fDebug and fDebug:IsShown() then
-            fDebug:Hide()
-        end
-
-        -- Unfocus the remaining open custom windows (T1, T3, T4) so they stay on screen safely
         local f1 = core.Modules.T1 or _G["t1_TrackMap"]
         local f3 = core.Modules.T3 or _G["t3_TrackQst"]
         local f4 = core.Modules.T4 or _G["t4_TrackRes"]
 
-        if f1 and f1.isMapFocused then f1:SetMapFocus(false) end
-        if f3 and f3.SetFocus then f3:SetFocus(false) elseif f3 then f3.isFocused = false end
-        if f4 and f4.SetFocus then f4:SetFocus(false) elseif f4 then f4.isFocused = false end
+        local isAnyCustomWindowOpen = (f0 and f0:IsShown()) or (fDebug and fDebug:IsShown()) or (f1 and f1:IsShown()) or
+        (f3 and f3:IsShown()) or (f4 and f4:IsShown())
+
+        if isAnyCustomWindowOpen then
+            -- Close T0 Dashboard if it's open
+            if f0 and f0:IsShown() then _G.func_ToggleT0Window() end
+
+            -- Explicitly hide the debug layout if it was expanded
+            if fDebug and fDebug:IsShown() then fDebug:Hide() end
+
+            -- Unfocus the remaining open custom windows (T1, T3, T4)
+            if f1 and f1.isMapFocused then f1:SetMapFocus(false) end
+            if f3 and f3.SetFocus then f3:SetFocus(false) elseif f3 then f3.isFocused = false end
+            if f4 and f4.SetFocus then f4:SetFocus(false) elseif f4 then f4.isFocused = false end
+
+            -- Hide the native Game Menu that WoW just tried to open securely
+            if GameMenuFrame and GameMenuFrame:IsShown() then
+                GameMenuFrame:Hide()
+            end
+        end
     end
+
 
     wasSelectPressed = selectDown
     wasStartPressed = startDown
-    
+
     -- 3. Gamepad Controls (Requires L2 + A Window Focused)
     if l2Down then
         local f = core.Modules.T1
