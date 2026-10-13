@@ -269,10 +269,7 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     -- Forcing a global binding save during login severely taints the Gamepad UI.
 end)
 
--- ==========================================
--- Custom Window Focus Cycler
--- ==========================================
-
+--
 
 -- ==========================================
 -- Custom Window Focus Cycler
@@ -301,14 +298,12 @@ local function CycleCustomWindows()
         if (win.id == 0 or win.id == 3 or win.id == 4 or win.id == 99) and win.frame.isFocused then currentIndex = i end
     end
 
-    -- Clear focus on all custom windows
+    -- Clear focus on all custom windows FIRST
     if f0 then if f0.SetFocus then f0:SetFocus(false) else f0.isFocused = false end end
     if fDebug then if fDebug.SetFocus then fDebug:SetFocus(false) else fDebug.isFocused = false end end
     if f1 then
-        if f1.SetMapFocus then f1:SetMapFocus(false) else f1.isMapFocused = false end; if f1.title then
-            f1.title
-                :SetTextColor(1, 1, 1)
-        end
+        if f1.SetMapFocus then f1:SetMapFocus(false) else f1.isMapFocused = false end
+        if f1.title then f1.title:SetTextColor(1, 1, 1) end
     end
     if f3 then if f3.SetFocus then f3:SetFocus(false) else f3.isFocused = false end end
     if f4 then if f4.SetFocus then f4:SetFocus(false) else f4.isFocused = false end end
@@ -320,7 +315,22 @@ local function CycleCustomWindows()
     local nextIndex = currentIndex + 1
     if nextIndex > #openWindows then nextIndex = 1 end
 
-    -- Apply focus to the target window
+    -- ==========================================
+    -- FORCE DROP NATIVE BUILT-IN FOCUS
+    -- ==========================================
+    -- This strips the gamepad highlight away from the Party Frame, Action Bars, etc.
+    if GamePadCore and GamePadCore.ClearActiveNode then
+        GamePadCore:ClearActiveNode()
+    end
+    if ClearGamePadActiveNode then
+        ClearGamePadActiveNode()
+    end
+    if SetGamePadCursorControl then
+        SetGamePadCursorControl(false)
+    end
+    -- ==========================================
+
+    -- Apply focus to the target custom window
     local nextWin = openWindows[nextIndex]
     if nextWin.id == 1 then
         if nextWin.frame.SetMapFocus then nextWin.frame:SetMapFocus(true) else nextWin.frame.isMapFocused = true end
@@ -328,9 +338,9 @@ local function CycleCustomWindows()
     elseif nextWin.id == 0 or nextWin.id == 3 or nextWin.id == 4 or nextWin.id == 99 then
         if nextWin.frame.SetFocus then nextWin.frame:SetFocus(true) else nextWin.frame.isFocused = true end
     end
-    nextWin.frame:Raise()
+    
+    if nextWin.frame.Raise then nextWin.frame:Raise() end
 end
-
 
 --
 local cycleBtn = CreateFrame("Button", "Entry_CycleButton", nil)
@@ -397,12 +407,19 @@ local prevKeyState = {}
 
 -- Helper to detect if standard built-in windows are open
 local function AreAnyUIPanelsOpen()
+    local isStandardPanelOpen = false
     if GetUIPanel then
-        return GetUIPanel("left") or GetUIPanel("center") or GetUIPanel("right") or GetUIPanel("doublewide") or
-            GetUIPanel("fullscreen")
+        isStandardPanelOpen = GetUIPanel("left") or GetUIPanel("center") or GetUIPanel("right") or GetUIPanel("doublewide") or GetUIPanel("fullscreen")
     end
-    return false
+    
+    -- Explicitly check for Party/Social panels, LFG, and Right-Click Dropdown menus
+    local isFriendsOpen = FriendsFrame and FriendsFrame:IsShown()
+    local isLFGOpen = (PVEFrame and PVEFrame:IsShown()) or (LFGFrame and LFGFrame:IsShown())
+    local isDropDownOpen = DropDownList1 and DropDownList1:IsShown()
+    
+    return isStandardPanelOpen or isFriendsOpen or isLFGOpen or isDropDownOpen
 end
+
 
 toggleBtn:SetScript("OnUpdate", function(self, elapsed)
     elapsed = elapsed or (1 / 60)

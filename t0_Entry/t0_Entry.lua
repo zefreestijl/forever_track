@@ -522,6 +522,19 @@ f.padXBtn:SetScript("OnClick", function()
         end
     end
 end)
+
+
+-- Hidden Action for B (PAD2) - Close t0 Window
+f.padBBtn = CreateFrame("Button", "T0_PadB", f)
+f.padBBtn:SetScript("OnClick", function()
+    if _G.func_ToggleT0Window then
+        _G.func_ToggleT0Window()
+    else
+        f:Hide()
+    end
+end)
+
+
 -- ==========================================
 
 f.isFocused = false
@@ -530,6 +543,9 @@ f.isFocused = false
 function f:SetFocus(focused)
     f.isFocused = focused
     if focused then
+        -- Push the window to the absolute top layer above built-in UI
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+
         f.focusBorder:Show()
         f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1)
         f.focusBorder.glowAnim:Play()
@@ -537,7 +553,6 @@ function f:SetFocus(focused)
 
         if not InCombatLockdown() then
             if SetGamePadCursorControl then SetGamePadCursorControl(false) end
-
 
             for _, key in ipairs(padKeysToBlock) do
                 if key == "PADDUP" then
@@ -550,6 +565,8 @@ function f:SetFocus(focused)
                     SetOverrideBindingClick(f.padBlocker, true, key, "T0_TabRight")
                 elseif key == "PAD1" then      -- A Button (Confirm)
                     SetOverrideBindingClick(f.padBlocker, true, key, "T0_PadSelect")
+                elseif key == "PAD2" then      -- B Button (Close Window)
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T0_PadB")
                 elseif key == "PAD3" then      -- X Button (Enable/Disable Checkbox)
                     SetOverrideBindingClick(f.padBlocker, true, key, "T0_PadX")
                 else
@@ -558,11 +575,16 @@ function f:SetFocus(focused)
                 end
                 SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
             end
+            
         end
 
         f.selectedIndex = 1
         f:UpdateSelectionVisuals()
     else
+        -- Restore the window down to standard UI level
+        f:SetFrameStrata("MEDIUM")
+        f:SetFrameLevel(100)
+
         f.focusBorder:Hide()
         f.focusBorder.glowAnim:Stop()
         if f.title then f.title:SetTextColor(1, 1, 1) end
@@ -579,6 +601,8 @@ function f:SetFocus(focused)
         if f.UpdateSelectionVisuals then f:UpdateSelectionVisuals() end
     end
 end
+
+--
 
 f:HookScript("OnShow", function()
     -- Left empty so Input.lua can successfully auto-focus the window

@@ -1676,9 +1676,15 @@ if not f.partyFrames then
     end
 end
 
+
+--
 if not f.partyTracker then f.partyTracker = CreateFrame("Frame", nil, f.mapCanvas) end
 f.partyTracker:SetScript("OnUpdate", function()
     local contentW, contentH = f.mapContent:GetSize()
+
+    -- Table to track visual positions of players this frame to prevent overlap
+    local placedPins = {}
+
     for i = 1, 4 do
         local unit, pf, showPartyMember, drawX, drawY = "party" .. i, f.partyFrames[i], false, 0, 0
         if UnitExists(unit) and UnitIsConnected(unit) then
@@ -1712,17 +1718,66 @@ f.partyTracker:SetScript("OnUpdate", function()
             else
                 pf.tex:SetVertexColor(0.5, 0.5, 1, 1)
             end
+
+            -- Save logical coordinates for map interactions (zooming on click)
             pf.pX, pf.pY = drawX, drawY
+
             local drawUI_X, drawUI_Y = f.currentMapID == 947 and LogicalToUIPercent(drawX, drawY) or drawX,
                 f.currentMapID == 947 and select(2, LogicalToUIPercent(drawX, drawY)) or drawY
+
+            -- Calculate target visual pixels
+            local pxX = drawUI_X * contentW
+            local pxY = -drawUI_Y * contentH
+
+            -- Overlap Avoidance Algorithm (Spiral offset)
+            local pinSize = 8 / f.zoomLevel
+            local minSpacingSq = pinSize * pinSize
+            local attempts = 0
+            local angle = 0
+            local offsetRadius = pinSize * 0.8
+
+            while attempts < 15 do
+                local overlap = false
+                for _, otherPin in ipairs(placedPins) do
+                    local dx = pxX - otherPin.x
+                    local dy = pxY - otherPin.y
+                    if (dx * dx + dy * dy) < minSpacingSq then
+                        overlap = true
+                        break
+                    end
+                end
+
+                if not overlap then break end
+
+                -- Shift the point outward in a circle
+                attempts = attempts + 1
+                angle = angle + (math.pi / 2.5) -- Rotate by roughly 72 degrees
+                pxX = pxX + (math.cos(angle) * offsetRadius)
+                pxY = pxY + (math.sin(angle) * offsetRadius)
+
+                -- Expand the search radius if a tight circle is full
+                if attempts % 5 == 0 then
+                    offsetRadius = offsetRadius + (pinSize * 0.5)
+                end
+            end
+
+            -- Record final valid position for the next party member check
+            table.insert(placedPins, { x = pxX, y = pxY })
+
             pf:Show(); pf:SetSize(6 / f.zoomLevel, 6 / f.zoomLevel)
             if pf.SetScale then pf:SetScale(1) end
-            pf:ClearAllPoints(); pf:SetPoint("CENTER", f.mapContent, "TOPLEFT", drawUI_X * contentW, -drawUI_Y * contentH)
+            pf:ClearAllPoints();
+
+            -- Anchor using the modified pixel coordinates instead of raw percentage
+            pf:SetPoint("CENTER", f.mapContent, "TOPLEFT", pxX, pxY)
         else
             pf:Hide(); pf.pX, pf.pY = nil, nil
         end
     end
 end)
+
+
+--
 
 f.corpseFrame = CreateFrame("Frame", nil, f.mapContent)
 f.corpseFrame:SetFrameLevel(f.mapContent:GetFrameLevel() + 55)
@@ -2021,14 +2076,21 @@ f.padABtn:SetScript("OnClick", function()
     end
 end)
 
--- B (PAD2) - Return to World Map
+-- B (PAD2) - Unfocus Map Window
 f.padBBtn = CreateFrame("Button", "T1_PadB", f)
 f.padBBtn:SetScript("OnClick", function()
+    f:SetMapFocus(false)
+end)
+
+-- Y (PAD4) - Return to World Map
+f.padYBtn = CreateFrame("Button", "T1_PadY", f)
+f.padYBtn:SetScript("OnClick", function()
     if f.currentMapID ~= 947 then
         f:LoadMap(947)
         if f.UpdateMapTransform then f:UpdateMapTransform() end
     end
 end)
+
 
 -- L3 (PADLSTICK) - Recenter on Player
 f.padL3Btn = CreateFrame("Button", "T1_PadL3", f)
@@ -2086,6 +2148,9 @@ f.isMapFocused = false
 function f:SetMapFocus(focused)
     f.isMapFocused = focused
     if focused then
+        -- Push the window to the absolute top layer above built-in UI
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+
         f.focusBorder:Show()
         f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1)
         f.focusBorder.glowAnim:Play()
@@ -2100,6 +2165,8 @@ function f:SetMapFocus(focused)
                     SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadA")
                 elseif key == "PAD2" then
                     SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadB")
+                elseif key == "PAD4" then
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadY")
                 elseif key == "PADLSTICK" then
                     SetOverrideBindingClick(f.padBlocker, true, key, "T1_PadL3")
                 elseif key == "PADRSTICK" then
@@ -2111,6 +2178,10 @@ function f:SetMapFocus(focused)
             end
         end
     else
+        -- Restore the window down to standard UI level
+        f:SetFrameStrata("MEDIUM")
+        f:SetFrameLevel(100) -- Restore the original frame level defined at creation
+
         f.focusBorder:Hide()
         f.focusBorder.glowAnim:Stop()
 

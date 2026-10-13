@@ -67,7 +67,11 @@
         "ToggleWorldMap",
         "ToggleGameMenu",
         "ToggleDropDownMenu",
-        "ChatFrame_OpenChat"
+        "ChatFrame_OpenChat",
+        "FriendsFrame",
+        "DropDownList1",
+        "PVEFrame",
+        "PartyFrame"
     ],
     "Lua.type.weakUnionCheck": true
 }

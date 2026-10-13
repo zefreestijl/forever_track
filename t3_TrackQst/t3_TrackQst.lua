@@ -82,6 +82,14 @@ local function CreateMenuBtn(parent, index)
     local ht = btn:CreateTexture(nil, "HIGHLIGHT")
     ht:SetColorTexture(1, 1, 1, 0.2)
     ht:SetAllPoints()
+
+    -- Sync mouse hover with gamepad selection
+    btn:SetScript("OnEnter", function(self)
+        if parent.UpdateSelection then
+            parent.selectedIndex = self.menuIndex
+            parent:UpdateSelection()
+        end
+    end)
     return btn
 end
 
@@ -91,13 +99,77 @@ customMenu.title.text:SetTextColor(1, 0.82, 0)
 
 customMenu.btnFocus = CreateMenuBtn(customMenu, 2)
 customMenu.btnFocus.text:SetText("Focus & Map")
+customMenu.btnFocus.menuIndex = 1
 
 customMenu.btnAbandon = CreateMenuBtn(customMenu, 3)
 customMenu.btnAbandon.text:SetText("Abandon Quest")
+customMenu.btnAbandon.menuIndex = 2
 
 customMenu.btnCancel = CreateMenuBtn(customMenu, 4)
 customMenu.btnCancel.text:SetText("Cancel")
+customMenu.btnCancel.menuIndex = 3
 customMenu.btnCancel:SetScript("OnClick", function() customMenu:Hide() end)
+
+-- Gamepad Selection State
+customMenu.buttons = { customMenu.btnFocus, customMenu.btnAbandon, customMenu.btnCancel }
+customMenu.selectedIndex = 1
+
+function customMenu:UpdateSelection()
+    for i, btn in ipairs(self.buttons) do
+        if i == self.selectedIndex then
+            btn.text:SetTextColor(1, 0.82, 0) -- Highlight gold
+        else
+            btn.text:SetTextColor(1, 1, 1)    -- Standard white
+        end
+    end
+end
+
+function customMenu:MoveSelection(delta)
+    self.selectedIndex = self.selectedIndex + delta
+    if self.selectedIndex < 1 then self.selectedIndex = #self.buttons end
+    if self.selectedIndex > #self.buttons then self.selectedIndex = 1 end
+    self:UpdateSelection()
+end
+
+-- Gamepad Routing Blockers
+customMenu.padBlocker = CreateFrame("Button", "T3_MenuPadBlocker", customMenu)
+customMenu.padBlocker:SetScript("OnClick", function() end)
+
+local btnUp = CreateFrame("Button", "T3_MenuUp", customMenu)
+btnUp:SetScript("OnClick", function() customMenu:MoveSelection(-1) end)
+
+local btnDown = CreateFrame("Button", "T3_MenuDown", customMenu)
+btnDown:SetScript("OnClick", function() customMenu:MoveSelection(1) end)
+
+local btnSelect = CreateFrame("Button", "T3_MenuSelect", customMenu)
+btnSelect:SetScript("OnClick", function()
+    local btn = customMenu.buttons[customMenu.selectedIndex]
+    if btn then
+        local onClick = btn:GetScript("OnClick")
+        if onClick then onClick(btn) end
+    end
+end)
+
+local btnCancel = CreateFrame("Button", "T3_MenuCancel", customMenu)
+btnCancel:SetScript("OnClick", function() customMenu:Hide() end)
+
+-- Hook Bindings on Show/Hide
+customMenu:SetScript("OnShow", function(self)
+    self.selectedIndex = 1
+    self:UpdateSelection()
+    if not InCombatLockdown() then
+        SetOverrideBindingClick(self.padBlocker, true, "PADDUP", "T3_MenuUp")
+        SetOverrideBindingClick(self.padBlocker, true, "PADDDOWN", "T3_MenuDown")
+        SetOverrideBindingClick(self.padBlocker, true, "PAD1", "T3_MenuSelect") -- A Button
+        SetOverrideBindingClick(self.padBlocker, true, "PAD2", "T3_MenuCancel") -- B Button
+    end
+end)
+
+customMenu:SetScript("OnHide", function(self)
+    if not InCombatLockdown() then
+        ClearOverrideBindings(self.padBlocker)
+    end
+end)
 
 -- Auto-hide when clicking anywhere else
 customMenu:SetScript("OnUpdate", function(self)
@@ -107,6 +179,8 @@ customMenu:SetScript("OnUpdate", function(self)
         end
     end
 end)
+
+
 
 --
 local abandonConfirmFrame = CreateFrame("Frame", "T3_AbandonConfirmFrame", UIParent, "BasicFrameTemplateWithInset")
@@ -1068,7 +1142,7 @@ UpdateQuestList = function()
 
         --
 
-      
+
         qBtn:SetScript("OnClick", function(self, button)
             if button == "RightButton" then
                 if IsShiftKeyDown() then
@@ -1092,7 +1166,7 @@ UpdateQuestList = function()
                     -- 2. Populate Custom Menu
                     if customMenu then
                         customMenu.title.text:SetText(questInfo.title)
-                        
+
                         customMenu.btnFocus:SetScript("OnClick", function()
                             customMenu:Hide()
                             local qID = questInfo.questID
@@ -1143,8 +1217,10 @@ UpdateQuestList = function()
                                         if modernMapID then _G.func_OpenZoneMapByID(modernMapID) end
                                     end
                                 else
-                                    local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and QuestUtils_GetQuestMapID(qID) or nil
-                                    if fallbackMapID and _G.func_OpenZoneMapByID then _G.func_OpenZoneMapByID(fallbackMapID) end
+                                    local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and
+                                    QuestUtils_GetQuestMapID(qID) or nil
+                                    if fallbackMapID and _G.func_OpenZoneMapByID then _G.func_OpenZoneMapByID(
+                                        fallbackMapID) end
                                 end
                             end
                         end)
@@ -1153,15 +1229,14 @@ UpdateQuestList = function()
                             customMenu:Hide()
                             abandonConfirmFrame.questID = questInfo.questID
                             abandonConfirmFrame.logIndex = logIndex
-                            abandonConfirmFrame.text:SetText(string.format("Abandon Quest: %s?", questInfo.title or "Unknown"))
+                            abandonConfirmFrame.text:SetText(string.format("Abandon Quest: %s?",
+                                questInfo.title or "Unknown"))
                             abandonConfirmFrame:Show()
                         end)
 
-                        -- 3. Show and position at cursor
-                        local x, y = GetCursorPosition()
-                        local scale = UIParent:GetEffectiveScale()
+                        -- 3. Show and position at the left of the quest button
                         customMenu:ClearAllPoints()
-                        customMenu:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+                        customMenu:SetPoint("TOPRIGHT", self, "TOPLEFT", -2, 0)
                         customMenu:Show()
                     end
                 end
@@ -1175,7 +1250,7 @@ UpdateQuestList = function()
                         if not s or type(l) ~= "string" then s, l = pcall(GetQuestLink, logIndex) end
                         if s and l then questLink = l end
                     end
-                    
+
                     if questLink then
                         local editBox = ChatEdit_GetActiveWindow()
                         if editBox then
