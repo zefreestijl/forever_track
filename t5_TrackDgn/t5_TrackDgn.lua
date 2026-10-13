@@ -1,23 +1,23 @@
 -- 1. Create the Main Frame
-local f = CreateFrame("Frame", "t5_TrackDgn", nil,"BasicFrameTemplateWithInset")
+local f = CreateFrame("Frame", "t5_TrackDgn", nil, "BasicFrameTemplateWithInset")
 
 
 
 local uiScale = UIParent:GetEffectiveScale()
-if not uiScale or uiScale <= 0.1 then 
+if not uiScale or uiScale <= 0.1 then
     uiScale = 1 -- Fallback to standard 100% scale if the game hasn't loaded UIParent yet
 end
 f:SetScale(uiScale)
 
 
-f:SetSize(250, 250) 
-f:SetPoint("TOPRIGHT", nil,"TOPRIGHT", -5, -33)
+f:SetSize(250, 250)
+f:SetPoint("TOPRIGHT", nil, "TOPRIGHT", -5, -33)
 
 
 f.ResetLayout = function(self)
     self:ClearAllPoints()
     self:SetPoint("TOPRIGHT", nil, "TOPRIGHT", -5, -33) -- T1's specific default position
-    self:SetSize(250, 250)                           -- T1's specific default size
+    self:SetSize(250, 250)                              -- T1's specific default size
 end
 
 
@@ -53,7 +53,7 @@ collapseBtn:SetText("_")
 local isCollapsed = false
 collapseBtn:SetScript("OnClick", function()
     if isCollapsed then
-        f:SetHeight(f:GetWidth()) 
+        f:SetHeight(f:GetWidth())
         if f.Bg then f.Bg:Show() end
         if f.InsetBg then f.InsetBg:Show() end
         Minimap:Show()
@@ -105,13 +105,13 @@ hoverOverlay:Hide()
 -- NEW TEXT: White Player Coordinates (Most Bottom)
 f.playerText = hoverOverlay:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 f.playerText:SetPoint("BOTTOM", f, "BOTTOM", 0, 6)
-f.playerText:SetTextColor(1, 1, 1, 1) 
+f.playerText:SetTextColor(1, 1, 1, 1)
 f.playerText:SetText("")
 
 -- BASE TEXT: Grey Raw Grid Coordinates (Middle)
 f.coordText = hoverOverlay:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 f.coordText:SetPoint("BOTTOM", f.playerText, "TOP", 0, 2)
-f.coordText:SetTextColor(0.6, 0.6, 0.6, 1) 
+f.coordText:SetTextColor(0.6, 0.6, 0.6, 1)
 f.coordText:SetText("")
 
 -- CONVERTED TEXT: Pure Yellow Converted Coordinates (Top)
@@ -121,7 +121,7 @@ f.convertedText:SetTextColor(1, 1, 0, 1)
 f.convertedText:SetText("")
 
 local hoverMarker = hoverOverlay:CreateTexture(nil, "OVERLAY")
-hoverMarker:SetColorTexture(1, 0, 0, 1) 
+hoverMarker:SetColorTexture(1, 0, 0, 1)
 hoverMarker:SetSize(6, 6)
 hoverMarker:Hide()
 
@@ -189,22 +189,22 @@ hoverOverlay:SetScript("OnUpdate", function(self)
     if self:IsMouseOver() then
         local cursorX, cursorY = GetCursorPosition()
         local scale = self:GetEffectiveScale()
-        
+
         local localX = (cursorX / scale) - self:GetLeft()
         local localY = (cursorY / scale) - self:GetBottom()
-        
+
         hoverMarker:ClearAllPoints()
         hoverMarker:SetPoint("CENTER", self, "BOTTOMLEFT", localX, localY)
-        
+
         local pctX = (localX / self:GetWidth()) * 100
         local pctY = (localY / self:GetHeight()) * 100
-        
+
         pctX = math.max(0, math.min(100, pctX))
         pctY = math.max(0, math.min(100, pctY))
-        pctY = 100 - pctY 
-        
+        pctY = 100 - pctY
+
         f.coordText:SetFormattedText("Grid: %.1f, %.1f", pctX, pctY)
-        
+
         local convX = pctX - ORIGIN_X
         local convY = pctY - ORIGIN_Y
         f.convertedText:SetFormattedText("Hover: %.1f, %.1f", convX, convY)
@@ -233,40 +233,40 @@ local function CaptureMinimap()
     origMinimapParent = Minimap:GetParent()
     origWidth, origHeight = Minimap:GetSize()
     origZoom = Minimap:GetZoom()
-    
+
     wipe(origMinimapPoints)
     for i = 1, Minimap:GetNumPoints() do
         local point, relativeTo, relativePoint, xOfs, yOfs = Minimap:GetPoint(i)
-        origMinimapPoints[i] = {point, relativeTo, relativePoint, xOfs, yOfs}
+        origMinimapPoints[i] = { point, relativeTo, relativePoint, xOfs, yOfs }
     end
 
     Minimap:SetParent(f)
     Minimap:ClearAllPoints()
-    Minimap:SetPoint("CENTER", f, "CENTER", 0, -10) 
-    
+    Minimap:SetPoint("CENTER", f, "CENTER", 0, -10)
+
     local mapSize = f:GetWidth() - 32
-    Minimap:SetSize(mapSize, mapSize) 
+    Minimap:SetSize(mapSize, mapSize)
     Minimap:SetMaskTexture("Interface/BUTTONS/WHITE8X8")
-    
+
     Minimap:SetZoom(0)
-    
+
     hoverOverlay:SetAllPoints(Minimap)
     hoverOverlay:Show()
-    
+
     if MinimapBorder then MinimapBorder:Hide() end
     if MinimapBorderTop then MinimapBorderTop:Hide() end
     if MinimapCompassTexture then MinimapCompassTexture:Hide() end
     if MiniMapWorldMapButton then MiniMapWorldMapButton:Hide() end
     if MinimapZoneTextButton then MinimapZoneTextButton:Hide() end
-    
-    if MinimapZoomIn then 
+
+    if MinimapZoomIn then
         MinimapZoomIn:Hide()
         MinimapZoomIn.OrigShow = MinimapZoomIn.Show
         MinimapZoomIn.OrigSetAlpha = MinimapZoomIn.SetAlpha
         MinimapZoomIn.Show = function() end
         MinimapZoomIn.SetAlpha = function() end
     end
-    if MinimapZoomOut then 
+    if MinimapZoomOut then
         MinimapZoomOut:Hide()
         MinimapZoomOut.OrigShow = MinimapZoomOut.Show
         MinimapZoomOut.OrigSetAlpha = MinimapZoomOut.SetAlpha
@@ -278,29 +278,29 @@ end
 local function ReleaseMinimap()
     if not isCaptured then return end
     isCaptured = false
-    
+
     hoverOverlay:Hide()
     f.coordText:SetText("")
     f.convertedText:SetText("")
     f.playerText:SetText("")
-    
+
     Minimap:SetParent(origMinimapParent)
     Minimap:ClearAllPoints()
     for _, pt in ipairs(origMinimapPoints) do
         Minimap:SetPoint(pt[1], pt[2], pt[3], pt[4], pt[5])
     end
-    Minimap:SetSize(origWidth, origHeight) 
-    
+    Minimap:SetSize(origWidth, origHeight)
+
     if origZoom then Minimap:SetZoom(origZoom) end
     Minimap:SetMaskTexture("Interface/CharacterFrame/TempPortraitAlphaMask")
-    
+
     if MinimapBorder then MinimapBorder:Show() end
     if MinimapBorderTop then MinimapBorderTop:Show() end
     if MinimapCompassTexture then MinimapCompassTexture:Show() end
     if MiniMapWorldMapButton then MiniMapWorldMapButton:Show() end
     if MinimapZoneTextButton then MinimapZoneTextButton:Show() end
-    
-    if MinimapZoomIn and MinimapZoomIn.OrigShow then 
+
+    if MinimapZoomIn and MinimapZoomIn.OrigShow then
         MinimapZoomIn.Show = MinimapZoomIn.OrigShow
         MinimapZoomIn.SetAlpha = MinimapZoomIn.OrigSetAlpha
         MinimapZoomIn.OrigShow = nil
@@ -308,7 +308,7 @@ local function ReleaseMinimap()
         MinimapZoomIn:SetAlpha(1)
         MinimapZoomIn:Show()
     end
-    if MinimapZoomOut and MinimapZoomOut.OrigShow then 
+    if MinimapZoomOut and MinimapZoomOut.OrigShow then
         MinimapZoomOut.Show = MinimapZoomOut.OrigShow
         MinimapZoomOut.SetAlpha = MinimapZoomOut.OrigSetAlpha
         MinimapZoomOut.OrigShow = nil
@@ -328,14 +328,14 @@ local isUpdatingSize = false
 f:SetScript("OnSizeChanged", function(self, width, height)
     if isUpdatingSize then return end
     isUpdatingSize = true
-    
+
     self:SetSize(width, width)
-    
+
     if isCaptured and not isCollapsed then
         local mapSize = width - 32
         Minimap:SetSize(mapSize, mapSize)
     end
-    
+
     isUpdatingSize = false
 end)
 
@@ -371,7 +371,7 @@ bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
 bindInitializer:SetScript("OnEvent", function(self, event)
     self:UnregisterEvent(event)
     SetBindingClick("CTRL-NUMPAD5", "T5_UniqueKeybindButton")
-    SaveBindings(GetCurrentBindingSet())
+    SaveBindings(GetCurrentBindingSet() or 1)
 end)
 
 --print("|cFF00FF00t5_TrackDgn loaded! Type /t5 or press Ctrl+Numpad 5 to toggle.|r")

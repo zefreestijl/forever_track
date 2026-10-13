@@ -7,6 +7,8 @@ local f = CreateFrame("Frame", "t0_Entry", nil, "BasicFrameTemplateWithInset")
 -- Save the frame to the global module registry for Input.lua to access
 _G.ForeverTrack.Modules.T0 = f
 
+
+
 -- FIX: Prevent FLT_OVERFLOW crash by ensuring scale is never 0 during load
 local uiScale = UIParent:GetEffectiveScale()
 if not uiScale or uiScale <= 0.1 then

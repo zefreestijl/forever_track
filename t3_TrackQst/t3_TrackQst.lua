@@ -52,6 +52,118 @@ if locale == "zhTW" then
     L.READY = "(完成)"
 end
 
+--
+
+-- Custom Taint-Free Context Menu
+local customMenu = CreateFrame("Frame", "T3_CustomContextMenu", UIParent, "BackdropTemplate")
+customMenu:SetSize(140, 100)
+customMenu:SetFrameStrata("TOOLTIP")
+customMenu:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true,
+    tileSize = 16,
+    edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 }
+})
+customMenu:SetBackdropColor(0, 0, 0, 0.9)
+customMenu:Hide()
+
+local function CreateMenuBtn(parent, index)
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetSize(130, 20)
+    btn:SetPoint("TOP", 0, -10 - ((index - 1) * 20))
+    btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    btn.text:SetPoint("LEFT", 10, 0)
+    btn.text:SetWidth(110)
+    btn.text:SetWordWrap(false)
+    btn.text:SetJustifyH("LEFT")
+
+    local ht = btn:CreateTexture(nil, "HIGHLIGHT")
+    ht:SetColorTexture(1, 1, 1, 0.2)
+    ht:SetAllPoints()
+    return btn
+end
+
+customMenu.title = CreateMenuBtn(customMenu, 1)
+customMenu.title:Disable()
+customMenu.title.text:SetTextColor(1, 0.82, 0)
+
+customMenu.btnFocus = CreateMenuBtn(customMenu, 2)
+customMenu.btnFocus.text:SetText("Focus & Map")
+
+customMenu.btnAbandon = CreateMenuBtn(customMenu, 3)
+customMenu.btnAbandon.text:SetText("Abandon Quest")
+
+customMenu.btnCancel = CreateMenuBtn(customMenu, 4)
+customMenu.btnCancel.text:SetText("Cancel")
+customMenu.btnCancel:SetScript("OnClick", function() customMenu:Hide() end)
+
+-- Auto-hide when clicking anywhere else
+customMenu:SetScript("OnUpdate", function(self)
+    if IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton") then
+        if not self:IsMouseOver() then
+            self:Hide()
+        end
+    end
+end)
+
+--
+local abandonConfirmFrame = CreateFrame("Frame", "T3_AbandonConfirmFrame", UIParent, "BasicFrameTemplateWithInset")
+abandonConfirmFrame:SetSize(300, 120)
+abandonConfirmFrame:SetPoint("CENTER")
+abandonConfirmFrame:SetFrameStrata("DIALOG")
+abandonConfirmFrame:Hide()
+
+abandonConfirmFrame.title = abandonConfirmFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+abandonConfirmFrame.title:SetPoint("TOP", 0, -6)
+abandonConfirmFrame.title:SetText("Abandon Quest")
+
+abandonConfirmFrame.text = abandonConfirmFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+abandonConfirmFrame.text:SetPoint("CENTER", 0, 10)
+abandonConfirmFrame.text:SetWidth(280)
+abandonConfirmFrame.text:SetWordWrap(true)
+
+abandonConfirmFrame.yesBtn = CreateFrame("Button", nil, abandonConfirmFrame, "UIPanelButtonTemplate")
+abandonConfirmFrame.yesBtn:SetSize(90, 24)
+abandonConfirmFrame.yesBtn:SetPoint("BOTTOMLEFT", 40, 15)
+abandonConfirmFrame.yesBtn:SetText("Yes")
+
+abandonConfirmFrame.noBtn = CreateFrame("Button", nil, abandonConfirmFrame, "UIPanelButtonTemplate")
+abandonConfirmFrame.noBtn:SetSize(90, 24)
+abandonConfirmFrame.noBtn:SetPoint("BOTTOMRIGHT", -40, 15)
+abandonConfirmFrame.noBtn:SetText("No")
+
+abandonConfirmFrame.noBtn:SetScript("OnClick", function()
+    abandonConfirmFrame:Hide()
+end)
+
+abandonConfirmFrame.yesBtn:SetScript("OnClick", function()
+    if abandonConfirmFrame.questID then
+        -- 1. Safely Select
+        if C_QuestLog and type(C_QuestLog.SetSelectedQuest) == "function" then
+            pcall(C_QuestLog.SetSelectedQuest, abandonConfirmFrame.questID)
+        elseif type(SelectQuestLogEntry) == "function" then
+            pcall(SelectQuestLogEntry, abandonConfirmFrame.logIndex)
+        end
+
+        -- 2. Safely Abandon
+        if C_QuestLog and type(C_QuestLog.SetAbandonQuest) == "function" then
+            pcall(C_QuestLog.SetAbandonQuest)
+            if type(C_QuestLog.AbandonQuest) == "function" then pcall(C_QuestLog.AbandonQuest) end
+        elseif type(SetAbandonQuest) == "function" then
+            pcall(SetAbandonQuest)
+            if type(AbandonQuest) == "function" then pcall(AbandonQuest) end
+        end
+
+        -- 3. Refresh our list
+        if UpdateQuestList then UpdateQuestList() end
+    end
+    abandonConfirmFrame:Hide()
+end)
+
+
+
 -- =========================================================================
 -- 1. Main Frame Setup & Resizing (Width set to 250)
 -- =========================================================================
@@ -863,200 +975,224 @@ UpdateQuestList = function()
                 -- Title & Basic Details
                 GameTooltip:AddLine(questInfo.title, 1, 1, 1)
                 GameTooltip:AddDoubleLine("Quest ID:", tostring(questInfo.questID), 0.7, 0.7, 0.7, 1, 0.82, 0)
-                
-                
-            -- ==========================================
-            -- T3_QuestDB Custom Data Hook
-            -- ==========================================
-            if T3_QuestDB and T3_QuestDB[questInfo.questID] then
-                local dbData = T3_QuestDB[questInfo.questID]
+
+
+                -- ==========================================
+                -- T3_QuestDB Custom Data Hook
+                -- ==========================================
+                if T3_QuestDB and T3_QuestDB[questInfo.questID] then
+                    local dbData = T3_QuestDB[questInfo.questID]
+                    GameTooltip:AddLine(" ")
+                    GameTooltip:AddLine("T3_QuestDB Info:", 0.2, 1, 0.8)
+
+                    if dbData.startedBy and #dbData.startedBy > 0 then
+                        -- Yellow ! mark
+                        GameTooltip:AddDoubleLine("|cFFFFFF00!|r Started By:", table.concat(dbData.startedBy, ", "), 1,
+                            0.82,
+                            0, 1, 1, 1)
+                    end
+
+                    if dbData.finishedBy and #dbData.finishedBy > 0 then
+                        -- Yellow ? mark
+                        GameTooltip:AddDoubleLine("|cFFFFFF00?|r Finished By:", table.concat(dbData.finishedBy, ", "), 1,
+                            0.82, 0, 1, 1, 1)
+                    end
+
+                    if dbData.objectives and #dbData.objectives > 0 then
+                        local formattedObjs = {}
+                        local qType = dbData.type or 0
+                        local labelText = "DB Objectives:"
+
+                        -- Dynamically change the label text based on the type
+                        if qType == 1 then
+                            labelText = "DB NPC:"
+                        elseif qType == 2 then
+                            labelText = "DB Object:"
+                        elseif qType == 3 then
+                            labelText = "DB Item:"
+                        end
+
+                        for _, objID in ipairs(dbData.objectives) do
+                            local objName = nil
+
+                            -- Type 1: NPC Database
+                            if qType == 1 and T3_NpcDB and T3_NpcDB[objID] then
+                                objName = T3_NpcDB[objID][1] or T3_NpcDB[objID].name
+
+                                -- Type 2: Object Database
+                            elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
+                                objName = T3_ObjectDB[objID][1] or T3_ObjectDB[objID].name
+
+                                -- Type 3: Item Database
+                            elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
+                                objName = T3_itemDB[objID].name or T3_itemDB[objID][1]
+                            end
+
+                            if objName then
+                                table.insert(formattedObjs, "[" .. objID .. "] " .. objName)
+                            else
+                                -- Fallback if the ID isn't found in the designated DB
+                                table.insert(formattedObjs, tostring(objID))
+                            end
+                        end
+
+                        GameTooltip:AddDoubleLine("|TInterface\\MoneyFrame\\UI-GoldIcon:8:8|t " .. labelText,
+                            table.concat(formattedObjs, ", "), 1, 0.5, 0, 1, 1, 1)
+                    end
+                end
+
+                -- ==========================================
+                -- Client API Item Data
+                -- ==========================================
                 GameTooltip:AddLine(" ")
-                GameTooltip:AddLine("T3_QuestDB Info:", 0.2, 1, 0.8)
 
-                if dbData.startedBy and #dbData.startedBy > 0 then
-                    -- Yellow ! mark
-                    GameTooltip:AddDoubleLine("|cFFFFFF00!|r Started By:", table.concat(dbData.startedBy, ", "), 1, 0.82,
-                        0, 1, 1, 1)
-                end
-
-                if dbData.finishedBy and #dbData.finishedBy > 0 then
-                    -- Yellow ? mark
-                    GameTooltip:AddDoubleLine("|cFFFFFF00?|r Finished By:", table.concat(dbData.finishedBy, ", "), 1,
-                        0.82, 0, 1, 1, 1)
-                end
-
-                if dbData.objectives and #dbData.objectives > 0 then
-                    local formattedObjs = {}
-                    local qType = dbData.type or 0
-                    local labelText = "DB Objectives:"
-
-                    -- Dynamically change the label text based on the type
-                    if qType == 1 then
-                        labelText = "DB NPC:"
-                    elseif qType == 2 then
-                        labelText = "DB Object:"
-                    elseif qType == 3 then
-                        labelText = "DB Item:"
+                -- Special Quest Action Item
+                if type(GetQuestLogSpecialItemInfo) == "function" then
+                    local _, _, _, questItemID = pcall(GetQuestLogSpecialItemInfo, logIndex)
+                    if questItemID then
+                        GameTooltip:AddDoubleLine(" ", tostring(questItemID), 0.7,
+                            0.7, 0.7, 0.2, 1, 0.2)
                     end
-
-                    for _, objID in ipairs(dbData.objectives) do
-                        local objName = nil
-
-                        -- Type 1: NPC Database
-                        if qType == 1 and T3_NpcDB and T3_NpcDB[objID] then
-                            objName = T3_NpcDB[objID][1] or T3_NpcDB[objID].name
-
-                            -- Type 2: Object Database
-                        elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
-                            objName = T3_ObjectDB[objID][1] or T3_ObjectDB[objID].name
-
-                            -- Type 3: Item Database
-                        elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
-                            objName = T3_itemDB[objID].name or T3_itemDB[objID][1]
-                        end
-
-                        if objName then
-                            table.insert(formattedObjs, "[" .. objID .. "] " .. objName)
-                        else
-                            -- Fallback if the ID isn't found in the designated DB
-                            table.insert(formattedObjs, tostring(objID))
-                        end
-                    end
-
-                    GameTooltip:AddDoubleLine("|TInterface\\MoneyFrame\\UI-GoldIcon:8:8|t " .. labelText,
-                        table.concat(formattedObjs, ", "), 1, 0.5, 0, 1, 1, 1)
                 end
-            end
-
-            -- ==========================================
-            -- Client API Item Data
-            -- ==========================================
-            GameTooltip:AddLine(" ")
-
-            -- Special Quest Action Item
-            if type(GetQuestLogSpecialItemInfo) == "function" then
-                local _, _, _, questItemID = pcall(GetQuestLogSpecialItemInfo, logIndex)
-                if questItemID then
-                    GameTooltip:AddDoubleLine(" ", tostring(questItemID), 0.7,
-                        0.7, 0.7, 0.2, 1, 0.2)
-                end
-            end
 
 
-                
+
                 GameTooltip:Show()
             end
         end)
-        
+
         qBtn:SetScript("OnLeave", function(self)
             self.text:SetAlpha(1.0)
             GameTooltip:Hide()
         end)
 
+        --
+
+      
         qBtn:SetScript("OnClick", function(self, button)
             if button == "RightButton" then
-                -- 1. Set the clicked quest as the focused (SuperTracked) quest
-                if type(C_SuperTrack) == "table" and type(C_SuperTrack.SetSuperTrackedQuestID) == "function" then
-                    pcall(C_SuperTrack.SetSuperTrackedQuestID, questInfo.questID)
-                elseif type(SetSuperTrackedQuestID) == "function" then
-                    pcall(SetSuperTrackedQuestID, questInfo.questID)
-                end
-
-                -- === NEW: SHIFT + RIGHT-CLICK opens built-in quest log ===
                 if IsShiftKeyDown() then
+                    -- Existing Shift+Right-Click logic to open the built-in quest log
                     if type(QuestLog_OpenToQuest) == "function" then
-                        -- Modern WoW Client API
                         QuestLog_OpenToQuest(questInfo.questID)
                     else
-                        -- Classic WoW Client Fallbacks
-                        if QuestLogFrame and not QuestLogFrame:IsShown() then
-                            ToggleQuestLog()
-                        end
-                        if type(SelectQuestLogEntry) == "function" then
-                            SelectQuestLogEntry(logIndex)
-                        end
-                        if type(QuestLog_SetSelection) == "function" then
-                            QuestLog_SetSelection(logIndex)
-                        end
-                        if type(QuestLog_Update) == "function" then
-                            QuestLog_Update()
+                        if QuestLogFrame and not QuestLogFrame:IsShown() then ToggleQuestLog() end
+                        if type(SelectQuestLogEntry) == "function" then SelectQuestLogEntry(logIndex) end
+                        if type(QuestLog_SetSelection) == "function" then QuestLog_SetSelection(logIndex) end
+                        if type(QuestLog_Update) == "function" then QuestLog_Update() end
+                    end
+                else
+                    -- 1. Set as focused (SuperTracked)
+                    if type(C_SuperTrack) == "table" and type(C_SuperTrack.SetSuperTrackedQuestID) == "function" then
+                        pcall(C_SuperTrack.SetSuperTrackedQuestID, questInfo.questID)
+                    elseif type(SetSuperTrackedQuestID) == "function" then
+                        pcall(SetSuperTrackedQuestID, questInfo.questID)
+                    end
+
+                    -- 2. Populate Custom Menu
+                    if customMenu then
+                        customMenu.title.text:SetText(questInfo.title)
+                        
+                        customMenu.btnFocus:SetScript("OnClick", function()
+                            customMenu:Hide()
+                            local qID = questInfo.questID
+                            if T3_QuestDB and T3_QuestDB[qID] then
+                                local dbData = T3_QuestDB[qID]
+                                local qType = dbData.type or 0
+                                local foundZones = {}
+
+                                if dbData.objectives and #dbData.objectives > 0 then
+                                    for _, objID in ipairs(dbData.objectives) do
+                                        if qType == 1 and T3_NpcDB and T3_NpcDB[objID] then
+                                            local zoneID = T3_NpcDB[objID][2]
+                                            if zoneID then foundZones[zoneID] = true end
+                                        elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
+                                            local zoneID = T3_ObjectDB[objID][5]
+                                            if zoneID then foundZones[zoneID] = true end
+                                        elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
+                                            local itemData = T3_itemDB[objID]
+                                            if itemData.npcDrops and #itemData.npcDrops > 0 then
+                                                for _, dropNpcID in ipairs(itemData.npcDrops) do
+                                                    if T3_NpcDB and T3_NpcDB[dropNpcID] then
+                                                        local zoneID = T3_NpcDB[dropNpcID][2]
+                                                        if zoneID then foundZones[zoneID] = true end
+                                                    end
+                                                end
+                                            end
+                                            if itemData.objectDrops and #itemData.objectDrops > 0 then
+                                                for _, dropObjID in ipairs(itemData.objectDrops) do
+                                                    if T3_ObjectDB and T3_ObjectDB[dropObjID] then
+                                                        local zoneID = T3_ObjectDB[dropObjID][5]
+                                                        if zoneID then foundZones[zoneID] = true end
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+
+                                local targetClassicZone = nil
+                                for zID, _ in pairs(foundZones) do
+                                    targetClassicZone = zID
+                                    break
+                                end
+
+                                if targetClassicZone then
+                                    if _G.func_ConvertClassicIDToMapID and _G.func_OpenZoneMapByID then
+                                        local modernMapID = _G.func_ConvertClassicIDToMapID(targetClassicZone)
+                                        if modernMapID then _G.func_OpenZoneMapByID(modernMapID) end
+                                    end
+                                else
+                                    local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and QuestUtils_GetQuestMapID(qID) or nil
+                                    if fallbackMapID and _G.func_OpenZoneMapByID then _G.func_OpenZoneMapByID(fallbackMapID) end
+                                end
+                            end
+                        end)
+
+                        customMenu.btnAbandon:SetScript("OnClick", function()
+                            customMenu:Hide()
+                            abandonConfirmFrame.questID = questInfo.questID
+                            abandonConfirmFrame.logIndex = logIndex
+                            abandonConfirmFrame.text:SetText(string.format("Abandon Quest: %s?", questInfo.title or "Unknown"))
+                            abandonConfirmFrame:Show()
+                        end)
+
+                        -- 3. Show and position at cursor
+                        local x, y = GetCursorPosition()
+                        local scale = UIParent:GetEffectiveScale()
+                        customMenu:ClearAllPoints()
+                        customMenu:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+                        customMenu:Show()
+                    end
+                end
+            else
+                -- LEFT CLICK LOGIC
+                if IsShiftKeyDown() then
+                    -- Shift + Left-Click: Safely link to chat without DropDown taint
+                    local questLink = nil
+                    if type(GetQuestLink) == "function" then
+                        local s, l = pcall(GetQuestLink, questInfo.questID)
+                        if not s or type(l) ~= "string" then s, l = pcall(GetQuestLink, logIndex) end
+                        if s and l then questLink = l end
+                    end
+                    
+                    if questLink then
+                        local editBox = ChatEdit_GetActiveWindow()
+                        if editBox then
+                            editBox:Insert(questLink)
+                        elseif type(ChatFrame_OpenChat) == "function" then
+                            ChatFrame_OpenChat(questLink)
                         end
                     end
                 else
-                    -- === EXISTING MAP LOGIC: Normal Right-Click ===
-                    -- 2. Execute POI Map lookups
-                    if T3_QuestDB and T3_QuestDB[questInfo.questID] then
-                        local dbData = T3_QuestDB[questInfo.questID]
-                        local qType = dbData.type or 0
-                        local foundZones = {}
-
-                        if dbData.objectives and #dbData.objectives > 0 then
-                            for _, objID in ipairs(dbData.objectives) do
-                                -- Type 1: NPC
-                                if qType == 1 and T3_NpcDB and T3_NpcDB[objID] then
-                                    local zoneID = T3_NpcDB[objID][2]
-                                    if zoneID then foundZones[zoneID] = true end
-
-                                    -- Type 2: Object
-                                elseif qType == 2 and T3_ObjectDB and T3_ObjectDB[objID] then
-                                    local zoneID = T3_ObjectDB[objID][5]
-                                    if zoneID then foundZones[zoneID] = true end
-
-                                    -- Type 3: Item
-                                elseif qType == 3 and T3_itemDB and T3_itemDB[objID] then
-                                    local itemData = T3_itemDB[objID]
-
-                                    if itemData.npcDrops and #itemData.npcDrops > 0 then
-                                        for _, dropNpcID in ipairs(itemData.npcDrops) do
-                                            if T3_NpcDB and T3_NpcDB[dropNpcID] then
-                                                local zoneID = T3_NpcDB[dropNpcID][2]
-                                                if zoneID then foundZones[zoneID] = true end
-                                            end
-                                        end
-                                    end
-
-                                    if itemData.objectDrops and #itemData.objectDrops > 0 then
-                                        for _, dropObjID in ipairs(itemData.objectDrops) do
-                                            if T3_ObjectDB and T3_ObjectDB[dropObjID] then
-                                                local zoneID = T3_ObjectDB[dropObjID][5]
-                                                if zoneID then foundZones[zoneID] = true end
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-                        end
-
-                        -- Extract the first found zone for mapping
-                        local targetClassicZone = nil
-                        for zID, _ in pairs(foundZones) do
-                            targetClassicZone = zID
-                            break
-                        end
-
-                        if targetClassicZone then
-                            if _G.func_ConvertClassicIDToMapID and _G.func_OpenZoneMapByID then
-                                local modernMapID = _G.func_ConvertClassicIDToMapID(targetClassicZone)
-                                if modernMapID then
-                                    _G.func_OpenZoneMapByID(modernMapID)
-                                end
-                            end
-                        else
-                            -- Fallback to client API map ID if DB fails
-                            local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and
-                                QuestUtils_GetQuestMapID(questInfo.questID) or nil
-                            if fallbackMapID and _G.func_OpenZoneMapByID then
-                                _G.func_OpenZoneMapByID(fallbackMapID)
-                            end
-                        end
-                    end
-                end -- END OF SHIFT-CLICK IF STATEMENT
-            else
-                -- Left-click expand/collapse
-                expandedQuests[questInfo.questID] = not expandedQuests[questInfo.questID]
-                UpdateQuestList()
+                    -- Normal Left-Click: Existing expand/collapse logic
+                    expandedQuests[questInfo.questID] = not expandedQuests[questInfo.questID]
+                    UpdateQuestList()
+                end
             end
         end)
+
+        --
 
         local qHeight = qBtn.text:GetStringHeight()
         qBtn:SetSize(scrollFrame:GetWidth() - 25, qHeight + 4)

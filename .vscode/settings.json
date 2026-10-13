@@ -65,7 +65,9 @@
         "CLASS_ICON_TCOORDS",
         "RETRIEVING_ITEM_INFO",
         "ToggleWorldMap",
-        "ToggleGameMenu"
+        "ToggleGameMenu",
+        "ToggleDropDownMenu",
+        "ChatFrame_OpenChat"
     ],
     "Lua.type.weakUnionCheck": true
 }

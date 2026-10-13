@@ -5,7 +5,7 @@ local f = TrackCore.T2_NPCFrame
 
 
 local uiScale = UIParent:GetEffectiveScale()
-if not uiScale or uiScale <= 0.1 then 
+if not uiScale or uiScale <= 0.1 then
     uiScale = 1 -- Fallback to standard 100% scale if the game hasn't loaded UIParent yet
 end
 f:SetScale(uiScale)
@@ -21,7 +21,7 @@ f:SetPoint("TOPLEFT", nil, "TOPLEFT", 320, -5)
 
 f.ResetLayout = function(self)
     self:ClearAllPoints()
-    self:SetPoint("TOPLEFT", nil, "TOPLEFT", 320, -5)-- T1's specific default position
+    self:SetPoint("TOPLEFT", nil, "TOPLEFT", 320, -5) -- T1's specific default position
     self:SetSize(320, 480)                            -- T1's specific default size
 end
 
@@ -416,8 +416,10 @@ RefreshLogDisplay = function()
                 row.text:SetJustifyH("LEFT")
 
                 local displayString = "• " .. item.name
-                if item.description and item.description ~= "" then displayString = displayString ..
-                    " <" .. item.description .. ">" end
+                if item.description and item.description ~= "" then
+                    displayString = displayString ..
+                        " <" .. item.description .. ">"
+                end
                 if item.comment and item.comment ~= "" then
                     displayString = displayString .. " — " .. item.comment
                     row.text:SetTextColor(1, 0.82, 0)
@@ -453,8 +455,14 @@ RefreshLogDisplay = function()
                         end
 
                         if _G.func_ToggleT1Window then
-                            local capitalCities = { [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true,
-                                [1458] = true }
+                            local capitalCities = {
+                                [1453] = true,
+                                [1454] = true,
+                                [1455] = true,
+                                [1456] = true,
+                                [1457] = true,
+                                [1458] = true
+                            }
                             if capitalCities[tMapID] then
                                 _G.func_ToggleT1Window(tMapID)
                             else
@@ -465,7 +473,7 @@ RefreshLogDisplay = function()
                         end
                     else
                         print(string.format(
-                        "|cFFFF0000Error: Map Pin failed. 'mapID', 'x', or 'y' is missing or invalid for %s!|r",
+                            "|cFFFF0000Error: Map Pin failed. 'mapID', 'x', or 'y' is missing or invalid for %s!|r",
                             item.name or "Unknown"))
                     end
 
@@ -523,9 +531,11 @@ RefreshTabs = function()
             local c = GetContinent(r)
             if not continents[c] then continents[c] = {} end
             local found = false
-            for _, v in ipairs(continents[c]) do if v == r then
+            for _, v in ipairs(continents[c]) do
+                if v == r then
                     found = true; break
-                end end
+                end
+            end
             if not found then table.insert(continents[c], r) end
         end
 
@@ -610,9 +620,11 @@ RefreshTabs = function()
             end
 
             tabBtn:SetScript("OnClick",
-                function() if activeTabZone ~= zName then
+                function()
+                    if activeTabZone ~= zName then
                         activeTabZone = zName; RefreshLogDisplay()
-                    end end)
+                    end
+                end)
             xOffset = xOffset + tabBtn:GetWidth() + spacingX
             table.insert(tabContainer.tabs, tabBtn)
         end
@@ -712,16 +724,40 @@ local function ProcessScanOrNote(customNote)
             print(string.format("Updated %s under [%s > %s > %s].", targetName, resolvedRegion, mainLocation, subLocation))
         else
             table.insert(Session_NPC_List,
-                { category = "general", name = targetName, id = targetID, description = "", comment = customNote or "", mainLocation =
-                mainLocation, subLocation = subLocation, region = resolvedRegion, mapID = mapID, x = posX, y = posY })
+                {
+                    category = "general",
+                    name = targetName,
+                    id = targetID,
+                    description = "",
+                    comment = customNote or "",
+                    mainLocation =
+                        mainLocation,
+                    subLocation = subLocation,
+                    region = resolvedRegion,
+                    mapID = mapID,
+                    x = posX,
+                    y = posY
+                })
             if targetID ~= "" then T2_NPC_DATA.customNotes[targetID] = { mapID = mapID, comment = customNote or "" } end
             print(string.format("Added %s under [%s > %s > %s].", targetName, resolvedRegion, mainLocation, subLocation))
         end
     else
         if customNote and customNote ~= "" then
             table.insert(Session_NPC_List,
-                { category = "general", name = "[Note Only]", id = "", description = "", comment = customNote, mainLocation =
-                mainLocation, subLocation = subLocation, region = resolvedRegion, mapID = mapID, x = posX, y = posY })
+                {
+                    category = "general",
+                    name = "[Note Only]",
+                    id = "",
+                    description = "",
+                    comment = customNote,
+                    mainLocation =
+                        mainLocation,
+                    subLocation = subLocation,
+                    region = resolvedRegion,
+                    mapID = mapID,
+                    x = posX,
+                    y = posY
+                })
             print(string.format("Added standalone note under [%s].", mainLocation))
         end
     end
@@ -836,7 +872,7 @@ bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
 bindInitializer:SetScript("OnEvent", function(self, event)
     self:UnregisterEvent(event)
     SetBindingClick("CTRL-NUMPAD2", "T2_TrackNPC_KeybindButton")
-    SaveBindings(GetCurrentBindingSet())
+    SaveBindings(GetCurrentBindingSet() or 1)
 end)
 
 -- ==========================================
@@ -844,11 +880,11 @@ end)
 -- ==========================================
 _G.func_T2_GetNpcInfos = function(mapID)
     local results = {}
-    
+
     -- Ensure the requested mapID is a strict number for comparison
     local targetMapID = tonumber(mapID)
-    if not targetMapID then 
-        return results 
+    if not targetMapID then
+        return results
     end
 
     -- Iterate through the active session list
@@ -866,6 +902,6 @@ _G.func_T2_GetNpcInfos = function(mapID)
             end
         end
     end
-    
+
     return results
 end
