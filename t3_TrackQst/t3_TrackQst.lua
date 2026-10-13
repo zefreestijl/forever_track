@@ -1624,27 +1624,47 @@ end
 local timerUpdateAccumulator = 0
 local autoCollapsedByBags = false
 
--- Define the visual updater ONCE outside the loop
-f.UpdateSelectionVisuals = function(self)
-    if not self.activeLines or #self.activeLines == 0 then return end
-    for i, line in ipairs(self.activeLines) do
-        if i == self.selectedIndex then
-            -- Elevate to ARTWORK layer to prevent clipping and apply Grey (0.5 Opacity)
-            line.bg:SetDrawLayer("ARTWORK")
-            line.bg:SetColorTexture(0.5, 0.5, 0.5, 0.5)
-            line.bg:Show()
 
-            local onEnter = line:GetScript("OnEnter")
-            if onEnter then onEnter(line) end
+f.bottomButtons = { btnCollapseAll, btnExpandAll, btnUntrackAll }
+f.bottomSelectedIndex = 1
+f.isBottomRowFocused = false
+
+f.UpdateSelectionVisuals = function(self)
+    -- 1. Update the vertical quest list
+    if self.activeLines and #self.activeLines > 0 then
+        for i, line in ipairs(self.activeLines) do
+            if not self.isBottomRowFocused and i == self.selectedIndex then
+                -- Elevate to ARTWORK layer to prevent clipping and apply Grey
+                line.bg:SetDrawLayer("ARTWORK")
+                line.bg:SetColorTexture(0.5, 0.5, 0.5, 0.5)
+                line.bg:Show()
+
+                local onEnter = line:GetScript("OnEnter")
+                if onEnter then onEnter(line) end
+            else
+                -- Hide background and remove Tooltip
+                line.bg:Hide()
+                local onLeave = line:GetScript("OnLeave")
+                if onLeave then onLeave(line) end
+            end
+        end
+    end
+
+    -- 2. Update the bottom utility buttons
+    for i, btn in ipairs(self.bottomButtons) do
+        if self.isBottomRowFocused and i == self.bottomSelectedIndex then
+            btn:LockHighlight()
+            local text = btn:GetFontString()
+            if text then text:SetTextColor(1, 0.82, 0) end -- Gold text
         else
-            -- Hide background and remove Tooltip
-            line.bg:Hide()
-            local onLeave = line:GetScript("OnLeave")
-            if onLeave then onLeave(line) end
+            btn:UnlockHighlight()
+            local text = btn:GetFontString()
+            if text then text:SetTextColor(1, 1, 1) end -- White text
         end
     end
 end
 
+--
 f:SetScript("OnUpdate", function(self, elapsed)
     -- 1. Modern & Classic Bag Visibility Check
     local isAnyBagOpen = false
@@ -1778,6 +1798,7 @@ local padKeysToBlock = {
 -- ==========================================
 -- Helper to move selection and auto-scroll
 function f:MoveSelection(delta)
+    f.isBottomRowFocused = false -- Moving D-Pad Up/Down snaps focus back to the vertical list
     if not self.activeLines or #self.activeLines == 0 then return end
     self.selectedIndex = math.max(1, math.min(#self.activeLines, (self.selectedIndex or 1) + delta))
 
@@ -1831,31 +1852,45 @@ f.padUpBtn:SetScript("OnClick", function() f:MoveSelection(-1) end)
 f.padDownBtn = CreateFrame("Button", "T3_ListDown", f)
 f.padDownBtn:SetScript("OnClick", function() f:MoveSelection(1) end)
 
+
 -- Hidden button for A (PAD1) Select
 f.padSelectBtn = CreateFrame("Button", "T3_PadSelect", f)
 f.padSelectBtn:SetScript("OnClick", function()
-    if f.activeLines and f.activeLines[f.selectedIndex] then
-        local targetLine = f.activeLines[f.selectedIndex]
-        local onClick = targetLine:GetScript("OnClick")
-        if onClick then
-            onClick(targetLine, "LeftButton")
+    if f.isBottomRowFocused then
+        -- Click the focused bottom button
+        local btn = f.bottomButtons[f.bottomSelectedIndex]
+        if btn then
+            local onClick = btn:GetScript("OnClick")
+            if onClick then onClick(btn) end
+        end
+    else
+        -- Click the focused vertical list item
+        if f.activeLines and f.activeLines[f.selectedIndex] then
+            local targetLine = f.activeLines[f.selectedIndex]
+            local onClick = targetLine:GetScript("OnClick")
+            if onClick then
+                onClick(targetLine, "LeftButton")
+            end
         end
     end
 end)
 
-
--- Hidden button for D-Pad Left (Collapse All)
+-- Hidden button for D-Pad Left (Cycle Bottom Row Left)
 f.padLeftBtn = CreateFrame("Button", "T3_ListLeft", f)
 f.padLeftBtn:SetScript("OnClick", function()
-    local onClick = btnCollapseAll:GetScript("OnClick")
-    if onClick then onClick(btnCollapseAll) end
+    f.isBottomRowFocused = true
+    f.bottomSelectedIndex = (f.bottomSelectedIndex or 1) - 1
+    if f.bottomSelectedIndex < 1 then f.bottomSelectedIndex = #f.bottomButtons end
+    f:UpdateSelectionVisuals()
 end)
 
--- Hidden button for D-Pad Right (Expand All)
+-- Hidden button for D-Pad Right (Cycle Bottom Row Right)
 f.padRightBtn = CreateFrame("Button", "T3_ListRight", f)
 f.padRightBtn:SetScript("OnClick", function()
-    local onClick = btnExpandAll:GetScript("OnClick")
-    if onClick then onClick(btnExpandAll) end
+    f.isBottomRowFocused = true
+    f.bottomSelectedIndex = (f.bottomSelectedIndex or 1) + 1
+    if f.bottomSelectedIndex > #f.bottomButtons then f.bottomSelectedIndex = 1 end
+    f:UpdateSelectionVisuals()
 end)
 
 -- Hidden button for X (PAD3) - Toggle Tracked Status
@@ -1954,6 +1989,10 @@ function f:SetFocus(focused)
                 line.bg:Hide()
             end
         end
+
+        -- Reset bottom row focus when window loses global focus
+        f.isBottomRowFocused = false
+        if f.UpdateSelectionVisuals then f:UpdateSelectionVisuals() end
     end
 end
 

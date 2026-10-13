@@ -406,7 +406,6 @@ function f:MoveSelection(delta)
     if f.UpdateSelectionVisuals then f:UpdateSelectionVisuals() end
 end
 
-
 f.UpdateSelectionVisuals = function(self)
     -- 1. Update the vertical addon list
     for i, row in ipairs(self.moduleRows) do
@@ -443,24 +442,22 @@ f.padUpBtn:SetScript("OnClick", function() f:MoveSelection(-1) end)
 f.padDownBtn = CreateFrame("Button", "T0_ListDown", f)
 f.padDownBtn:SetScript("OnClick", function() f:MoveSelection(1) end)
 
--- Hidden Actions for L1 / R1 Bottom Tabs
-f.padL1Btn = CreateFrame("Button", "T0_TabLeft", f)
-f.padL1Btn:SetScript("OnClick", function()
+-- Hidden Actions for D-Pad Left / Right Bottom Tabs
+f.padLeftBtn = CreateFrame("Button", "T0_TabLeft", f)
+f.padLeftBtn:SetScript("OnClick", function()
     f.isBottomRowFocused = true
     f.bottomSelectedIndex = (f.bottomSelectedIndex or 1) - 1
     if f.bottomSelectedIndex < 1 then f.bottomSelectedIndex = #f.bottomButtons end
     f:UpdateSelectionVisuals()
 end)
 
-f.padR1Btn = CreateFrame("Button", "T0_TabRight", f)
-f.padR1Btn:SetScript("OnClick", function()
+f.padRightBtn = CreateFrame("Button", "T0_TabRight", f)
+f.padRightBtn:SetScript("OnClick", function()
     f.isBottomRowFocused = true
     f.bottomSelectedIndex = (f.bottomSelectedIndex or 1) + 1
     if f.bottomSelectedIndex > #f.bottomButtons then f.bottomSelectedIndex = 1 end
     f:UpdateSelectionVisuals()
 end)
-
-
 
 
 -- Hidden Action for A (Select / Confirm)
@@ -494,7 +491,7 @@ f.padXBtn:SetScript("OnClick", function()
         if row and row.cb then
             -- Flip the visual checkmark state
             row.cb:SetChecked(not row.cb:GetChecked())
-            
+
             -- Execute the save/update script
             local onClick = row.cb:GetScript("OnClick")
             if onClick then onClick(row.cb) end
@@ -523,15 +520,16 @@ function f:SetFocus(focused)
                     SetOverrideBindingClick(f.padBlocker, true, key, "T0_ListUp")
                 elseif key == "PADDDOWN" then
                     SetOverrideBindingClick(f.padBlocker, true, key, "T0_ListDown")
-                elseif key == "PADLSHOULDER" then -- L1 Button
+                elseif key == "PADDLEFT" then  -- D-Pad Left Button
                     SetOverrideBindingClick(f.padBlocker, true, key, "T0_TabLeft")
-                elseif key == "PADRSHOULDER" then -- R1 Button
+                elseif key == "PADDRIGHT" then -- D-Pad Right Button
                     SetOverrideBindingClick(f.padBlocker, true, key, "T0_TabRight")
-                elseif key == "PAD1" then         -- A Button (Confirm)
+                elseif key == "PAD1" then      -- A Button (Confirm)
                     SetOverrideBindingClick(f.padBlocker, true, key, "T0_PadSelect")
-                elseif key == "PAD3" then         -- X Button (Enable/Disable Checkbox)
+                elseif key == "PAD3" then      -- X Button (Enable/Disable Checkbox)
                     SetOverrideBindingClick(f.padBlocker, true, key, "T0_PadX")
                 else
+                    -- L1 (PADLSHOULDER) and R1 (PADRSHOULDER) will now fall through to here and be safely blocked
                     SetOverrideBindingClick(f.padBlocker, true, key, f.padBlocker:GetName())
                 end
                 SetOverrideBindingClick(f.padBlocker, true, "PADLTRIGGER-" .. key, f.padBlocker:GetName())
