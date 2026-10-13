@@ -216,12 +216,12 @@ end
 -- ==========================================
 -- Gamepad & Keyboard Hotkey Bindings
 -- ==========================================
-local toggleBtn = CreateFrame("Button", "Entry_KeybindButton", nil)
+local toggleBtn = CreateFrame("Button", "T1_KeybindButton", nil)
 toggleBtn:SetSize(1, 1)
 toggleBtn:SetAlpha(0)
 toggleBtn:RegisterForClicks("AnyDown")
 toggleBtn:SetScript("OnClick", function()
-    if _G.func_ToggleT0Window then _G.func_ToggleT0Window() end
+    if _G.func_ToggleT1Window then _G.func_ToggleT1Window() end
 end)
 
 local t3ToggleBtn = CreateFrame("Button", "T3_KeybindButton", nil)
@@ -232,13 +232,6 @@ t3ToggleBtn:SetScript("OnClick", function()
     if _G.func_ToggleT3Window then _G.func_ToggleT3Window() end
 end)
 
-local t4ToggleBtn = CreateFrame("Button", "T4_KeybindButton", nil)
-t4ToggleBtn:SetSize(1, 1)
-t4ToggleBtn:SetAlpha(0)
-t4ToggleBtn:RegisterForClicks("AnyDown")
-t4ToggleBtn:SetScript("OnClick", function()
-    if _G.func_ToggleT4Window then _G.func_ToggleT4Window() end
-end)
 
 -- T4 Hidden Clickable Button
 local t4ToggleBtn = CreateFrame("Button", "T4_KeybindButton", UIParent)
@@ -260,7 +253,7 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     SetBinding("PADBACK", nil)
 
     SetBindingClick("CTRL-NUMPAD0", "T0_KeybindButton")
-    SetBindingClick("CTRL-NUMPAD1", "Entry_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD1", "T1_KeybindButton")
     SetBindingClick("CTRL-NUMPAD3", "T3_KeybindButton")
     SetBindingClick("CTRL-NUMPAD4", "T4_KeybindButton") -- Added T4 Binding
 
@@ -368,7 +361,7 @@ bindInitializer:SetScript("OnEvent", function(self, event)
     -- We do NOT bind PADFORWARD, allowing it to natively open the Game Menu securely
 
     SetBindingClick("CTRL-NUMPAD0", "T0_KeybindButton")
-    SetBindingClick("CTRL-NUMPAD1", "Entry_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD1", "T1_KeybindButton")
     SetBindingClick("CTRL-NUMPAD3", "T3_KeybindButton")
     SetBindingClick("CTRL-NUMPAD4", "T4_KeybindButton")
 end)
