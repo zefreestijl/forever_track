@@ -2091,6 +2091,12 @@ f.padYBtn:SetScript("OnClick", function()
     end
 end)
 
+-- Hidden button for B (PAD2) - Unfocus Window
+f.padBBtn = CreateFrame("Button", "T3_PadB", f)
+f.padBBtn:SetScript("OnClick", function()
+    f:SetFocus(false)
+end)
+
 
 -- ==========================================
 -- Focus Management & Key Routing
@@ -2099,6 +2105,9 @@ f.isFocused = false
 function f:SetFocus(focused)
     f.isFocused = focused
     if focused then
+        -- Push the window to the absolute top layer above built-in UI
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+        
         f.focusBorder:Show()
         f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1)
         f.focusBorder.glowAnim:Play()
@@ -2107,7 +2116,6 @@ function f:SetFocus(focused)
         if not InCombatLockdown() then
             if SetGamePadCursorControl then SetGamePadCursorControl(false) end
 
-
             for _, key in ipairs(padKeysToBlock) do
                 if key == "PADLSHOULDER" then
                     SetOverrideBindingClick(f.padBlocker, true, key, "T3_TabCycleLeft")
@@ -2115,6 +2123,9 @@ function f:SetFocus(focused)
                     SetOverrideBindingClick(f.padBlocker, true, key, "T3_TabCycleRight")
                 elseif key == "PAD1" then
                     SetOverrideBindingClick(f.padBlocker, true, key, "T3_PadSelect")
+                elseif key == "PAD2" then
+                    -- Route B Button to Unfocus
+                    SetOverrideBindingClick(f.padBlocker, true, key, "T3_PadB")
                 elseif key == "PAD3" then
                     -- Route X Button
                     SetOverrideBindingClick(f.padBlocker, true, key, "T3_PadX")
@@ -2143,6 +2154,10 @@ function f:SetFocus(focused)
         f.selectedIndex = 1
         if f.UpdateSelectionVisuals then f:UpdateSelectionVisuals() end
     else
+        -- Restore the window down to standard UI level
+        f:SetFrameStrata("MEDIUM")
+        f:SetFrameLevel(100)
+        
         f.focusBorder:Hide()
         f.focusBorder.glowAnim:Stop()
         if f.title then f.title:SetTextColor(1, 1, 1) end
@@ -2164,6 +2179,7 @@ function f:SetFocus(focused)
         if f.UpdateSelectionVisuals then f:UpdateSelectionVisuals() end
     end
 end
+
 
 -- Auto-Focus Triggers
 f:HookScript("OnShow", function() f:SetFocus(false) end)
