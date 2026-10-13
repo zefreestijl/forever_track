@@ -63,7 +63,9 @@
         "NO",
         "DressUpItemLink",
         "CLASS_ICON_TCOORDS",
-        "RETRIEVING_ITEM_INFO"
+        "RETRIEVING_ITEM_INFO",
+        "ToggleWorldMap",
+        "ToggleGameMenu"
     ],
     "Lua.type.weakUnionCheck": true
 }

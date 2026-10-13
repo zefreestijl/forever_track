@@ -25,7 +25,7 @@ _G.func_ToggleT0Window = function()
 
         -- 2. Prompt up the t0_Entry window
         t0Frame:Show()
-        
+
         -- NEW: Auto-focus the dashboard when opened
         if t0Frame.SetFocus then t0Frame:SetFocus(true) end
 
@@ -238,17 +238,15 @@ end
 -- ==========================================
 -- Gamepad & Keyboard Hotkey Bindings
 -- ==========================================
-local toggleBtn = CreateFrame("Button", "Entry_KeybindButton", UIParent)
+local toggleBtn = CreateFrame("Button", "Entry_KeybindButton", nil)
 toggleBtn:SetSize(1, 1)
 toggleBtn:SetAlpha(0)
 toggleBtn:RegisterForClicks("AnyDown")
 toggleBtn:SetScript("OnClick", function()
-    -- Changed to open T0 Dashboard instead of T1 Map
     if _G.func_ToggleT0Window then _G.func_ToggleT0Window() end
 end)
 
---
-local t3ToggleBtn = CreateFrame("Button", "T3_KeybindButton", UIParent)
+local t3ToggleBtn = CreateFrame("Button", "T3_KeybindButton", nil)
 t3ToggleBtn:SetSize(1, 1)
 t3ToggleBtn:SetAlpha(0)
 t3ToggleBtn:RegisterForClicks("AnyDown")
@@ -256,7 +254,13 @@ t3ToggleBtn:SetScript("OnClick", function()
     if _G.func_ToggleT3Window then _G.func_ToggleT3Window() end
 end)
 
-
+local t4ToggleBtn = CreateFrame("Button", "T4_KeybindButton", nil)
+t4ToggleBtn:SetSize(1, 1)
+t4ToggleBtn:SetAlpha(0)
+t4ToggleBtn:RegisterForClicks("AnyDown")
+t4ToggleBtn:SetScript("OnClick", function()
+    if _G.func_ToggleT4Window then _G.func_ToggleT4Window() end
+end)
 
 -- T4 Hidden Clickable Button
 local t4ToggleBtn = CreateFrame("Button", "T4_KeybindButton", UIParent)
@@ -290,8 +294,13 @@ end)
 -- Custom Window Focus Cycler
 -- ==========================================
 
+
+-- ==========================================
+-- Custom Window Focus Cycler
+-- ==========================================
 local function CycleCustomWindows()
     local f0 = core.Modules.T0 or _G["t0_Entry"]
+    local fDebug = core.Modules.T0_Debug or _G["GamepadLayout"]
     local f1 = core.Modules.T1 or _G["t1_TrackMap"]
     local f3 = core.Modules.T3 or _G["t3_TrackQst"]
     local f4 = core.Modules.T4 or _G["t4_TrackRes"]
@@ -299,6 +308,7 @@ local function CycleCustomWindows()
     -- Collect all currently open and uncollapsed windows
     local openWindows = {}
     if f0 and f0:IsShown() and (f0:GetHeight() > 100) then table.insert(openWindows, { frame = f0, id = 0 }) end
+    if fDebug and fDebug:IsShown() then table.insert(openWindows, { frame = fDebug, id = 99 }) end
     if f1 and f1:IsShown() and (f1:GetHeight() > 100) then table.insert(openWindows, { frame = f1, id = 1 }) end
     if f3 and f3:IsShown() and (f3:GetHeight() > 100) then table.insert(openWindows, { frame = f3, id = 3 }) end
     if f4 and f4:IsShown() and (f4:GetHeight() > 100) then table.insert(openWindows, { frame = f4, id = 4 }) end
@@ -309,28 +319,18 @@ local function CycleCustomWindows()
     local currentIndex = 0
     for i, win in ipairs(openWindows) do
         if win.id == 1 and win.frame.isMapFocused then currentIndex = i end
-        if (win.id == 0 or win.id == 3 or win.id == 4) and win.frame.isFocused then currentIndex = i end
+        if (win.id == 0 or win.id == 3 or win.id == 4 or win.id == 99) and win.frame.isFocused then currentIndex = i end
     end
 
     -- Clear focus on all custom windows
-    if f0 then
-        if f0.SetFocus then f0:SetFocus(false) else f0.isFocused = false end
-    end
-    if f1 then
-        if f1.SetMapFocus then f1:SetMapFocus(false) else f1.isMapFocused = false end
-        if f1.title then f1.title:SetTextColor(1, 1, 1) end
-    end
-    if f3 then
-        if f3.SetFocus then f3:SetFocus(false) else f3.isFocused = false end
-    end
-    if f4 then
-        if f4.SetFocus then f4:SetFocus(false) else f4.isFocused = false end
-    end
+    if f0 then if f0.SetFocus then f0:SetFocus(false) else f0.isFocused = false end end
+    if fDebug then if fDebug.SetFocus then fDebug:SetFocus(false) else fDebug.isFocused = false end end
+    if f1 then if f1.SetMapFocus then f1:SetMapFocus(false) else f1.isMapFocused = false end; if f1.title then f1.title:SetTextColor(1, 1, 1) end end
+    if f3 then if f3.SetFocus then f3:SetFocus(false) else f3.isFocused = false end end
+    if f4 then if f4.SetFocus then f4:SetFocus(false) else f4.isFocused = false end end
 
     -- If exactly 1 window is open and it was already focused, we just dropped its focus. Stop here.
-    if #openWindows == 1 and currentIndex == 1 then
-        return
-    end
+    if #openWindows == 1 and currentIndex == 1 then return end
 
     -- Target the next window in the list (wrap around to 1)
     local nextIndex = currentIndex + 1
@@ -341,18 +341,42 @@ local function CycleCustomWindows()
     if nextWin.id == 1 then
         if nextWin.frame.SetMapFocus then nextWin.frame:SetMapFocus(true) else nextWin.frame.isMapFocused = true end
         if nextWin.frame.title then nextWin.frame.title:SetTextColor(1, 0.82, 0) end
-    elseif nextWin.id == 0 or nextWin.id == 3 or nextWin.id == 4 then
+    elseif nextWin.id == 0 or nextWin.id == 3 or nextWin.id == 4 or nextWin.id == 99 then
         if nextWin.frame.SetFocus then nextWin.frame:SetFocus(true) else nextWin.frame.isFocused = true end
     end
     nextWin.frame:Raise()
 end
 
+
 --
-local cycleBtn = CreateFrame("Button", "Entry_CycleButton", UIParent)
+local cycleBtn = CreateFrame("Button", "Entry_CycleButton", nil)
 cycleBtn:SetScript("OnClick", function()
-    CycleCustomWindows()
+    local f0 = core.Modules.T0; local f1 = core.Modules.T1; local f3 = core.Modules.T3; local f4 = core.Modules.T4
+    if not ((f0 and f0:IsShown()) or (f1 and f1:IsShown()) or (f3 and f3:IsShown()) or (f4 and f4:IsShown())) then
+        ToggleWorldMap()
+    end
 end)
 
+local startBtn = CreateFrame("Button", "Entry_StartButton", nil)
+startBtn:SetScript("OnClick", function()
+    local f0 = core.Modules.T0; local f1 = core.Modules.T1; local f3 = core.Modules.T3; local f4 = core.Modules.T4
+    if not ((f0 and f0:IsShown()) or (f1 and f1:IsShown()) or (f3 and f3:IsShown()) or (f4 and f4:IsShown())) then
+        ToggleGameMenu()
+    end
+end)
+
+local bindInitializer = CreateFrame("Frame")
+bindInitializer:RegisterEvent("PLAYER_ENTERING_WORLD")
+bindInitializer:SetScript("OnEvent", function(self, event)
+    self:UnregisterEvent(event)
+    SetBindingClick("PADBACK", "Entry_CycleButton")    -- Swallows the native Select button
+    SetBindingClick("PADFORWARD", "Entry_StartButton") -- Swallows the native Start button
+    SetBindingClick("CTRL-NUMPAD0", "T0_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD1", "Entry_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD3", "T3_KeybindButton")
+    SetBindingClick("CTRL-NUMPAD4", "T4_KeybindButton") 
+    SaveBindings(1)
+end)
 
 
 -- ==========================================
@@ -406,30 +430,36 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
     local aDown = IsKeyDown("PAD1")
     local bDown = IsKeyDown("PAD2")
 
-    -- 1. L2 Modifier Hijack (Must check CombatLockdown to avoid WoW UI errors)
-    if not InCombatLockdown() then
-        if l2Down and not isL2Held then
-            isL2Held = true
-            SetOverrideBindingClick(self, true, "PADBACK", "Entry_KeybindButton")
-        elseif not l2Down and isL2Held then
-            isL2Held = false
-            ClearOverrideBindings(self)
-        end
-    end
+    
+    -- REMOVED the old L2 Modifier Hijack block, we handle this purely with hardware polling now.
 
-
-    -- 2. Custom Window Focus Cycling (Select button)
+    -- 1. L2 + Select (Toggle T0) OR Single Select (Cycle Windows)
     if selectDown and not wasSelectPressed then
-        if not l2Down then
-            -- Only cycle if WoW isn't natively trying to close a built-in window
+        if l2Down then
+            if _G.func_ToggleT0Window then _G.func_ToggleT0Window() end
+        else
             if not AreAnyUIPanelsOpen() then
                 CycleCustomWindows()
             end
         end
     end
 
-    -- 3. Panic / Unfocus Button (Start / Pause)
+    -- 2. Panic / Close T0 Button (Single Start / Pause)
     if startDown and not wasStartPressed then
+        local f0 = core.Modules.T0 or _G["t0_Entry"]
+        local fDebug = core.Modules.T0_Debug or _G["GamepadLayout"]
+
+        -- Close T0 Dashboard (and safely restore HUD) if it's open
+        if f0 and f0:IsShown() then
+            _G.func_ToggleT0Window()
+        end
+        
+        -- Explicitly hide the debug layout if it was expanded
+        if fDebug and fDebug:IsShown() then
+            fDebug:Hide()
+        end
+
+        -- Unfocus the remaining open custom windows (T1, T3, T4) so they stay on screen safely
         local f1 = core.Modules.T1 or _G["t1_TrackMap"]
         local f3 = core.Modules.T3 or _G["t3_TrackQst"]
         local f4 = core.Modules.T4 or _G["t4_TrackRes"]
@@ -439,17 +469,15 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
         if f4 and f4.SetFocus then f4:SetFocus(false) elseif f4 then f4.isFocused = false end
     end
 
-
     wasSelectPressed = selectDown
     wasStartPressed = startDown
-
+    
     -- 3. Gamepad Controls (Requires L2 + A Window Focused)
     if l2Down then
         local f = core.Modules.T1
 
         -- If T1 Map is focused, route controls to it
         if f and f:IsShown() and f.isMapFocused then
-            
             -- --- R3: ZOOM TO FIT MAP ---
             if r3Down and not wasR3Pressed then
                 if f.UpdateMapTransform then f:UpdateMapTransform() end
@@ -458,23 +486,23 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
     end
 
     -- ------------------------------------------------------
-    -- Hardware Poller for Visualizer (T4)
+    -- Hardware Poller for Visualizer (GamepadLayout)
     -- ------------------------------------------------------
-    local t4 = core.Modules.T4 or _G["t4_TrackRes"]
-    local isT4Active = t4 and t4:IsShown()
+    local debugPanel = core.Modules.T0_Debug or _G["GamepadLayout"]
+    local isDebugActive = debugPanel and debugPanel:IsShown()
 
     for _, key in ipairs(trackedPadKeys) do
         local isDown = IsKeyDown(key)
 
-        if isT4Active and t4.SetButtonState then
-            t4:SetButtonState(key, isDown)
+        if isDebugActive and debugPanel.SetButtonState then
+            debugPanel:SetButtonState(key, isDown)
         end
 
         prevKeyState[key] = isDown
     end
 
     -- Update Joystick positions on the visualizer
-    if isT4Active and t4.UpdateSticks then
+    if isDebugActive and debugPanel.UpdateSticks then
         local lx, ly, rx, ry = 0, 0, 0, 0
         if C_GamePad and C_GamePad.GetActiveDeviceID then
             local deviceID = C_GamePad.GetActiveDeviceID()
@@ -484,13 +512,12 @@ toggleBtn:SetScript("OnUpdate", function(self, elapsed)
                     local ls = state.sticks[1]
                     local rs = state.sticks[2]
                     -- Note: Sticks naturally rest slightly off-center (deadzone).
-                    -- You can wrap this in a `math.abs(val) > 0.1` deadzone check if desired.
                     if ls then lx, ly = ls.x, ls.y end
                     if rs then rx, ry = rs.x, rs.y end
                 end
             end
         end
-        t4:UpdateSticks(lx, ly, rx, ry)
+        debugPanel:UpdateSticks(lx, ly, rx, ry)
     end
 
 

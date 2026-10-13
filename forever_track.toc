@@ -8,6 +8,7 @@
 # --- 0. Core Entry and Input ---
 t0_Entry\Input.lua
 t0_Entry\t0_Entry.lua
+t0_Entry\GamepadLayout.lua
 
 # --- 1. Track Map ---
 t1_TrackMap\Data\map_data.lua

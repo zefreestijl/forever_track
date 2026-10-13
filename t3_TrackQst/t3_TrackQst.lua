@@ -839,7 +839,6 @@ UpdateQuestList = function()
 
         qBtn.text:SetText(hexDiff .. expandSymbol .. idText .. questInfo.title .. "|r" .. status)
 
-
         qBtn:SetScript("OnEnter", function(self)
             self.text:SetAlpha(0.7)
 
@@ -847,33 +846,25 @@ UpdateQuestList = function()
             if expandedQuests[questInfo.questID] then
                 f.stickyTitleFrame.text:SetFont(fontPath, f.baseFontSize + 1, fontFlags)
                 local hexDiff = GetDifficultyColorHex(questInfo.level)
-
-                -- Update this specific line:
                 f.stickyTitleFrame.text:SetText(hexDiff .. "[" .. questInfo.level .. "] " .. questInfo.title .. "|r")
 
-                -- Show the frame and gently bump the scroll area down
                 if not f.stickyTitleFrame:IsShown() then
                     f.stickyTitleFrame:Show()
                     scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 10, f.tabAreaBottom - 24)
                 end
             end
             -- ==========================================
-            -- ==========================================
 
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:ClearLines()
+            -- ONLY render the detailed tooltip if a physical mouse is hovering
+            if self:IsMouseOver() then
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:ClearLines()
 
-            -- Title & Basic Details
-            GameTooltip:AddLine(questInfo.title, 1, 1, 1)
-            GameTooltip:AddDoubleLine("Quest ID:", tostring(questInfo.questID), 0.7, 0.7, 0.7, 1, 0.82, 0)
-
-            local questMapID = type(QuestUtils_GetQuestMapID) == "function" and
-                QuestUtils_GetQuestMapID(questInfo.questID) or nil
-            if questMapID then
-                GameTooltip:AddDoubleLine("Map ID:", tostring(questMapID), 0.7, 0.7, 0.7, 0.3, 0.8, 1)
-            end
-
-
+                -- Title & Basic Details
+                GameTooltip:AddLine(questInfo.title, 1, 1, 1)
+                GameTooltip:AddDoubleLine("Quest ID:", tostring(questInfo.questID), 0.7, 0.7, 0.7, 1, 0.82, 0)
+                
+                
             -- ==========================================
             -- T3_QuestDB Custom Data Hook
             -- ==========================================
@@ -951,51 +942,12 @@ UpdateQuestList = function()
                 end
             end
 
-            -- Reward Item IDs
-            local itemIDs = {}
-            local numRewards = 0
-            if type(GetNumQuestLogRewards) == "function" then
-                local s, v = pcall(GetNumQuestLogRewards, questInfo.questID)
-                if not s or not v then s, v = pcall(GetNumQuestLogRewards) end
-                if s and v then numRewards = v end
-            end
 
-            for r = 1, numRewards do
-                local link = GetItemLinkSafe("reward", r, questInfo.questID)
-                if link then
-                    local id = link:match("item:(%d+)")
-                    if id then table.insert(itemIDs, id) end
-                end
+                
+                GameTooltip:Show()
             end
-
-            -- ==========================================
-            -- Objective Metadata (Types & Strings)
-            -- ==========================================
-            if type(C_QuestLog.GetQuestObjectives) == "function" then
-                local objs = C_QuestLog.GetQuestObjectives(questInfo.questID)
-                if objs and #objs > 0 then
-                    for i, obj in ipairs(objs) do
-                        local oType = obj.type or "unknown"
-                        GameTooltip:AddDoubleLine(" ",
-                            (obj.text or ""), 0.5, 0.8, 1, 0.8, 0.8, 0.8)
-                    end
-                end
-            elseif type(GetNumQuestLeaderBoards) == "function" then
-                local numObjs = GetNumQuestLeaderBoards(logIndex)
-                if numObjs and numObjs > 0 then
-                    for i = 1, numObjs do
-                        local text, oType = GetQuestLogLeaderBoard(i, logIndex)
-                        oType = oType or "unknown"
-                        GameTooltip:AddDoubleLine(" ",
-                            (text or ""), 0.5, 0.8, 1, 0.8, 0.8, 0.8)
-                    end
-                end
-            end
-
-            GameTooltip:Show()
         end)
-
-
+        
         qBtn:SetScript("OnLeave", function(self)
             self.text:SetAlpha(1.0)
             GameTooltip:Hide()
@@ -1368,12 +1320,16 @@ UpdateQuestList = function()
                         iBtn.text:SetText("- " .. count .. (link or itemName))
 
                         iBtn.bg:Show()
+
                         iBtn:SetScript("OnEnter", function(self)
                             self.bg:SetColorTexture(0.7, 0.7, 0.7, 0.4)
-                            GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-                            if link then GameTooltip:SetHyperlink(link) else GameTooltip:SetQuestLogItem("reward", r) end
-                            GameTooltip:Show()
+                            if self:IsMouseOver() then
+                                GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+                                if link then GameTooltip:SetHyperlink(link) else GameTooltip:SetQuestLogItem("reward", r) end
+                                GameTooltip:Show()
+                            end
                         end)
+
                         iBtn:SetScript("OnLeave", function(self)
                             self.bg:SetColorTexture(0.5, 0.5, 0.5, 0.25)
                             GameTooltip:Hide()
@@ -1415,9 +1371,11 @@ UpdateQuestList = function()
                         cBtn.bg:Show()
                         cBtn:SetScript("OnEnter", function(self)
                             self.bg:SetColorTexture(0.7, 0.7, 0.7, 0.4)
-                            GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
-                            if link then GameTooltip:SetHyperlink(link) else GameTooltip:SetQuestLogItem("choice", c) end
-                            GameTooltip:Show()
+                            if self:IsMouseOver() then
+                                GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+                                if link then GameTooltip:SetHyperlink(link) else GameTooltip:SetQuestLogItem("choice", c) end
+                                GameTooltip:Show()
+                            end
                         end)
                         cBtn:SetScript("OnLeave", function(self)
                             self.bg:SetColorTexture(0.5, 0.5, 0.5, 0.25)

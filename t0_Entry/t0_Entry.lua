@@ -33,32 +33,24 @@ f.title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 f.title:SetPoint("TOP", f, "TOP", 0, -6)
 f.title:SetText("t0_Entry")
 
+
 -- ==========================================
--- NEW: Create a Reload UI Button on the top left
+-- UPDATED: Bottom Utility Buttons
 -- ==========================================
+-- 1. Reload Button (Shrunk to 42px)
 local reloadBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-reloadBtn:SetSize(55, 22)
+reloadBtn:SetSize(60, 22)
 reloadBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 10)
 reloadBtn:SetText("Reload")
-
--- Elevate the button so it sits above the title bar background
 reloadBtn:SetFrameLevel(f:GetFrameLevel() + 5)
+reloadBtn:SetScript("OnClick", function() ReloadUI() end)
 
--- Execute the /reload command when clicked
-reloadBtn:SetScript("OnClick", function()
-    ReloadUI()
-end)
--- ==========================================
-
--- ==========================================
--- NEW: Create a Reset UI Button next to Reload
--- ==========================================
+-- 2. Reset Button (Shrunk to 42px)
 local resetBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-resetBtn:SetSize(50, 22)
-resetBtn:SetPoint("LEFT", reloadBtn, "RIGHT", 2, 0) -- Placed right next to the Reload button
+resetBtn:SetSize(55, 22)
+resetBtn:SetPoint("LEFT", reloadBtn, "RIGHT", 2, 0)
 resetBtn:SetText("Reset")
 resetBtn:SetFrameLevel(f:GetFrameLevel() + 5)
-
 resetBtn:SetScript("OnClick", function()
     -- 1. Reset t0_Entry itself
     f:ClearAllPoints()
@@ -82,18 +74,14 @@ resetBtn:SetScript("OnClick", function()
     end
     -- print("|cFFFFD100Forever Track:|r All UI positions and sizes reset.")
 end)
--- ==========================================
 
 
--- ==========================================
--- NEW: Create a Toggle All Button next to Reset
--- ==========================================
+-- 3. Toggle All Button (Shrunk to 45px, Text shortened)
 local toggleAllBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-toggleAllBtn:SetSize(70, 22)
-toggleAllBtn:SetPoint("LEFT", resetBtn, "RIGHT", 2, 0) -- Place right next to the Reset button
-toggleAllBtn:SetText("Toggle All")
+toggleAllBtn:SetSize(35, 22)
+toggleAllBtn:SetPoint("LEFT", resetBtn, "RIGHT", 2, 0)
+toggleAllBtn:SetText("All")
 toggleAllBtn:SetFrameLevel(f:GetFrameLevel() + 5)
-
 toggleAllBtn:SetScript("OnClick", function()
     local mods = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
 
@@ -133,7 +121,39 @@ toggleAllBtn:SetScript("OnClick", function()
         end
     end
 end)
+
+
+-- 4. NEW: Debug Toggle Button
+local debugBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+debugBtn:SetSize(20, 22)
+debugBtn:SetPoint("LEFT", toggleAllBtn, "RIGHT", 7, 0)
+debugBtn:SetText("->")
+debugBtn:SetFrameLevel(f:GetFrameLevel() + 5)
+
+debugBtn:SetScript("OnClick", function(self)
+    local testPanel = _G["GamepadLayout"]
+    
+    if testPanel then
+        -- Set up a one-time hook to ensure the text always matches the window state
+        if not testPanel.debugBtnHooked then
+            testPanel:HookScript("OnShow", function() self:SetText("<-") end)
+            testPanel:HookScript("OnHide", function() self:SetText("->") end)
+            testPanel.debugBtnHooked = true
+        end
+
+        if testPanel:IsShown() then
+            testPanel:Hide()
+        else
+            -- Snap the layout test window to the right edge of t0_Entry
+            testPanel:ClearAllPoints()
+            testPanel:SetPoint("TOPLEFT", f, "TOPRIGHT", 5, 0)
+            testPanel:Show()
+        end
+    end
+end)
+
 -- ==========================================
+
 
 
 
@@ -184,6 +204,7 @@ collapseBtn:SetScript("OnClick", function()
         reloadBtn:Show()
         resetBtn:Show()
         toggleAllBtn:Show()
+        debugBtn:Show() -- Add this line
 
         -- Show all generated module checkboxes and buttons
         local mods = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
@@ -211,6 +232,7 @@ collapseBtn:SetScript("OnClick", function()
         reloadBtn:Hide()
         resetBtn:Hide()
         toggleAllBtn:Hide()
+        debugBtn:Hide() -- Add this line
 
         -- Hide all generated module checkboxes and buttons
         local mods = { "t1_TrackMap", "t2_TrackNPC", "t3_TrackQst", "t4_TrackRes", "t5_TrackDgn" }
@@ -394,7 +416,7 @@ local padKeysToBlock = {
     "PADLSTICK", "PADRSTICK"
 }
 
-f.bottomButtons = { reloadBtn, resetBtn, toggleAllBtn }
+f.bottomButtons = { reloadBtn, resetBtn, toggleAllBtn, debugBtn }
 f.selectedIndex = 1
 f.bottomSelectedIndex = 1
 f.isBottomRowFocused = false
