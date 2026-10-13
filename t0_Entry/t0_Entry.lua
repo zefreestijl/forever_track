@@ -580,7 +580,14 @@ end
 
 f:HookScript("OnShow", function() f:SetFocus(false) end)
 f:HookScript("OnMouseDown", function() f:SetFocus(true) end)
-f:HookScript("OnHide", function() f:SetFocus(false) end)
+
+f:HookScript("OnHide", function() 
+    f:SetFocus(false)
+    -- Fail-safe: Always restore the native HUD if this window is closed via ESC or other means
+    if not UIParent:IsShown() then
+        UIParent:Show()
+    end
+end)
 
 local focusWatcher = CreateFrame("Frame")
 focusWatcher:RegisterEvent("GLOBAL_MOUSE_DOWN")
