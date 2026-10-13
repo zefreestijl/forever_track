@@ -80,8 +80,8 @@ function f:RefreshQuestPins()
                     pin.tex:Hide()
                     pin.iconText:Show()
                     if isSuperTracked then
-                        pin.iconText:SetText(
-                            "|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t|TInterface\\MoneyFrame\\UI-CopperIcon:6:6|t")
+                        -- Replaced CopperIcons with Dark Red bullet points
+                        pin.iconText:SetText("|cFFAA0000***|r")
                         pin:SetSize(18 / f.zoomLevel, 6 / f.zoomLevel)
                     elseif isWatched then
                         pin.iconText:SetText(
@@ -94,11 +94,11 @@ function f:RefreshQuestPins()
                     end
                 end
 
-                -- UPDATED: Only play the pulse animation if the quest is NOT complete (triple dots) 
+                -- UPDATED: Only play the pulse animation if the quest is NOT complete (triple dots)
                 -- and is currently being watched or super-tracked.
                 if not isComplete and (isWatched or isSuperTracked) then
-                    if not pin.pulseAnim:IsPlaying() then 
-                        pin.pulseAnim:Play() 
+                    if not pin.pulseAnim:IsPlaying() then
+                        pin.pulseAnim:Play()
                     end
                 else
                     pin.pulseAnim:Stop()
@@ -173,17 +173,16 @@ function f:RefreshQuestPins()
     end
 end
 
-
 -- ==========================================
 -- 3. Quest Event Tracker
 -- ==========================================
 if not f.questEventTracker then
     f.questEventTracker = CreateFrame("Frame")
-    
+
     -- Register the main events that fire when quests progress, complete, or change tracking state
     f.questEventTracker:RegisterEvent("QUEST_LOG_UPDATE")
     f.questEventTracker:RegisterEvent("QUEST_WATCH_UPDATE")
-    
+
     -- Safely attempt to register super tracking changes (API varies by WoW client version)
     pcall(function() f.questEventTracker:RegisterEvent("SUPER_TRACKED_QUEST_CHANGED") end)
     pcall(function() f.questEventTracker:RegisterEvent("QUEST_ACCEPTED") end)
