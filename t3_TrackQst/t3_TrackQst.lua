@@ -69,23 +69,36 @@ customMenu:SetBackdrop({
 customMenu:SetBackdropColor(0, 0, 0, 0.9)
 customMenu:Hide()
 
-local function CreateMenuBtn(parent, index)
+local function CreateMenuBtn(parent, previous)
     local btn = CreateFrame("Button", nil, parent)
     btn:SetSize(130, 20)
-    btn:SetPoint("TOP", 0, -10 - ((index - 1) * 20))
+
+    -- Dynamically stack below the previous button
+    if previous then
+        btn:SetPoint("TOP", previous, "BOTTOM", 0, -2)
+    else
+        btn:SetPoint("TOP", 0, -10)
+    end
+
     btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     btn.text:SetPoint("LEFT", 10, 0)
     btn.text:SetWidth(110)
     btn.text:SetWordWrap(false)
     btn.text:SetJustifyH("LEFT")
 
+    -- Custom Gray Selection Background
+    btn.selectionBg = btn:CreateTexture(nil, "BACKGROUND")
+    btn.selectionBg:SetColorTexture(0.5, 0.5, 0.5, 0.5)
+    btn.selectionBg:SetAllPoints()
+    btn.selectionBg:Hide()
+
+    -- Native mouseover highlight
     local ht = btn:CreateTexture(nil, "HIGHLIGHT")
-    ht:SetColorTexture(1, 1, 1, 0.2)
+    ht:SetColorTexture(1, 1, 1, 0.1)
     ht:SetAllPoints()
 
-    -- Sync mouse hover with gamepad selection
     btn:SetScript("OnEnter", function(self)
-        if parent.UpdateSelection then
+        if parent.UpdateSelection and self.menuIndex then
             parent.selectedIndex = self.menuIndex
             parent:UpdateSelection()
         end
@@ -93,19 +106,20 @@ local function CreateMenuBtn(parent, index)
     return btn
 end
 
-customMenu.title = CreateMenuBtn(customMenu, 1)
+customMenu.title = CreateMenuBtn(customMenu, nil)
 customMenu.title:Disable()
+customMenu.title.text:SetWordWrap(true)
 customMenu.title.text:SetTextColor(1, 0.82, 0)
 
-customMenu.btnFocus = CreateMenuBtn(customMenu, 2)
+customMenu.btnFocus = CreateMenuBtn(customMenu, customMenu.title)
 customMenu.btnFocus.text:SetText("Focus & Map")
 customMenu.btnFocus.menuIndex = 1
 
-customMenu.btnAbandon = CreateMenuBtn(customMenu, 3)
+customMenu.btnAbandon = CreateMenuBtn(customMenu, customMenu.btnFocus)
 customMenu.btnAbandon.text:SetText("Abandon Quest")
 customMenu.btnAbandon.menuIndex = 2
 
-customMenu.btnCancel = CreateMenuBtn(customMenu, 4)
+customMenu.btnCancel = CreateMenuBtn(customMenu, customMenu.btnAbandon)
 customMenu.btnCancel.text:SetText("Cancel")
 customMenu.btnCancel.menuIndex = 3
 customMenu.btnCancel:SetScript("OnClick", function() customMenu:Hide() end)
@@ -117,9 +131,9 @@ customMenu.selectedIndex = 1
 function customMenu:UpdateSelection()
     for i, btn in ipairs(self.buttons) do
         if i == self.selectedIndex then
-            btn.text:SetTextColor(1, 0.82, 0) -- Highlight gold
+            btn.selectionBg:Show() -- Show gray highlight
         else
-            btn.text:SetTextColor(1, 1, 1)    -- Standard white
+            btn.selectionBg:Hide() -- Hide highlight
         end
     end
 end
@@ -131,7 +145,6 @@ function customMenu:MoveSelection(delta)
     self:UpdateSelection()
 end
 
--- Gamepad Routing Blockers
 customMenu.padBlocker = CreateFrame("Button", "T3_MenuPadBlocker", customMenu)
 customMenu.padBlocker:SetScript("OnClick", function() end)
 
@@ -153,7 +166,6 @@ end)
 local btnCancel = CreateFrame("Button", "T3_MenuCancel", customMenu)
 btnCancel:SetScript("OnClick", function() customMenu:Hide() end)
 
--- Hook Bindings on Show/Hide
 customMenu:SetScript("OnShow", function(self)
     self.selectedIndex = 1
     self:UpdateSelection()
@@ -166,23 +178,18 @@ customMenu:SetScript("OnShow", function(self)
 end)
 
 customMenu:SetScript("OnHide", function(self)
-    if not InCombatLockdown() then
-        ClearOverrideBindings(self.padBlocker)
-    end
+    if not InCombatLockdown() then ClearOverrideBindings(self.padBlocker) end
 end)
 
--- Auto-hide when clicking anywhere else
 customMenu:SetScript("OnUpdate", function(self)
     if IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton") then
-        if not self:IsMouseOver() then
-            self:Hide()
-        end
+        if not self:IsMouseOver() then self:Hide() end
     end
 end)
 
-
-
 --
+
+-- Custom Abandon Confirmation Frame with Gamepad Support
 local abandonConfirmFrame = CreateFrame("Frame", "T3_AbandonConfirmFrame", UIParent, "BasicFrameTemplateWithInset")
 abandonConfirmFrame:SetSize(300, 120)
 abandonConfirmFrame:SetPoint("CENTER")
@@ -214,14 +221,12 @@ end)
 
 abandonConfirmFrame.yesBtn:SetScript("OnClick", function()
     if abandonConfirmFrame.questID then
-        -- 1. Safely Select
         if C_QuestLog and type(C_QuestLog.SetSelectedQuest) == "function" then
             pcall(C_QuestLog.SetSelectedQuest, abandonConfirmFrame.questID)
         elseif type(SelectQuestLogEntry) == "function" then
             pcall(SelectQuestLogEntry, abandonConfirmFrame.logIndex)
         end
 
-        -- 2. Safely Abandon
         if C_QuestLog and type(C_QuestLog.SetAbandonQuest) == "function" then
             pcall(C_QuestLog.SetAbandonQuest)
             if type(C_QuestLog.AbandonQuest) == "function" then pcall(C_QuestLog.AbandonQuest) end
@@ -229,13 +234,81 @@ abandonConfirmFrame.yesBtn:SetScript("OnClick", function()
             pcall(SetAbandonQuest)
             if type(AbandonQuest) == "function" then pcall(AbandonQuest) end
         end
-
-        -- 3. Refresh our list
         if UpdateQuestList then UpdateQuestList() end
     end
     abandonConfirmFrame:Hide()
 end)
 
+-- Gamepad Selection State for Abandon Window
+abandonConfirmFrame.buttons = { abandonConfirmFrame.yesBtn, abandonConfirmFrame.noBtn }
+abandonConfirmFrame.selectedIndex = 2 -- Default to "No" for safety
+
+for i, btn in ipairs(abandonConfirmFrame.buttons) do
+    btn.selectionBg = btn:CreateTexture(nil, "OVERLAY")
+    btn.selectionBg:SetColorTexture(1, 1, 1, 0.2)
+    btn.selectionBg:SetAllPoints()
+    btn.selectionBg:Hide()
+
+    btn:SetScript("OnEnter", function(self)
+        abandonConfirmFrame.selectedIndex = i
+        abandonConfirmFrame:UpdateSelection()
+    end)
+end
+
+function abandonConfirmFrame:UpdateSelection()
+    for i, btn in ipairs(self.buttons) do
+        if i == self.selectedIndex then
+            btn.selectionBg:Show()
+            btn:LockHighlight()
+        else
+            btn.selectionBg:Hide()
+            btn:UnlockHighlight()
+        end
+    end
+end
+
+function abandonConfirmFrame:MoveSelection(delta)
+    self.selectedIndex = self.selectedIndex + delta
+    if self.selectedIndex < 1 then self.selectedIndex = #self.buttons end
+    if self.selectedIndex > #self.buttons then self.selectedIndex = 1 end
+    self:UpdateSelection()
+end
+
+abandonConfirmFrame.padBlocker = CreateFrame("Button", "T3_AbandonPadBlocker", abandonConfirmFrame)
+abandonConfirmFrame.padBlocker:SetScript("OnClick", function() end)
+
+local abnLeft = CreateFrame("Button", "T3_AbnLeft", abandonConfirmFrame)
+abnLeft:SetScript("OnClick", function() abandonConfirmFrame:MoveSelection(-1) end)
+
+local abnRight = CreateFrame("Button", "T3_AbnRight", abandonConfirmFrame)
+abnRight:SetScript("OnClick", function() abandonConfirmFrame:MoveSelection(1) end)
+
+local abnSelect = CreateFrame("Button", "T3_AbnSelect", abandonConfirmFrame)
+abnSelect:SetScript("OnClick", function()
+    local btn = abandonConfirmFrame.buttons[abandonConfirmFrame.selectedIndex]
+    if btn then
+        local onClick = btn:GetScript("OnClick")
+        if onClick then onClick(btn) end
+    end
+end)
+
+local abnCancel = CreateFrame("Button", "T3_AbnCancel", abandonConfirmFrame)
+abnCancel:SetScript("OnClick", function() abandonConfirmFrame:Hide() end)
+
+abandonConfirmFrame:SetScript("OnShow", function(self)
+    self.selectedIndex = 2 -- Safe default
+    self:UpdateSelection()
+    if not InCombatLockdown() then
+        SetOverrideBindingClick(self.padBlocker, true, "PADDLEFT", "T3_AbnLeft")
+        SetOverrideBindingClick(self.padBlocker, true, "PADDRIGHT", "T3_AbnRight")
+        SetOverrideBindingClick(self.padBlocker, true, "PAD1", "T3_AbnSelect") -- A
+        SetOverrideBindingClick(self.padBlocker, true, "PAD2", "T3_AbnCancel") -- B
+    end
+end)
+
+abandonConfirmFrame:SetScript("OnHide", function(self)
+    if not InCombatLockdown() then ClearOverrideBindings(self.padBlocker) end
+end)
 
 
 -- =========================================================================
@@ -1165,7 +1238,13 @@ UpdateQuestList = function()
 
                     -- 2. Populate Custom Menu
                     if customMenu then
-                        customMenu.title.text:SetText(questInfo.title)
+                        local titleStr = string.format("[%d] %s", questInfo.level or 0, questInfo.title or "Unknown")
+                        customMenu.title.text:SetText(titleStr)
+
+                        -- Dynamically adjust menu height based on wrapped title
+                        local tHeight = customMenu.title.text:GetStringHeight()
+                        customMenu.title:SetHeight(tHeight + 4)
+                        customMenu:SetHeight(tHeight + 85)
 
                         customMenu.btnFocus:SetScript("OnClick", function()
                             customMenu:Hide()
@@ -1218,9 +1297,11 @@ UpdateQuestList = function()
                                     end
                                 else
                                     local fallbackMapID = type(QuestUtils_GetQuestMapID) == "function" and
-                                    QuestUtils_GetQuestMapID(qID) or nil
-                                    if fallbackMapID and _G.func_OpenZoneMapByID then _G.func_OpenZoneMapByID(
-                                        fallbackMapID) end
+                                        QuestUtils_GetQuestMapID(qID) or nil
+                                    if fallbackMapID and _G.func_OpenZoneMapByID then
+                                        _G.func_OpenZoneMapByID(
+                                            fallbackMapID)
+                                    end
                                 end
                             end
                         end)
@@ -2107,7 +2188,7 @@ function f:SetFocus(focused)
     if focused then
         -- Push the window to the absolute top layer above built-in UI
         f:SetFrameStrata("FULLSCREEN_DIALOG")
-        
+
         f.focusBorder:Show()
         f.focusBorder:SetBackdropBorderColor(1, 0.82, 0, 1)
         f.focusBorder.glowAnim:Play()
@@ -2157,7 +2238,7 @@ function f:SetFocus(focused)
         -- Restore the window down to standard UI level
         f:SetFrameStrata("MEDIUM")
         f:SetFrameLevel(100)
-        
+
         f.focusBorder:Hide()
         f.focusBorder.glowAnim:Stop()
         if f.title then f.title:SetTextColor(1, 1, 1) end
@@ -2179,7 +2260,6 @@ function f:SetFocus(focused)
         if f.UpdateSelectionVisuals then f:UpdateSelectionVisuals() end
     end
 end
-
 
 -- Auto-Focus Triggers
 f:HookScript("OnShow", function() f:SetFocus(false) end)
