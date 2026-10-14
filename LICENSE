@@ -1,10 +1,23 @@
-MIT License
-
+forever_track WoW Custom Addon
 Copyright (c) 2026 ZeFREESTIJL, Zeal Zhou
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction...
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
 
-Please note that some game data, images, textures, and other materials come from third-party sources and may have their own usage or redistribution terms. The MIT License does not apply to those materials.
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+---
+THIRD-PARTY ASSETS AND GAME DATA DISCLAIMER
+
+Please note that specific game data, databases, images, textures, and other materials sourced from World of Warcraft or third-party open-source projects may have their own specific usage or redistribution terms. The GPLv3 license applies to the source code of this addon, but does not override the original ownership, copyright, or End User License Agreements (EULA) of those external materials and game assets.
+
+---
+[Paste the full 600-line GPLv3 text here, which you can copy from https://www.gnu.org/licenses/gpl-3.0.txt]
