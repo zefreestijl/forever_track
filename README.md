@@ -13,6 +13,51 @@ A collection of independent addons for **WoW Forever**.
 <br>
 
 
+---
+---
+
+
+## Key Features **核心特色**
+
+Forever Track is a collection of independent addons for WoW Forever. These addons are designed to work independently while remaining interoperable, delivering the following core advantages:
+
+> Forever Track 是一系列為 WoW Forever 開發的獨立插件。這些插件設計上可以獨立運作，同時保留彼此整合的能力，並提供以下核心優勢：
+
+<br>
+
+* **Seamless World Map & POI Tracking**
+  Navigate a continuous world map without regional boundaries, completely integrated with Point of Interest (POI) markers for intuitive exploration.
+  
+  > **無縫世界地圖與 POI 追蹤**
+  > 瀏覽無縫連接的連續世界地圖，並完整整合興趣點 (POI) 標記，提供更直覺的探索體驗。
+
+<img src="./doc/img/_feat1a.jpg" alt="_feat1a" width="500"> <img src="./doc/img/_feat1b.jpg" alt="_feat1b" width="500">
+
+<br>
+
+* **Native Gamepad Support**
+  Built-in gamepad controller support allows players to easily toggle map views and browse data contents directly within the custom addon windows.
+  
+  > **原生遊戲手把支援**
+  > 內建遊戲手把模式支援，能直接在自訂視窗中輕鬆切換地圖檢視與瀏覽POI資料內容。
+
+<img src="./doc/img/_feat2a.gif" alt="_feat2a" width="500"> <img src="./doc/img/_feat2b.gif" alt="_feat2b" width="500">
+
+
+<br>
+
+* **Conflict-Free Independent UI**
+  Query POI details and database information through custom, standalone windows that are strictly isolated to prevent any rendering or execution conflicts with the built-in game UI.
+  
+  > **無衝突的獨立 UI**
+  > 透過專屬的自訂獨立視窗查詢 POI 詳細資訊，獨立的自訂視窗可有效避免與遊戲內建 UI 產生任何渲染或執行衝突。
+
+<img src="./doc/img/_feat3a.gif" alt="_feat3b" width="500"> <img src="./doc/img/_feat3b.gif" alt="_feat3a" width="500"> 
+
+
+<br>
+
+
 --- 
 ---
 
