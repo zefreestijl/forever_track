@@ -17,7 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 ---
 THIRD-PARTY ASSETS AND GAME DATA DISCLAIMER
 
-Please note that specific game data, databases, images, textures, and other materials sourced from World of Warcraft or third-party open-source projects may have their own specific usage or redistribution terms. The GPLv3 license applies to the source code of this addon, but does not override the original ownership, copyright, or End User License Agreements (EULA) of those external materials and game assets.
+Please note that specific game data, databases, images, textures, and other materials sourced from World of Warcraft 
+or third-party open-source projects may have their own specific usage or redistribution terms. 
+The GPLv3 license applies to the source code of this addon, but does not override the original ownership, 
+copyright, or End User License Agreements (EULA) of those external materials and game assets.
 
 ---
 [Paste the full 600-line GPLv3 text here, which you can copy from https://www.gnu.org/licenses/gpl-3.0.txt]
